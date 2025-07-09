@@ -11,6 +11,7 @@ require (
 	github.com/unikorn-cloud/core v1.3.1-0.20250624132623-54da83d2d518
 	github.com/unikorn-cloud/identity v1.3.0
 	github.com/unikorn-cloud/region v1.3.0
+	go.opentelemetry.io/otel v1.35.0
 	go.opentelemetry.io/otel/sdk v1.35.0
 	k8s.io/api v0.33.1
 	k8s.io/apimachinery v0.33.1
@@ -62,7 +63,6 @@ require (
 	github.com/prometheus/procfs v0.16.1 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
-	go.opentelemetry.io/otel v1.35.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.35.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.35.0 // indirect
 	go.opentelemetry.io/otel/metric v1.35.0 // indirect
@@ -92,4 +92,10 @@ require (
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.7.0 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
+)
+
+replace (
+	github.com/unikorn-cloud/core => ../core
+	github.com/unikorn-cloud/identity => ../identity
+	github.com/unikorn-cloud/region => ../region
 )
