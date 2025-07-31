@@ -8,9 +8,9 @@ require (
 	github.com/oapi-codegen/runtime v1.1.1
 	github.com/spf13/pflag v1.0.6
 	github.com/spjmurray/go-util v0.1.3
-	github.com/unikorn-cloud/core v1.3.1-0.20250715124621-600e2bd0cb0f
-	github.com/unikorn-cloud/identity v1.3.1-0.20250717145803-291fb408821e
-	github.com/unikorn-cloud/region v1.3.1-0.20250724105149-ad15b06bb56d
+	github.com/unikorn-cloud/core v1.4.0-rc1
+	github.com/unikorn-cloud/identity v1.4.0-rc1
+	github.com/unikorn-cloud/region v1.4.0-rc1
 	go.opentelemetry.io/otel/sdk v1.35.0
 	k8s.io/api v0.33.1
 	k8s.io/apimachinery v0.33.1
@@ -29,6 +29,7 @@ require (
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/emicklei/go-restful/v3 v3.12.2 // indirect
 	github.com/evanphx/json-patch/v5 v5.9.11 // indirect
+	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.8.0 // indirect
 	github.com/go-jose/go-jose/v4 v4.1.1 // indirect
