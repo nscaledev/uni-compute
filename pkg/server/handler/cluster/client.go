@@ -29,7 +29,6 @@ import (
 
 	unikornv1 "github.com/unikorn-cloud/compute/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/compute/pkg/openapi"
-	"github.com/unikorn-cloud/compute/pkg/server/handler/common"
 	"github.com/unikorn-cloud/compute/pkg/server/handler/identity"
 	"github.com/unikorn-cloud/compute/pkg/server/handler/region"
 	"github.com/unikorn-cloud/core/pkg/constants"
@@ -38,7 +37,7 @@ import (
 	"github.com/unikorn-cloud/core/pkg/server/errors"
 	coreutil "github.com/unikorn-cloud/core/pkg/server/util"
 	coreapiutils "github.com/unikorn-cloud/core/pkg/util/api"
-	identitycommon "github.com/unikorn-cloud/identity/pkg/handler/common"
+	"github.com/unikorn-cloud/identity/pkg/handler/common"
 	identityapi "github.com/unikorn-cloud/identity/pkg/openapi"
 	"github.com/unikorn-cloud/identity/pkg/principal"
 	regionapi "github.com/unikorn-cloud/region/pkg/openapi"
@@ -420,7 +419,7 @@ func metadataMutator(required, current metav1.Object) error {
 
 // Create creates the implicit cluster indentified by the JTW claims.
 func (c *Client) Create(ctx context.Context, organizationID, projectID string, request *openapi.ComputeClusterWrite) (*openapi.ComputeClusterRead, error) {
-	namespace, err := common.New(c.client).ProjectNamespace(ctx, organizationID, projectID)
+	namespace, err := common.ProjectNamespace(ctx, c.client, organizationID, projectID)
 	if err != nil {
 		return nil, err
 	}
@@ -455,7 +454,7 @@ func (c *Client) Create(ctx context.Context, organizationID, projectID string, r
 
 // Delete deletes the implicit cluster indentified by the JTW claims.
 func (c *Client) Delete(ctx context.Context, organizationID, projectID, clusterID string) error {
-	namespace, err := common.New(c.client).ProjectNamespace(ctx, organizationID, projectID)
+	namespace, err := common.ProjectNamespace(ctx, c.client, organizationID, projectID)
 	if err != nil {
 		return err
 	}
@@ -482,7 +481,7 @@ func (c *Client) Delete(ctx context.Context, organizationID, projectID, clusterI
 
 // Update implements read/modify/write for the cluster.
 func (c *Client) Update(ctx context.Context, organizationID, projectID, clusterID string, request *openapi.ComputeClusterWrite) error {
-	namespace, err := common.New(c.client).ProjectNamespace(ctx, organizationID, projectID)
+	namespace, err := common.ProjectNamespace(ctx, c.client, organizationID, projectID)
 	if err != nil {
 		return err
 	}
@@ -501,7 +500,7 @@ func (c *Client) Update(ctx context.Context, organizationID, projectID, clusterI
 		return err
 	}
 
-	if err := conversion.UpdateObjectMetadata(required, current, identitycommon.IdentityMetadataMutator, metadataMutator); err != nil {
+	if err := conversion.UpdateObjectMetadata(required, current, common.IdentityMetadataMutator, metadataMutator); err != nil {
 		return errors.OAuth2ServerError("failed to merge metadata").WithError(err)
 	}
 
