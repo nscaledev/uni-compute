@@ -26,6 +26,7 @@ import (
 	"strings"
 
 	"github.com/spf13/pflag"
+
 	unikornv1 "github.com/unikorn-cloud/compute/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/compute/pkg/openapi"
 	"github.com/unikorn-cloud/compute/pkg/server/handler/identity"
@@ -550,8 +551,7 @@ func (c *Client) DeleteMachine(ctx context.Context, organizationID, projectID, c
 	if index < 0 {
 		// REVIEW_ME: Should we just return nil here if the machine is not found?
 		// REVIEW_ME: Should we construct a Go error and attach to the HTTPNotFound error?
-		err = goerrors.New("machine not found")
-		return errors.HTTPNotFound().WithError(err)
+		return errors.HTTPNotFound()
 	}
 
 	if err = c.region.DeleteServer(ctx, organizationID, projectID, cluster.Annotations[constants.IdentityAnnotation], servers[index].Metadata.Id); err != nil {
