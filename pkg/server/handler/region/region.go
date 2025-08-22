@@ -22,6 +22,8 @@ import (
 	"slices"
 	"time"
 
+	unikornv1 "github.com/unikorn-cloud/compute/pkg/apis/unikorn/v1alpha1"
+	"github.com/unikorn-cloud/compute/pkg/provisioners/managers/cluster/util"
 	coreapiutils "github.com/unikorn-cloud/core/pkg/util/api"
 	"github.com/unikorn-cloud/core/pkg/util/cache"
 	regionapi "github.com/unikorn-cloud/region/pkg/openapi"
@@ -168,4 +170,47 @@ func (c *Client) Images(ctx context.Context, organizationID, regionID string) ([
 
 	// TODO: filtering.
 	return images, nil
+}
+
+func (c *Client) Servers(ctx context.Context, organizationID string, cluster *unikornv1.ComputeCluster) ([]regionapi.ServerRead, error) {
+	client, err := c.Client(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	params := &regionapi.GetApiV1OrganizationsOrganizationIDServersParams{
+		Tag: util.ClusterTagSelector(cluster),
+	}
+
+	resp, err := client.GetApiV1OrganizationsOrganizationIDServersWithResponse(ctx, organizationID, params)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode() != http.StatusOK {
+		return nil, coreapiutils.ExtractError(resp.StatusCode(), resp)
+	}
+
+	// REVIEW_ME: Should we cache the servers?
+	servers := *resp.JSON200
+
+	return servers, nil
+}
+
+func (c *Client) DeleteServer(ctx context.Context, organizationID, projectID, identityID, serverID string) error {
+	client, err := c.Client(ctx)
+	if err != nil {
+		return err
+	}
+
+	resp, err := client.DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDServersServerIDWithResponse(ctx, organizationID, projectID, identityID, serverID)
+	if err != nil {
+		return err
+	}
+
+	if resp.StatusCode() != http.StatusAccepted && resp.StatusCode() != http.StatusNotFound {
+		return coreapiutils.ExtractError(resp.StatusCode(), resp)
+	}
+
+	return nil
 }

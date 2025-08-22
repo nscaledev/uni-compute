@@ -26,7 +26,6 @@ import (
 	"strings"
 
 	"github.com/spf13/pflag"
-
 	unikornv1 "github.com/unikorn-cloud/compute/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/compute/pkg/openapi"
 	"github.com/unikorn-cloud/compute/pkg/server/handler/identity"
@@ -518,6 +517,45 @@ func (c *Client) Update(ctx context.Context, organizationID, projectID, clusterI
 
 	if err := c.client.Patch(ctx, updated, client.MergeFrom(current)); err != nil {
 		return errors.OAuth2ServerError("failed to patch cluster").WithError(err)
+	}
+
+	return nil
+}
+
+func (c *Client) DeleteMachine(ctx context.Context, organizationID, projectID, clusterID, machineHostname string) error {
+	namespace, err := common.New(c.client).ProjectNamespace(ctx, organizationID, projectID)
+	if err != nil {
+		return err
+	}
+
+	if namespace.DeletionTimestamp != nil {
+		return errors.OAuth2InvalidRequest("control plane is being deleted")
+	}
+
+	cluster, err := c.get(ctx, namespace.Name, clusterID)
+	if err != nil {
+		return err
+	}
+
+	servers, err := c.region.Servers(ctx, organizationID, cluster)
+	if err != nil {
+		return err
+	}
+
+	machineHostnameMatcher := func(server regionapi.ServerRead) bool {
+		return server.Metadata.Name == machineHostname
+	}
+
+	index := slices.IndexFunc(servers, machineHostnameMatcher)
+	if index < 0 {
+		// REVIEW_ME: Should we just return nil here if the machine is not found?
+		// REVIEW_ME: Should we construct a Go error and attach to the HTTPNotFound error?
+		err = goerrors.New("machine not found")
+		return errors.HTTPNotFound().WithError(err)
+	}
+
+	if err = c.region.DeleteServer(ctx, organizationID, projectID, cluster.Annotations[constants.IdentityAnnotation], servers[index].Metadata.Id); err != nil {
+		return err
 	}
 
 	return nil
