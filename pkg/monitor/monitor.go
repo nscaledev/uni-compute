@@ -22,7 +22,6 @@ import (
 
 	"github.com/spf13/pflag"
 
-	clusterhealth "github.com/unikorn-cloud/compute/pkg/monitor/health/cluster"
 	coreclient "github.com/unikorn-cloud/core/pkg/client"
 	identityclient "github.com/unikorn-cloud/identity/pkg/client"
 	"github.com/unikorn-cloud/identity/pkg/principal"
@@ -76,9 +75,7 @@ func Run(ctx context.Context, c client.Client, o *Options) {
 	ticker := time.NewTicker(o.pollPeriod)
 	defer ticker.Stop()
 
-	checkers := []Checker{
-		clusterhealth.New(c, o.identityOptions, o.regionOptions, &o.clientOptions),
-	}
+	checkers := []Checker{}
 
 	for {
 		select {

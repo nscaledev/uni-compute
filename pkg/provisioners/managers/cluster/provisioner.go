@@ -79,9 +79,6 @@ type Provisioner struct {
 
 	// options are documented for the type.
 	options *Options
-
-	// needsRetry informs whether we need to trigger another reconcile.
-	needsRetry bool
 }
 
 // New returns a new initialized provisioner object.
@@ -147,13 +144,8 @@ func (p *Provisioner) updateStatus(ctx context.Context, serverSet serverPoolSet,
 
 	p.cluster.Status.SSHPrivateKey = options.SSHPrivateKey
 
-	ok, err := util.UpdateClusterStatus(&p.cluster, servers)
-	if err != nil {
+	if err := util.UpdateClusterStatus(&p.cluster, servers); err != nil {
 		log.Error(err, "status update error", "cluster", p.cluster.Name)
-	}
-
-	if !ok {
-		p.needsRetry = true
 	}
 }
 
@@ -206,10 +198,6 @@ func (p *Provisioner) provision(ctx context.Context) error {
 func (p *Provisioner) Provision(ctx context.Context) error {
 	if err := p.provision(ctx); err != nil {
 		return err
-	}
-
-	if p.needsRetry {
-		return provisioners.ErrYield
 	}
 
 	return nil
