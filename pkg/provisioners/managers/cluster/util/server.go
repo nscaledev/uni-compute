@@ -103,10 +103,10 @@ func ConvertHealthStatusCondition(in coreapi.ResourceHealthStatus) (corev1.Condi
 
 // UpdateServerStatus adds a server to the cluster's status.
 // The boolean returned indicates whether the service is successfully provisioned or not.
-func UpdateServerStatus(cluster *unikornv1.ComputeCluster, server *regionapi.ServerRead) (bool, error) {
+func UpdateServerStatus(cluster *unikornv1.ComputeCluster, server *regionapi.ServerRead) error {
 	poolName, err := GetWorkloadPoolTag(server.Metadata.Tags)
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	poolStatus := cluster.GetWorkloadPoolStatus(poolName)
@@ -128,7 +128,7 @@ func UpdateServerStatus(cluster *unikornv1.ComputeCluster, server *regionapi.Ser
 
 	poolStatus.Machines = append(poolStatus.Machines, status)
 
-	return provisioningStatus == corev1.ConditionTrue, nil
+	return nil
 }
 
 // EveryFunc returns if every element is true.  I'm quite frankly amazed
@@ -153,19 +153,14 @@ func serverHealthStatusMatch(status coreapi.ResourceHealthStatus) func(regionapi
 
 // UpdateClusterStatus updates the cluster status.  Mostly... as this is shared
 // with the provisioner and the monitor.
-func UpdateClusterStatus(cluster *unikornv1.ComputeCluster, servers regionapi.ServersRead) (bool, error) {
-	allServersProvisioned := true
-
+func UpdateClusterStatus(cluster *unikornv1.ComputeCluster, servers regionapi.ServersRead) error {
 	// Update the workload pool statuses.
 	cluster.Status.WorkloadPools = nil
 
 	for i := range servers {
-		ok, err := UpdateServerStatus(cluster, &servers[i])
-		if err != nil {
-			return false, err
+		if err := UpdateServerStatus(cluster, &servers[i]); err != nil {
+			return err
 		}
-
-		allServersProvisioned = allServersProvisioned && ok
 	}
 
 	slices.SortFunc(cluster.Status.WorkloadPools, func(a, b unikornv1.WorkloadPoolStatus) int {
@@ -196,5 +191,5 @@ func UpdateClusterStatus(cluster *unikornv1.ComputeCluster, servers regionapi.Se
 
 	unikornv1core.UpdateCondition(&cluster.Status.Conditions, unikornv1core.ConditionHealthy, status, reason, message)
 
-	return allServersProvisioned, nil
+	return nil
 }

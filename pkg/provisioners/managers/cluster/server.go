@@ -267,9 +267,6 @@ func (p *Provisioner) reconcileServers(ctx context.Context, client regionapi.Cli
 				return err
 			}
 
-			// Ensure we recreate next time around.
-			p.needsRetry = true
-
 			continue
 		}
 
@@ -281,10 +278,6 @@ func (p *Provisioner) reconcileServers(ctx context.Context, client regionapi.Cli
 		}
 
 		servers[name] = updated
-
-		// There is a delay between the API performing the request and the provisioning
-		// status kicking in, so we may miss resource updates.
-		p.needsRetry = true
 	}
 
 	// Create any that we can this time around.

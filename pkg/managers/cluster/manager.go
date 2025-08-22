@@ -17,12 +17,19 @@ limitations under the License.
 package cluster
 
 import (
+	"context"
+	"slices"
+
 	unikornv1 "github.com/unikorn-cloud/compute/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/compute/pkg/constants"
 	"github.com/unikorn-cloud/compute/pkg/provisioners/managers/cluster"
 	coreclient "github.com/unikorn-cloud/core/pkg/client"
+	coreconstants "github.com/unikorn-cloud/core/pkg/constants"
 	coremanager "github.com/unikorn-cloud/core/pkg/manager"
 	"github.com/unikorn-cloud/core/pkg/manager/options"
+	regionv1 "github.com/unikorn-cloud/region/pkg/apis/unikorn/v1alpha1"
+
+	"k8s.io/apimachinery/pkg/types"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -53,10 +60,59 @@ func (*Factory) Reconciler(options *options.Options, controlerOptions coremanage
 	return coremanager.NewReconciler(options, controlerOptions, manager, cluster.New)
 }
 
+// serverEnqueueRequest watches for cluster server member updates and triggers
+// a reconsile of the cluster.  This is done to react to things like status
+// updates and deletions.
+func serverToClusterMapFunc(manager manager.Manager) func(context.Context, *regionv1.Server) []reconcile.Request {
+	return func(ctx context.Context, server *regionv1.Server) []reconcile.Request {
+		if server.Spec.Tags == nil {
+			return nil
+		}
+
+		clusterID, ok := server.Spec.Tags.Find(coreconstants.ComputeClusterLabel)
+		if !ok {
+			return nil
+		}
+
+		// TODO: once we do away with project namespaces, this becomes a
+		// direct lookup in our namespace.
+		cli := manager.GetClient()
+
+		var clusters unikornv1.ComputeClusterList
+
+		if err := cli.List(ctx, &clusters, &client.ListOptions{}); err != nil {
+			return nil
+		}
+
+		predicate := func(cluster unikornv1.ComputeCluster) bool {
+			return cluster.Name == clusterID
+		}
+
+		index := slices.IndexFunc(clusters.Items, predicate)
+		if index < 0 {
+			return nil
+		}
+
+		return []reconcile.Request{
+			{
+				NamespacedName: types.NamespacedName{
+					Namespace: clusters.Items[index].Namespace,
+					Name:      clusterID,
+				},
+			},
+		}
+	}
+}
+
 // RegisterWatches adds any watches that would trigger a reconcile.
 func (*Factory) RegisterWatches(manager manager.Manager, controller controller.Controller) error {
 	// Any changes to the cluster spec, trigger a reconcile.
 	if err := controller.Watch(source.Kind(manager.GetCache(), &unikornv1.ComputeCluster{}, &handler.TypedEnqueueRequestForObject[*unikornv1.ComputeCluster]{}, &predicate.TypedGenerationChangedPredicate[*unikornv1.ComputeCluster]{})); err != nil {
+		return err
+	}
+
+	// Any changes of servers trigger a reconsile of their owning cluster.
+	if err := controller.Watch(source.Kind(manager.GetCache(), &regionv1.Server{}, handler.TypedEnqueueRequestsFromMapFunc(serverToClusterMapFunc(manager)), &predicate.TypedResourceVersionChangedPredicate[*regionv1.Server]{})); err != nil {
 		return err
 	}
 
@@ -75,5 +131,6 @@ func (*Factory) Upgrade(_ client.Client) error {
 func (*Factory) Schemes() []coreclient.SchemeAdder {
 	return []coreclient.SchemeAdder{
 		unikornv1.AddToScheme,
+		regionv1.AddToScheme,
 	}
 }
