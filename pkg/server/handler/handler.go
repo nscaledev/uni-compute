@@ -243,7 +243,7 @@ func (h *Handler) GetApiV1OrganizationsOrganizationIDProjectsProjectIDClustersCl
 	}
 
 	// REVIEW_ME: This should be cacheable, right?
-	//h.setUncacheable(w)
+	// h.setUncacheable(w)
 	util.WriteJSONResponse(w, r, http.StatusOK, result)
 }
 

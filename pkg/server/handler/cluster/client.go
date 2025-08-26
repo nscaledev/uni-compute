@@ -139,6 +139,7 @@ func (c *Client) Get(ctx context.Context, organizationID, clusterID string) (*op
 	if err != nil {
 		return nil, err
 	}
+
 	return newGenerator(c.client, c.options, c.region, "", organizationID, "", nil).convert(result), nil
 }
 
