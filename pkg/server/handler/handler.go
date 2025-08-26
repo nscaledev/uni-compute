@@ -231,7 +231,7 @@ func (h *Handler) DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDCluster
 func (h *Handler) GetApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterID(w http.ResponseWriter, r *http.Request, organizationID openapi.OrganizationIDParameter, projectID openapi.ProjectIDParameter, clusterID openapi.ClusterIDParameter) {
 	ctx := r.Context()
 
-	result, err := h.clusterClient().Get(ctx, organizationID, clusterID)
+	result, err := h.clusterClient().Get(ctx, organizationID, projectID, clusterID)
 	if err != nil {
 		errors.HandleError(w, r, err)
 		return

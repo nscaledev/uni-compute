@@ -134,8 +134,13 @@ func (c *Client) List(ctx context.Context, organizationID string, params openapi
 	return newGenerator(c.client, c.options, c.region, "", organizationID, "", nil).convertList(result), nil
 }
 
-func (c *Client) Get(ctx context.Context, organizationID, clusterID string) (*openapi.ComputeClusterRead, error) {
-	result, err := c.get(ctx, organizationID, clusterID)
+func (c *Client) Get(ctx context.Context, organizationID, projectID, clusterID string) (*openapi.ComputeClusterRead, error) {
+	namespace, err := common.ProjectNamespace(ctx, c.client, organizationID, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	result, err := c.get(ctx, namespace.Name, clusterID)
 	if err != nil {
 		return nil, err
 	}
