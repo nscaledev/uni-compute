@@ -593,7 +593,8 @@ components:
               - name: default
                 replicas: 1
                 machines:
-                - hostname: machine-1
+                - id: 64bfb020-8731-4182-a4c8-f8e5bcfc1c3e
+                  hostname: machine-1
                   flavorID: c7568e2d-f9ab-453d-9a3a-51375f78426b
                   imageID: 268ba68f-9690-49f0-8404-5f41bb7c3dc3
                   privateIP: 10.0.0.1
@@ -646,7 +647,8 @@ components:
               - name: default
                 replicas: 1
                 machines:
-                - hostname: machine-1
+                - id: 64bfb020-8731-4182-a4c8-f8e5bcfc1c3e
+                  hostname: machine-1
                   flavorID: c7568e2d-f9ab-453d-9a3a-51375f78426b
                   imageID: 268ba68f-9690-49f0-8404-5f41bb7c3dc3
                   privateIP: 10.0.0.1
