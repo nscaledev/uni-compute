@@ -134,6 +134,14 @@ func (c *Client) List(ctx context.Context, organizationID string, params openapi
 	return newGenerator(c.client, c.options, c.region, "", organizationID, "", nil).convertList(result), nil
 }
 
+func (c *Client) Get(ctx context.Context, organizationID, clusterID string) (*openapi.ComputeClusterRead, error) {
+	result, err := c.get(ctx, organizationID, clusterID)
+	if err != nil {
+		return nil, err
+	}
+	return newGenerator(c.client, c.options, c.region, "", organizationID, "", nil).convert(result), nil
+}
+
 // get returns the cluster.
 func (c *Client) get(ctx context.Context, namespace, clusterID string) (*unikornv1.ComputeCluster, error) {
 	result := &unikornv1.ComputeCluster{}

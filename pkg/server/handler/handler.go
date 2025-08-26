@@ -228,6 +228,25 @@ func (h *Handler) DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDCluster
 	w.WriteHeader(http.StatusAccepted)
 }
 
+func (h *Handler) GetApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterID(w http.ResponseWriter, r *http.Request, organizationID openapi.OrganizationIDParameter, projectID openapi.ProjectIDParameter, clusterID openapi.ClusterIDParameter) {
+	ctx := r.Context()
+
+	result, err := h.clusterClient().Get(ctx, organizationID, clusterID)
+	if err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	if err = rbac.AllowProjectScope(ctx, "compute:clusters", identityapi.Read, organizationID, result.Metadata.ProjectId); err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	// REVIEW_ME: This should be cacheable, right?
+	//h.setUncacheable(w)
+	util.WriteJSONResponse(w, r, http.StatusOK, result)
+}
+
 func (h *Handler) PutApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterID(w http.ResponseWriter, r *http.Request, organizationID openapi.OrganizationIDParameter, projectID openapi.ProjectIDParameter, clusterID openapi.ClusterIDParameter) {
 	ctx := r.Context()
 

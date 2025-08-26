@@ -23,7 +23,7 @@ paths:
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/badRequestResponse'
         '401':
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
-        '500': 
+        '500':
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
   /api/v1/organizations/{organizationID}/regions/{regionID}/flavors:
     description: |-
@@ -121,6 +121,22 @@ paths:
     - $ref: '#/components/parameters/organizationIDParameter'
     - $ref: '#/components/parameters/projectIDParameter'
     - $ref: '#/components/parameters/clusterIDParameter'
+    get:
+      description: |-
+        Get a detailed view of the cluster.
+      security:
+      - oauth2Authentication: []
+      responses:
+        '200':
+          $ref: '#/components/responses/computeClusterDetailResponse'
+        '401':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
+        '403':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/forbiddenResponse'
+        '404':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/notFoundResponse'
+        '500':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
     put:
       description: |-
         Update a cluster within the selected cluster manager.
@@ -533,13 +549,13 @@ components:
                   - direction: ingress
                     protocol: tcp
                     port: 80
-                    prefixes: 
+                    prefixes:
                     - 192.168.1.0/24
                   - direction: ingress
                     protocol: tcp
                     port: 1066
                     portMax: 1999
-                    prefixes: 
+                    prefixes:
                     - 10.0.0.0/8
                     - 172.16.0.0/12
                 publicIPAllocation:
@@ -577,15 +593,69 @@ components:
                   - direction: ingress
                     protocol: tcp
                     port: 80
-                    prefixes: 
+                    prefixes:
                     - 192.168.1.0/24
                   - direction: ingress
                     protocol: tcp
                     port: 1066
                     portMax: 1999
-                    prefixes: 
+                    prefixes:
                     - 10.0.0.0/8
                     - 172.16.0.0/12
+                publicIPAllocation:
+                  enabled: true
+            status:
+              workloadPools:
+              - name: default
+                replicas: 1
+                machines:
+                - id: 64bfb020-8731-4182-a4c8-f8e5bcfc1c3e
+                  hostname: machine-1
+                  flavorID: c7568e2d-f9ab-453d-9a3a-51375f78426b
+                  imageID: 268ba68f-9690-49f0-8404-5f41bb7c3dc3
+                  privateIP: 10.0.0.1
+                  publicIP: 172.16.0.2
+                  provisioningStatus: provisioned
+                  healthStatus: healthy
+    computeClusterDetailResponse:
+      description: A detailed description of the region.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/computeClusterRead'
+          example:
+            metadata:
+              id: c7568e2d-f9ab-453d-9a3a-51375f78426b
+              name: cluster
+              organizationId: d4600d6e-e965-4b44-a808-84fb2fa36702
+              projectId: cae219d7-10e5-4601-8c2c-ee7e066b93ce
+              creationTime: 2023-07-31T10:45:45Z
+              provisioningStatus: provisioned
+              healthStatus: healthy
+            spec:
+              regionId: b059b3e6-9ae5-42b7-94b4-f42fb7a6baee
+              workloadPools:
+              - name: default
+                machine:
+                  flavorId: c7568e2d-f9ab-453d-9a3a-51375f78426b
+                  image:
+                    selector:
+                      distro: ubuntu
+                      version: '24.04'
+                  replicas: 3
+                firewall:
+                - direction: ingress
+                  protocol: tcp
+                  port: 80
+                  prefixes:
+                  - 192.168.1.0/24
+                - direction: ingress
+                  protocol: tcp
+                  port: 1066
+                  portMax: 1999
+                  prefixes:
+                  - 10.0.0.0/8
+                  - 172.16.0.0/12
                 publicIPAllocation:
                   enabled: true
             status:
@@ -631,13 +701,13 @@ components:
                   - direction: ingress
                     protocol: tcp
                     port: 80
-                    prefixes: 
+                    prefixes:
                     - 192.168.1.0/24
                   - direction: ingress
                     protocol: tcp
                     port: 1066
                     portMax: 1999
-                    prefixes: 
+                    prefixes:
                     - 10.0.0.0/8
                     - 172.16.0.0/12
                 publicIPAllocation:
