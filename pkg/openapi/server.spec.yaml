@@ -159,14 +159,14 @@ paths:
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/notFoundResponse'
         '500':
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
-  /api/v1/organizations/{organizationID}/projects/{projectID}/clusters/{clusterID}/machines/{machineHostname}:
+  /api/v1/organizations/{organizationID}/projects/{projectID}/clusters/{clusterID}/machines/{machineID}:
     x-documentation-group: main
     description: Cluster services.
     parameters:
       - $ref: '#/components/parameters/organizationIDParameter'
       - $ref: '#/components/parameters/projectIDParameter'
       - $ref: '#/components/parameters/clusterIDParameter'
-      - $ref: '#/components/parameters/machineHostnameParameter'
+      - $ref: '#/components/parameters/machineIDParameter'
     delete:
       description: |-
         Delete a machine from a cluster. It will be recreated if the
@@ -219,14 +219,14 @@ components:
       required: true
       schema:
         $ref: '#/components/schemas/kubernetesNameParameter'
-    machineHostnameParameter:
-        name: machineHostname
+    machineIDParameter:
+        name: machineID
         in: path
         description: |
-          The machine hostname.
+          The machine ID.
         required: true
         schema:
-          type: string
+          $ref: '#/components/schemas/kubernetesNameParameter'
   schemas:
     kubernetesNameParameter:
       description: A Kubernetes name. Must be a valid DNS containing only lower case characters, numbers or hyphens, start and end with a character or number, and be at most 63 characters in length.
@@ -449,12 +449,16 @@ components:
       description: Compute cluster machine status.
       type: object
       required:
+      - id
       - hostname
       - provisioningStatus
       - healthStatus
       - imageID
       - flavorID
       properties:
+        id:
+          description: Machine ID.
+          type: string
         hostname:
           description: Machine hostname.
           type: string

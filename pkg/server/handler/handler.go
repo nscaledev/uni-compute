@@ -252,7 +252,7 @@ func (h *Handler) PutApiV1OrganizationsOrganizationIDProjectsProjectIDClustersCl
 	w.WriteHeader(http.StatusAccepted)
 }
 
-func (h *Handler) DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineHostname(w http.ResponseWriter, r *http.Request, organizationID openapi.OrganizationIDParameter, projectID openapi.ProjectIDParameter, clusterID openapi.ClusterIDParameter, machineHostname openapi.MachineHostnameParameter) {
+func (h *Handler) DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineID(w http.ResponseWriter, r *http.Request, organizationID openapi.OrganizationIDParameter, projectID openapi.ProjectIDParameter, clusterID openapi.ClusterIDParameter, machineID openapi.MachineIDParameter) {
 	ctx := r.Context()
 
 	if err := rbac.AllowProjectScope(ctx, "compute:clusters", identityapi.Update, organizationID, projectID); err != nil {
@@ -260,7 +260,7 @@ func (h *Handler) DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDCluster
 		return
 	}
 
-	if err := h.clusterClient().DeleteMachine(ctx, organizationID, projectID, clusterID, machineHostname); err != nil {
+	if err := h.clusterClient().DeleteMachine(ctx, organizationID, projectID, clusterID, machineID); err != nil {
 		errors.HandleError(w, r, err)
 		return
 	}

@@ -487,7 +487,7 @@ func (c *Client) Update(ctx context.Context, organizationID, projectID, clusterI
 	}
 
 	if namespace.DeletionTimestamp != nil {
-		return errors.OAuth2InvalidRequest("control plane is being deleted")
+		return errors.OAuth2InvalidRequest("compute cluster is being deleted")
 	}
 
 	current, err := c.get(ctx, namespace.Name, clusterID)
@@ -523,14 +523,14 @@ func (c *Client) Update(ctx context.Context, organizationID, projectID, clusterI
 	return nil
 }
 
-func (c *Client) DeleteMachine(ctx context.Context, organizationID, projectID, clusterID, machineHostname string) error {
+func (c *Client) DeleteMachine(ctx context.Context, organizationID, projectID, clusterID, machineID string) error {
 	namespace, err := common.New(c.client).ProjectNamespace(ctx, organizationID, projectID)
 	if err != nil {
 		return err
 	}
 
 	if namespace.DeletionTimestamp != nil {
-		return errors.OAuth2InvalidRequest("control plane is being deleted")
+		return errors.OAuth2InvalidRequest("compute cluster is being deleted")
 	}
 
 	cluster, err := c.get(ctx, namespace.Name, clusterID)
@@ -538,23 +538,7 @@ func (c *Client) DeleteMachine(ctx context.Context, organizationID, projectID, c
 		return err
 	}
 
-	servers, err := c.region.Servers(ctx, organizationID, cluster)
-	if err != nil {
-		return err
-	}
-
-	machineHostnameMatcher := func(server regionapi.ServerRead) bool {
-		return server.Metadata.Name == machineHostname
-	}
-
-	index := slices.IndexFunc(servers, machineHostnameMatcher)
-	if index < 0 {
-		// REVIEW_ME: Should we just return nil here if the machine is not found?
-		// REVIEW_ME: Should we construct a Go error and attach to the HTTPNotFound error?
-		return errors.HTTPNotFound()
-	}
-
-	if err = c.region.DeleteServer(ctx, organizationID, projectID, cluster.Annotations[constants.IdentityAnnotation], servers[index].Metadata.Id); err != nil {
+	if err = c.region.DeleteServer(ctx, organizationID, projectID, cluster.Annotations[constants.IdentityAnnotation], machineID); err != nil {
 		return err
 	}
 

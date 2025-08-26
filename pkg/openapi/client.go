@@ -107,8 +107,8 @@ type ClientInterface interface {
 
 	PutApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterID(ctx context.Context, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, body PutApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineHostname request
-	DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineHostname(ctx context.Context, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineHostname MachineHostnameParameter, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineID request
+	DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineID(ctx context.Context, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetApiV1OrganizationsOrganizationIDRegions request
 	GetApiV1OrganizationsOrganizationIDRegions(ctx context.Context, organizationID OrganizationIDParameter, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -192,8 +192,8 @@ func (c *Client) PutApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClu
 	return c.Client.Do(req)
 }
 
-func (c *Client) DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineHostname(ctx context.Context, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineHostname MachineHostnameParameter, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineHostnameRequest(c.Server, organizationID, projectID, clusterID, machineHostname)
+func (c *Client) DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineID(ctx context.Context, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDRequest(c.Server, organizationID, projectID, clusterID, machineID)
 	if err != nil {
 		return nil, err
 	}
@@ -459,8 +459,8 @@ func NewPutApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDReq
 	return req, nil
 }
 
-// NewDeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineHostnameRequest generates requests for DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineHostname
-func NewDeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineHostnameRequest(server string, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineHostname MachineHostnameParameter) (*http.Request, error) {
+// NewDeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDRequest generates requests for DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineID
+func NewDeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDRequest(server string, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -486,7 +486,7 @@ func NewDeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterID
 
 	var pathParam3 string
 
-	pathParam3, err = runtime.StyleParamWithLocation("simple", false, "machineHostname", runtime.ParamLocationPath, machineHostname)
+	pathParam3, err = runtime.StyleParamWithLocation("simple", false, "machineID", runtime.ParamLocationPath, machineID)
 	if err != nil {
 		return nil, err
 	}
@@ -689,8 +689,8 @@ type ClientWithResponsesInterface interface {
 
 	PutApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDWithResponse(ctx context.Context, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, body PutApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDJSONRequestBody, reqEditors ...RequestEditorFn) (*PutApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDResponse, error)
 
-	// DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineHostnameWithResponse request
-	DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineHostnameWithResponse(ctx context.Context, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineHostname MachineHostnameParameter, reqEditors ...RequestEditorFn) (*DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineHostnameResponse, error)
+	// DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDWithResponse request
+	DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDWithResponse(ctx context.Context, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter, reqEditors ...RequestEditorFn) (*DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDResponse, error)
 
 	// GetApiV1OrganizationsOrganizationIDRegionsWithResponse request
 	GetApiV1OrganizationsOrganizationIDRegionsWithResponse(ctx context.Context, organizationID OrganizationIDParameter, reqEditors ...RequestEditorFn) (*GetApiV1OrganizationsOrganizationIDRegionsResponse, error)
@@ -808,7 +808,7 @@ func (r PutApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDRes
 	return 0
 }
 
-type DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineHostnameResponse struct {
+type DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON400      *externalRef0.BadRequestResponse
@@ -819,7 +819,7 @@ type DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMac
 }
 
 // Status returns HTTPResponse.Status
-func (r DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineHostnameResponse) Status() string {
+func (r DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -827,7 +827,7 @@ func (r DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterID
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineHostnameResponse) StatusCode() int {
+func (r DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -961,13 +961,13 @@ func (c *ClientWithResponses) PutApiV1OrganizationsOrganizationIDProjectsProject
 	return ParsePutApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDResponse(rsp)
 }
 
-// DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineHostnameWithResponse request returning *DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineHostnameResponse
-func (c *ClientWithResponses) DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineHostnameWithResponse(ctx context.Context, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineHostname MachineHostnameParameter, reqEditors ...RequestEditorFn) (*DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineHostnameResponse, error) {
-	rsp, err := c.DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineHostname(ctx, organizationID, projectID, clusterID, machineHostname, reqEditors...)
+// DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDWithResponse request returning *DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDResponse
+func (c *ClientWithResponses) DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDWithResponse(ctx context.Context, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter, reqEditors ...RequestEditorFn) (*DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDResponse, error) {
+	rsp, err := c.DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineID(ctx, organizationID, projectID, clusterID, machineID, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseDeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineHostnameResponse(rsp)
+	return ParseDeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDResponse(rsp)
 }
 
 // GetApiV1OrganizationsOrganizationIDRegionsWithResponse request returning *GetApiV1OrganizationsOrganizationIDRegionsResponse
@@ -1227,15 +1227,15 @@ func ParsePutApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDR
 	return response, nil
 }
 
-// ParseDeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineHostnameResponse parses an HTTP response from a DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineHostnameWithResponse call
-func ParseDeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineHostnameResponse(rsp *http.Response) (*DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineHostnameResponse, error) {
+// ParseDeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDResponse parses an HTTP response from a DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDWithResponse call
+func ParseDeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDResponse(rsp *http.Response) (*DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineHostnameResponse{
+	response := &DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
