@@ -228,6 +228,25 @@ func (h *Handler) DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDCluster
 	w.WriteHeader(http.StatusAccepted)
 }
 
+func (h *Handler) GetApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterID(w http.ResponseWriter, r *http.Request, organizationID openapi.OrganizationIDParameter, projectID openapi.ProjectIDParameter, clusterID openapi.ClusterIDParameter) {
+	ctx := r.Context()
+
+	result, err := h.clusterClient().Get(ctx, organizationID, projectID, clusterID)
+	if err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	if err = rbac.AllowProjectScope(ctx, "compute:clusters", identityapi.Read, organizationID, result.Metadata.ProjectId); err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	// REVIEW_ME: This should be cacheable, right?
+	// h.setUncacheable(w)
+	util.WriteJSONResponse(w, r, http.StatusOK, result)
+}
+
 func (h *Handler) PutApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterID(w http.ResponseWriter, r *http.Request, organizationID openapi.OrganizationIDParameter, projectID openapi.ProjectIDParameter, clusterID openapi.ClusterIDParameter) {
 	ctx := r.Context()
 
@@ -244,6 +263,23 @@ func (h *Handler) PutApiV1OrganizationsOrganizationIDProjectsProjectIDClustersCl
 	}
 
 	if err := h.clusterClient().Update(ctx, organizationID, projectID, clusterID, request); err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	h.setUncacheable(w)
+	w.WriteHeader(http.StatusAccepted)
+}
+
+func (h *Handler) DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineID(w http.ResponseWriter, r *http.Request, organizationID openapi.OrganizationIDParameter, projectID openapi.ProjectIDParameter, clusterID openapi.ClusterIDParameter, machineID openapi.MachineIDParameter) {
+	ctx := r.Context()
+
+	if err := rbac.AllowProjectScope(ctx, "compute:clusters", identityapi.Update, organizationID, projectID); err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	if err := h.clusterClient().DeleteMachine(ctx, organizationID, projectID, clusterID, machineID); err != nil {
 		errors.HandleError(w, r, err)
 		return
 	}

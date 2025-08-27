@@ -259,6 +259,7 @@ func convertMachineStatus(in *unikornv1.MachineStatus) *openapi.ComputeClusterMa
 	}
 
 	out := &openapi.ComputeClusterMachineStatus{
+		Id:                 in.ID,
 		Hostname:           in.Hostname,
 		FlavorID:           in.FlavorID,
 		ImageID:            in.ImageID,

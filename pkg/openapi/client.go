@@ -102,10 +102,16 @@ type ClientInterface interface {
 	// DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterID request
 	DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterID(ctx context.Context, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterID request
+	GetApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterID(ctx context.Context, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// PutApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDWithBody request with any body
 	PutApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDWithBody(ctx context.Context, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	PutApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterID(ctx context.Context, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, body PutApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineID request
+	DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineID(ctx context.Context, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetApiV1OrganizationsOrganizationIDRegions request
 	GetApiV1OrganizationsOrganizationIDRegions(ctx context.Context, organizationID OrganizationIDParameter, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -165,6 +171,18 @@ func (c *Client) DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClusters
 	return c.Client.Do(req)
 }
 
+func (c *Client) GetApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterID(ctx context.Context, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDRequest(c.Server, organizationID, projectID, clusterID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) PutApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDWithBody(ctx context.Context, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPutApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDRequestWithBody(c.Server, organizationID, projectID, clusterID, contentType, body)
 	if err != nil {
@@ -179,6 +197,18 @@ func (c *Client) PutApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClu
 
 func (c *Client) PutApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterID(ctx context.Context, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, body PutApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPutApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDRequest(c.Server, organizationID, projectID, clusterID, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineID(ctx context.Context, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDRequest(c.Server, organizationID, projectID, clusterID, machineID)
 	if err != nil {
 		return nil, err
 	}
@@ -383,6 +413,54 @@ func NewDeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterID
 	return req, nil
 }
 
+// NewGetApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDRequest generates requests for GetApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterID
+func NewGetApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDRequest(server string, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "organizationID", runtime.ParamLocationPath, organizationID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "clusterID", runtime.ParamLocationPath, clusterID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/organizations/%s/projects/%s/clusters/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewPutApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDRequest calls the generic PutApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterID builder with application/json body
 func NewPutApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDRequest(server string, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, body PutApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -440,6 +518,61 @@ func NewPutApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDReq
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDRequest generates requests for DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineID
+func NewDeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDRequest(server string, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "organizationID", runtime.ParamLocationPath, organizationID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithLocation("simple", false, "projectID", runtime.ParamLocationPath, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithLocation("simple", false, "clusterID", runtime.ParamLocationPath, clusterID)
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam3 string
+
+	pathParam3, err = runtime.StyleParamWithLocation("simple", false, "machineID", runtime.ParamLocationPath, machineID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/organizations/%s/projects/%s/clusters/%s/machines/%s", pathParam0, pathParam1, pathParam2, pathParam3)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -614,10 +747,16 @@ type ClientWithResponsesInterface interface {
 	// DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDWithResponse request
 	DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDWithResponse(ctx context.Context, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, reqEditors ...RequestEditorFn) (*DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDResponse, error)
 
+	// GetApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDWithResponse request
+	GetApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDWithResponse(ctx context.Context, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, reqEditors ...RequestEditorFn) (*GetApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDResponse, error)
+
 	// PutApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDWithBodyWithResponse request with any body
 	PutApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDWithBodyWithResponse(ctx context.Context, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDResponse, error)
 
 	PutApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDWithResponse(ctx context.Context, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, body PutApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDJSONRequestBody, reqEditors ...RequestEditorFn) (*PutApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDResponse, error)
+
+	// DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDWithResponse request
+	DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDWithResponse(ctx context.Context, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter, reqEditors ...RequestEditorFn) (*DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDResponse, error)
 
 	// GetApiV1OrganizationsOrganizationIDRegionsWithResponse request
 	GetApiV1OrganizationsOrganizationIDRegionsWithResponse(ctx context.Context, organizationID OrganizationIDParameter, reqEditors ...RequestEditorFn) (*GetApiV1OrganizationsOrganizationIDRegionsResponse, error)
@@ -709,6 +848,32 @@ func (r DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterID
 	return 0
 }
 
+type GetApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ComputeClusterDetailResponse
+	JSON401      *externalRef0.UnauthorizedResponse
+	JSON403      *externalRef0.ForbiddenResponse
+	JSON404      *externalRef0.NotFoundResponse
+	JSON500      *externalRef0.InternalServerErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type PutApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -729,6 +894,32 @@ func (r PutApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDRes
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r PutApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON400      *externalRef0.BadRequestResponse
+	JSON401      *externalRef0.UnauthorizedResponse
+	JSON403      *externalRef0.ForbiddenResponse
+	JSON404      *externalRef0.NotFoundResponse
+	JSON500      *externalRef0.InternalServerErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -845,6 +1036,15 @@ func (c *ClientWithResponses) DeleteApiV1OrganizationsOrganizationIDProjectsProj
 	return ParseDeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDResponse(rsp)
 }
 
+// GetApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDWithResponse request returning *GetApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDResponse
+func (c *ClientWithResponses) GetApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDWithResponse(ctx context.Context, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, reqEditors ...RequestEditorFn) (*GetApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDResponse, error) {
+	rsp, err := c.GetApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterID(ctx, organizationID, projectID, clusterID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDResponse(rsp)
+}
+
 // PutApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDWithBodyWithResponse request with arbitrary body returning *PutApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDResponse
 func (c *ClientWithResponses) PutApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDWithBodyWithResponse(ctx context.Context, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PutApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDResponse, error) {
 	rsp, err := c.PutApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDWithBody(ctx, organizationID, projectID, clusterID, contentType, body, reqEditors...)
@@ -860,6 +1060,15 @@ func (c *ClientWithResponses) PutApiV1OrganizationsOrganizationIDProjectsProject
 		return nil, err
 	}
 	return ParsePutApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDResponse(rsp)
+}
+
+// DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDWithResponse request returning *DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDResponse
+func (c *ClientWithResponses) DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDWithResponse(ctx context.Context, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter, reqEditors ...RequestEditorFn) (*DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDResponse, error) {
+	rsp, err := c.DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineID(ctx, organizationID, projectID, clusterID, machineID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDResponse(rsp)
 }
 
 // GetApiV1OrganizationsOrganizationIDRegionsWithResponse request returning *GetApiV1OrganizationsOrganizationIDRegionsResponse
@@ -1065,6 +1274,60 @@ func ParseDeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersCluster
 	return response, nil
 }
 
+// ParseGetApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDResponse parses an HTTP response from a GetApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDWithResponse call
+func ParseGetApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDResponse(rsp *http.Response) (*GetApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ComputeClusterDetailResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest externalRef0.UnauthorizedResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest externalRef0.ForbiddenResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.NotFoundResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.InternalServerErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParsePutApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDResponse parses an HTTP response from a PutApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDWithResponse call
 func ParsePutApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDResponse(rsp *http.Response) (*PutApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -1074,6 +1337,60 @@ func ParsePutApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDR
 	}
 
 	response := &PutApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest externalRef0.BadRequestResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest externalRef0.UnauthorizedResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest externalRef0.ForbiddenResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.NotFoundResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.InternalServerErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDResponse parses an HTTP response from a DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDWithResponse call
+func ParseDeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDResponse(rsp *http.Response) (*DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
