@@ -109,6 +109,9 @@ spec:
                       when Selector is set.  Inline pools are expected to be used for UI
                       generated clusters.
                     items:
+                      description: |-
+                        ComputeClusterWorkloadPoolSpec defines the requested machine pool
+                        state.
                       properties:
                         allowedAddressPairs:
                           description: AllowedAddressPairs is a list of allowed address
@@ -353,10 +356,13 @@ spec:
                               type: object
                             type: array
                           flavorId:
-                            description: FlavorID is the flavor of the machine,
+                            description: FlavorID is the flavor of the machine.
                             type: string
                           hostname:
                             description: Hostname of the machine.
+                            type: string
+                          id:
+                            description: ID is the unique identifier of the machine.
                             type: string
                           imageId:
                             description: ImageID is the image of the machine.
@@ -370,6 +376,7 @@ spec:
                         required:
                         - flavorId
                         - hostname
+                        - id
                         - imageId
                         type: object
                       type: array
