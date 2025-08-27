@@ -117,12 +117,12 @@ func (h *Handler) setUncacheable(w http.ResponseWriter) {
 func (h *Handler) GetApiV1OrganizationsOrganizationIDRegions(w http.ResponseWriter, r *http.Request, organizationID openapi.OrganizationIDParameter) {
 	ctx := r.Context()
 
-	if err := rbac.AllowOrganizationScope(ctx, "compute:regions", identityapi.Read, organizationID.Value); err != nil {
+	if err := rbac.AllowOrganizationScope(ctx, "compute:regions", identityapi.Read, organizationID); err != nil {
 		errors.HandleError(w, r, err)
 		return
 	}
 
-	result, err := h.region.List(ctx, organizationID.Value)
+	result, err := h.region.List(ctx, organizationID)
 	if err != nil {
 		errors.HandleError(w, r, errors.OAuth2ServerError("unable to read regions").WithError(err))
 		return
@@ -134,12 +134,12 @@ func (h *Handler) GetApiV1OrganizationsOrganizationIDRegions(w http.ResponseWrit
 func (h *Handler) GetApiV1OrganizationsOrganizationIDRegionsRegionIDFlavors(w http.ResponseWriter, r *http.Request, organizationID openapi.OrganizationIDParameter, regionID openapi.RegionIDParameter) {
 	ctx := r.Context()
 
-	if err := rbac.AllowOrganizationScope(ctx, "compute:flavors", identityapi.Read, organizationID.Value); err != nil {
+	if err := rbac.AllowOrganizationScope(ctx, "compute:flavors", identityapi.Read, organizationID); err != nil {
 		errors.HandleError(w, r, err)
 		return
 	}
 
-	result, err := h.region.Flavors(ctx, organizationID.Value, regionID.Value)
+	result, err := h.region.Flavors(ctx, organizationID, regionID)
 	if err != nil {
 		errors.HandleError(w, r, errors.OAuth2ServerError("unable to read flavors").WithError(err))
 		return
@@ -151,12 +151,12 @@ func (h *Handler) GetApiV1OrganizationsOrganizationIDRegionsRegionIDFlavors(w ht
 func (h *Handler) GetApiV1OrganizationsOrganizationIDRegionsRegionIDImages(w http.ResponseWriter, r *http.Request, organizationID openapi.OrganizationIDParameter, regionID openapi.RegionIDParameter) {
 	ctx := r.Context()
 
-	if err := rbac.AllowOrganizationScope(ctx, "compute:images", identityapi.Read, organizationID.Value); err != nil {
+	if err := rbac.AllowOrganizationScope(ctx, "compute:images", identityapi.Read, organizationID); err != nil {
 		errors.HandleError(w, r, err)
 		return
 	}
 
-	result, err := h.region.Images(ctx, organizationID.Value, regionID.Value)
+	result, err := h.region.Images(ctx, organizationID, regionID)
 	if err != nil {
 		errors.HandleError(w, r, errors.OAuth2ServerError("unable to read flavors").WithError(err))
 		return
@@ -172,14 +172,14 @@ func (h *Handler) clusterClient() *cluster.Client {
 func (h *Handler) GetApiV1OrganizationsOrganizationIDClusters(w http.ResponseWriter, r *http.Request, organizationID openapi.OrganizationIDParameter, params openapi.GetApiV1OrganizationsOrganizationIDClustersParams) {
 	ctx := r.Context()
 
-	result, err := h.clusterClient().List(ctx, organizationID.Value, params)
+	result, err := h.clusterClient().List(ctx, organizationID, params)
 	if err != nil {
 		errors.HandleError(w, r, err)
 		return
 	}
 
 	result = slices.DeleteFunc(result, func(resource openapi.ComputeClusterRead) bool {
-		return rbac.AllowProjectScope(ctx, "compute:clusters", identityapi.Read, organizationID.Value, resource.Metadata.ProjectId) != nil
+		return rbac.AllowProjectScope(ctx, "compute:clusters", identityapi.Read, organizationID, resource.Metadata.ProjectId) != nil
 	})
 
 	h.setUncacheable(w)
@@ -189,7 +189,7 @@ func (h *Handler) GetApiV1OrganizationsOrganizationIDClusters(w http.ResponseWri
 func (h *Handler) PostApiV1OrganizationsOrganizationIDProjectsProjectIDClusters(w http.ResponseWriter, r *http.Request, organizationID openapi.OrganizationIDParameter, projectID openapi.ProjectIDParameter) {
 	ctx := r.Context()
 
-	if err := rbac.AllowProjectScope(ctx, "compute:clusters", identityapi.Create, organizationID.Value, projectID.Value); err != nil {
+	if err := rbac.AllowProjectScope(ctx, "compute:clusters", identityapi.Create, organizationID, projectID); err != nil {
 		errors.HandleError(w, r, err)
 		return
 	}
@@ -201,7 +201,7 @@ func (h *Handler) PostApiV1OrganizationsOrganizationIDProjectsProjectIDClusters(
 		return
 	}
 
-	result, err := h.clusterClient().Create(ctx, organizationID.Value, projectID.Value, request)
+	result, err := h.clusterClient().Create(ctx, organizationID, projectID, request)
 	if err != nil {
 		errors.HandleError(w, r, err)
 		return
@@ -214,12 +214,12 @@ func (h *Handler) PostApiV1OrganizationsOrganizationIDProjectsProjectIDClusters(
 func (h *Handler) DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterID(w http.ResponseWriter, r *http.Request, organizationID openapi.OrganizationIDParameter, projectID openapi.ProjectIDParameter, clusterID openapi.ClusterIDParameter) {
 	ctx := r.Context()
 
-	if err := rbac.AllowProjectScope(ctx, "compute:clusters", identityapi.Delete, organizationID.Value, projectID.Value); err != nil {
+	if err := rbac.AllowProjectScope(ctx, "compute:clusters", identityapi.Delete, organizationID, projectID); err != nil {
 		errors.HandleError(w, r, err)
 		return
 	}
 
-	if err := h.clusterClient().Delete(ctx, organizationID.Value, projectID.Value, clusterID.Value); err != nil {
+	if err := h.clusterClient().Delete(ctx, organizationID, projectID, clusterID); err != nil {
 		errors.HandleError(w, r, err)
 		return
 	}
@@ -231,13 +231,13 @@ func (h *Handler) DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDCluster
 func (h *Handler) GetApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterID(w http.ResponseWriter, r *http.Request, organizationID openapi.OrganizationIDParameter, projectID openapi.ProjectIDParameter, clusterID openapi.ClusterIDParameter) {
 	ctx := r.Context()
 
-	result, err := h.clusterClient().Get(ctx, organizationID.Value, projectID.Value, clusterID.Value)
+	result, err := h.clusterClient().Get(ctx, organizationID, projectID, clusterID)
 	if err != nil {
 		errors.HandleError(w, r, err)
 		return
 	}
 
-	if err = rbac.AllowProjectScope(ctx, "compute:clusters", identityapi.Read, organizationID.Value, result.Metadata.ProjectId); err != nil {
+	if err = rbac.AllowProjectScope(ctx, "compute:clusters", identityapi.Read, organizationID, result.Metadata.ProjectId); err != nil {
 		errors.HandleError(w, r, err)
 		return
 	}
@@ -250,7 +250,7 @@ func (h *Handler) GetApiV1OrganizationsOrganizationIDProjectsProjectIDClustersCl
 func (h *Handler) PutApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterID(w http.ResponseWriter, r *http.Request, organizationID openapi.OrganizationIDParameter, projectID openapi.ProjectIDParameter, clusterID openapi.ClusterIDParameter) {
 	ctx := r.Context()
 
-	if err := rbac.AllowProjectScope(ctx, "compute:clusters", identityapi.Update, organizationID.Value, projectID.Value); err != nil {
+	if err := rbac.AllowProjectScope(ctx, "compute:clusters", identityapi.Update, organizationID, projectID); err != nil {
 		errors.HandleError(w, r, err)
 		return
 	}
@@ -262,7 +262,7 @@ func (h *Handler) PutApiV1OrganizationsOrganizationIDProjectsProjectIDClustersCl
 		return
 	}
 
-	if err := h.clusterClient().Update(ctx, organizationID.Value, projectID.Value, clusterID.Value, request); err != nil {
+	if err := h.clusterClient().Update(ctx, organizationID, projectID, clusterID, request); err != nil {
 		errors.HandleError(w, r, err)
 		return
 	}
@@ -274,12 +274,12 @@ func (h *Handler) PutApiV1OrganizationsOrganizationIDProjectsProjectIDClustersCl
 func (h *Handler) DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineID(w http.ResponseWriter, r *http.Request, organizationID openapi.OrganizationIDParameter, projectID openapi.ProjectIDParameter, clusterID openapi.ClusterIDParameter, machineID openapi.MachineIDParameter) {
 	ctx := r.Context()
 
-	if err := rbac.AllowProjectScope(ctx, "compute:clusters", identityapi.Update, organizationID.Value, projectID.Value); err != nil {
+	if err := rbac.AllowProjectScope(ctx, "compute:clusters", identityapi.Update, organizationID, projectID); err != nil {
 		errors.HandleError(w, r, err)
 		return
 	}
 
-	if err := h.clusterClient().DeleteMachine(ctx, organizationID.Value, projectID.Value, clusterID.Value, machineID.Value); err != nil {
+	if err := h.clusterClient().DeleteMachine(ctx, organizationID, projectID, clusterID, machineID); err != nil {
 		errors.HandleError(w, r, err)
 		return
 	}

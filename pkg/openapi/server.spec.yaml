@@ -249,10 +249,6 @@ components:
       type: string
       minLength: 1
       maxLength: 63
-      x-go-type: KubernetesName
-      x-go-type-import:
-        path: github.com/unikorn-cloud/compute/pkg/openapi
-        name: KubernetesName
     computeClusterNetwork:
       description: Compute cluster network settings.
       type: object

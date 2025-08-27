@@ -196,7 +196,7 @@ type ImageSelector struct {
 }
 
 // KubernetesNameParameter A Kubernetes name. Must be a valid DNS containing only lower case characters, numbers or hyphens, start and end with a character or number, and be at most 63 characters in length.
-type KubernetesNameParameter = KubernetesName
+type KubernetesNameParameter = string
 
 // MachinePool A Compute cluster machine pool.
 type MachinePool struct {
