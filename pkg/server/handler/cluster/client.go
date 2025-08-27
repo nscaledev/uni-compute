@@ -134,6 +134,20 @@ func (c *Client) List(ctx context.Context, organizationID string, params openapi
 	return newGenerator(c.client, c.options, c.region, "", organizationID, "", nil).convertList(result), nil
 }
 
+func (c *Client) Get(ctx context.Context, organizationID, projectID, clusterID string) (*openapi.ComputeClusterRead, error) {
+	namespace, err := common.ProjectNamespace(ctx, c.client, organizationID, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	result, err := c.get(ctx, namespace.Name, clusterID)
+	if err != nil {
+		return nil, err
+	}
+
+	return newGenerator(c.client, c.options, c.region, "", organizationID, "", nil).convert(result), nil
+}
+
 // get returns the cluster.
 func (c *Client) get(ctx context.Context, namespace, clusterID string) (*unikornv1.ComputeCluster, error) {
 	result := &unikornv1.ComputeCluster{}
@@ -487,7 +501,7 @@ func (c *Client) Update(ctx context.Context, organizationID, projectID, clusterI
 	}
 
 	if namespace.DeletionTimestamp != nil {
-		return errors.OAuth2InvalidRequest("control plane is being deleted")
+		return errors.OAuth2InvalidRequest("compute cluster is being deleted")
 	}
 
 	current, err := c.get(ctx, namespace.Name, clusterID)
@@ -518,6 +532,28 @@ func (c *Client) Update(ctx context.Context, organizationID, projectID, clusterI
 
 	if err := c.client.Patch(ctx, updated, client.MergeFrom(current)); err != nil {
 		return errors.OAuth2ServerError("failed to patch cluster").WithError(err)
+	}
+
+	return nil
+}
+
+func (c *Client) DeleteMachine(ctx context.Context, organizationID, projectID, clusterID, machineID string) error {
+	namespace, err := common.New(c.client).ProjectNamespace(ctx, organizationID, projectID)
+	if err != nil {
+		return err
+	}
+
+	if namespace.DeletionTimestamp != nil {
+		return errors.OAuth2InvalidRequest("compute cluster is being deleted")
+	}
+
+	cluster, err := c.get(ctx, namespace.Name, clusterID)
+	if err != nil {
+		return err
+	}
+
+	if err = c.region.DeleteServer(ctx, organizationID, projectID, cluster.Annotations[constants.IdentityAnnotation], machineID); err != nil {
+		return err
 	}
 
 	return nil

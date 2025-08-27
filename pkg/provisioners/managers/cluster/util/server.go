@@ -113,6 +113,7 @@ func UpdateServerStatus(cluster *unikornv1.ComputeCluster, server *regionapi.Ser
 	poolStatus.Replicas++
 
 	status := unikornv1.MachineStatus{
+		ID:        server.Metadata.Id,
 		Hostname:  server.Metadata.Name,
 		FlavorID:  server.Spec.FlavorId,
 		ImageID:   server.Spec.ImageId,

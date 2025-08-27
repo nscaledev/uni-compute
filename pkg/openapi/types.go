@@ -52,6 +52,9 @@ type ComputeClusterMachineStatus struct {
 	// Hostname Machine hostname.
 	Hostname string `json:"hostname"`
 
+	// Id Machine ID.
+	Id string `json:"id"`
+
 	// ImageID Machine image ID.
 	ImageID string `json:"imageID"`
 
@@ -237,6 +240,9 @@ type Volume struct {
 // ClusterIDParameter A Kubernetes name. Must be a valid DNS containing only lower case characters, numbers or hyphens, start and end with a character or number, and be at most 63 characters in length.
 type ClusterIDParameter = KubernetesNameParameter
 
+// MachineIDParameter A Kubernetes name. Must be a valid DNS containing only lower case characters, numbers or hyphens, start and end with a character or number, and be at most 63 characters in length.
+type MachineIDParameter = KubernetesNameParameter
+
 // OrganizationIDParameter A Kubernetes name. Must be a valid DNS containing only lower case characters, numbers or hyphens, start and end with a character or number, and be at most 63 characters in length.
 type OrganizationIDParameter = KubernetesNameParameter
 
@@ -245,6 +251,9 @@ type ProjectIDParameter = KubernetesNameParameter
 
 // RegionIDParameter A Kubernetes name. Must be a valid DNS containing only lower case characters, numbers or hyphens, start and end with a character or number, and be at most 63 characters in length.
 type RegionIDParameter = KubernetesNameParameter
+
+// ComputeClusterDetailResponse Compute cluster read.
+type ComputeClusterDetailResponse = ComputeClusterRead
 
 // ComputeClusterResponse Compute cluster read.
 type ComputeClusterResponse = ComputeClusterRead

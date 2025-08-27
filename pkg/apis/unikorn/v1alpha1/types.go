@@ -166,6 +166,8 @@ type WorkloadPoolStatus struct {
 }
 
 type MachineStatus struct {
+	// ID is the unique identifier of the machine.
+	ID string `json:"id"`
 	// Hostname of the machine.
 	Hostname string `json:"hostname"`
 	// FlavorID is the flavor of the machine.
