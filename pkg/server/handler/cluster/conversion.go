@@ -342,21 +342,10 @@ func (g *generator) convertList(in *unikornv1.ComputeClusterList) openapi.Comput
 
 // chooseImages returns an image for the requested machine and flavor.
 func (g *generator) chooseImage(ctx context.Context, request *openapi.ComputeClusterWrite, m *openapi.MachinePool, _ *regionapi.Flavor) (*regionapi.Image, error) {
-	client, err := g.region.Client(ctx)
+	images, err := g.region.Images(ctx, g.organizationID, request.Spec.RegionId)
 	if err != nil {
-		return nil, err
+		return nil, errors.OAuth2ServerError("failed to list images").WithError(err)
 	}
-
-	resp, err := client.GetApiV1OrganizationsOrganizationIDRegionsRegionIDImagesWithResponse(ctx, g.organizationID, request.Spec.RegionId)
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.StatusCode() != http.StatusOK {
-		return nil, errors.OAuth2ServerError("failed to list images")
-	}
-
-	images := *resp.JSON200
 
 	// TODO: is the image compatible with the flavor virtualization type???
 	images = slices.DeleteFunc(images, func(image regionapi.Image) bool {

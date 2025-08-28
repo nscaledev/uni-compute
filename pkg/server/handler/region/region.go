@@ -102,10 +102,7 @@ func (c *Client) List(ctx context.Context, organizationID string) ([]regionapi.R
 		return x.Spec.Type == regionapi.Kubernetes
 	}
 
-	filtered, err := slices.DeleteFunc(regions, filter), nil
-	if err != nil {
-		return nil, err
-	}
+	filtered := slices.DeleteFunc(regions, filter)
 
 	c.regionCache.Add(organizationID, filtered, time.Hour)
 
@@ -166,10 +163,14 @@ func (c *Client) Images(ctx context.Context, organizationID, regionID string) ([
 
 	images := *resp.JSON200
 
-	c.imageCache.Add(cacheKey, images, time.Hour)
+	filtered := slices.DeleteFunc(images, func(image regionapi.Image) bool {
+		// Delete images that declare any software versions - if it doesn't exist, assume general purpose.
+		return image.Spec.SoftwareVersions != nil && len(*image.Spec.SoftwareVersions) > 0
+	})
 
-	// TODO: filtering.
-	return images, nil
+	c.imageCache.Add(cacheKey, filtered, time.Hour)
+
+	return filtered, nil
 }
 
 func (c *Client) Servers(ctx context.Context, organizationID string, cluster *unikornv1.ComputeCluster) ([]regionapi.ServerRead, error) {
@@ -191,7 +192,6 @@ func (c *Client) Servers(ctx context.Context, organizationID string, cluster *un
 		return nil, coreapiutils.ExtractError(resp.StatusCode(), resp)
 	}
 
-	// REVIEW_ME: Should we cache the servers?
 	servers := *resp.JSON200
 
 	return servers, nil
