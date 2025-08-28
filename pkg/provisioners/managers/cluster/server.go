@@ -19,16 +19,15 @@ package cluster
 import (
 	"context"
 	"fmt"
-	"maps"
 	"reflect"
-	"slices"
-
-	"github.com/spjmurray/go-util/pkg/set"
 
 	unikornv1 "github.com/unikorn-cloud/compute/pkg/apis/unikorn/v1alpha1"
+	"github.com/unikorn-cloud/compute/pkg/provisioners/managers/cluster/util"
+	"github.com/unikorn-cloud/core/pkg/errors"
 	coreapi "github.com/unikorn-cloud/core/pkg/openapi"
 	regionapi "github.com/unikorn-cloud/region/pkg/openapi"
 
+	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/utils/ptr"
 
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -40,7 +39,7 @@ type serverPoolSet map[string]*regionapi.ServerRead
 // add adds a server to the set and raises an error if one already exists.
 func (s serverPoolSet) add(serverName string, server *regionapi.ServerRead) error {
 	if _, ok := s[serverName]; ok {
-		return fmt.Errorf("%w: server %s for already exists", ErrConsistency, serverName)
+		return fmt.Errorf("%w: server %s already exists in set", ErrConsistency, serverName)
 	}
 
 	s[serverName] = server
@@ -65,11 +64,6 @@ func (p *Provisioner) newServerSet(ctx context.Context, servers regionapi.Server
 	log.Info("reading existing servers for cluster", "servers", result)
 
 	return result, nil
-}
-
-func serverName(pool *unikornv1.ComputeClusterWorkloadPoolSpec, replicaIndex int) string {
-	// naive implementation to create a server name based on the pool name and replica index
-	return fmt.Sprintf("%s-%d", pool.Name, replicaIndex)
 }
 
 // getSecurityGroupForPool returns the security group for a pool.  It assumes the main provisioner
@@ -104,7 +98,7 @@ func generateUserData(pool *unikornv1.ComputeClusterWorkloadPoolSpec) *[]byte {
 }
 
 // generateServer generates a server request for creation and updates.
-func (p *Provisioner) generateServer(name string, openstackIdentityStatus *openstackIdentityStatus, pool *unikornv1.ComputeClusterWorkloadPoolSpec, securityGroups securityGroupSet) (*regionapi.ServerWrite, error) {
+func (p *Provisioner) generateServer(openstackIdentityStatus *openstackIdentityStatus, pool *unikornv1.ComputeClusterWorkloadPoolSpec, securityGroups securityGroupSet) (*regionapi.ServerWrite, error) {
 	securityGroup, err := generateSecurityGroup(pool, securityGroups)
 	if err != nil {
 		return nil, err
@@ -112,7 +106,7 @@ func (p *Provisioner) generateServer(name string, openstackIdentityStatus *opens
 
 	request := &regionapi.ServerWrite{
 		Metadata: coreapi.ResourceWriteMetadata{
-			Name:        name,
+			Name:        pool.Name + "-" + rand.String(6),
 			Description: ptr.To("Server for cluster " + p.cluster.Name),
 			Tags:        p.tags(pool),
 		},
@@ -133,44 +127,6 @@ func (p *Provisioner) generateServer(name string, openstackIdentityStatus *opens
 	}
 
 	return request, nil
-}
-
-// serverCreateSet maps server name to it create request.
-type serverCreateSet map[string]*regionapi.ServerWrite
-
-// add adds a server to the set and raises an error if one already exists.
-func (s serverCreateSet) add(serverName string, server *regionapi.ServerWrite) error {
-	if _, ok := s[serverName]; ok {
-		return fmt.Errorf("%w: server %s for pool already", ErrConsistency, serverName)
-	}
-
-	s[serverName] = server
-
-	return nil
-}
-
-// generateServerCreateSet creates a set of all servers that need to exist.
-func (p *Provisioner) generateServerCreateSet(openstackIdentityStatus *openstackIdentityStatus, securityGroups securityGroupSet) (serverCreateSet, error) {
-	out := serverCreateSet{}
-
-	for i := range p.cluster.Spec.WorkloadPools.Pools {
-		pool := &p.cluster.Spec.WorkloadPools.Pools[i]
-
-		for index := range pool.Replicas {
-			name := serverName(pool, index)
-
-			request, err := p.generateServer(name, openstackIdentityStatus, pool, securityGroups)
-			if err != nil {
-				return nil, err
-			}
-
-			if err := out.add(name, request); err != nil {
-				return nil, err
-			}
-		}
-	}
-
-	return out, nil
 }
 
 // needsUpdate compares both specifications and determines whether we need a resource update.
@@ -205,14 +161,6 @@ func needsRebuild(current *regionapi.ServerRead, requested *regionapi.ServerWrit
 	return false
 }
 
-// scheduleServers compares the provisioned servers with the desired servers and returns the name of the servers to create, reconcile and delete.
-func scheduleServers(current serverPoolSet, requested serverCreateSet) (set.Set[string], set.Set[string], set.Set[string]) {
-	currentNames := set.New[string](slices.Collect(maps.Keys(current))...)
-	requestedNames := set.New[string](slices.Collect(maps.Keys(requested))...)
-
-	return requestedNames.Difference(currentNames), currentNames.Intersection(requestedNames), currentNames.Difference(requestedNames)
-}
-
 // deleteServerWrapper wraps up common server deletion handling as it's called from
 // multiple different places.
 func (p *Provisioner) deleteServerWrapper(ctx context.Context, client regionapi.ClientWithResponsesInterface, servers serverPoolSet, name string) error {
@@ -233,66 +181,111 @@ func (p *Provisioner) deleteServerWrapper(ctx context.Context, client regionapi.
 
 // reconcileServers creates/updates/deletes all servers for the cluster.
 //
-//nolint:cyclop
+//nolint:cyclop,gocognit
 func (p *Provisioner) reconcileServers(ctx context.Context, client regionapi.ClientWithResponsesInterface, servers serverPoolSet, securitygroups securityGroupSet, openstackIdentityStatus *openstackIdentityStatus) error {
 	log := log.FromContext(ctx)
 
-	required, err := p.generateServerCreateSet(openstackIdentityStatus, securitygroups)
-	if err != nil {
-		return err
-	}
+	// Algorithm:
+	// * Names are generated, and thus unpredictable, so we cannot rely on this to
+	//   map current servers to required ones.
+	// * Instead we go through our existing servers and:
+	//   * Ignore any marked as being deleted
+	//   * Delete any that exceed the number seen for a particular pool
+	//   * Delete any that don't match the specification and cannot be updated
+	//   * Update those that can be updated online
+	//   * Of those that weren't ignored or deleted, we tally them up based on pool.
+	// * If any pools don't contain the number of servers that are requested:
+	//   * Create new servers to fill the gaps
+	poolCounts := map[string]int{}
 
-	create, update, remove := scheduleServers(servers, required)
-
-	// If any servers exist that shouldn't delete them.
-	for name := range remove.All() {
-		if err := p.deleteServerWrapper(ctx, client, servers, name); err != nil {
-			return err
-		}
-	}
-
-	// If any servers have been modified, we need to see if it's something that can
-	// actually be done online or not.  For now we allow changing network options,
-	// everything else needs a rebuild.
-	for name := range update.All() {
-		server := servers[name]
-		request := required[name]
-
-		if !needsUpdate(server, request) {
+	// Handle deletes and updates...
+	for serverName, server := range servers {
+		// Ignore deleting instances.
+		if server.Metadata.DeletionTime != nil {
 			continue
 		}
 
-		if needsRebuild(server, request) {
-			if err := p.deleteServerWrapper(ctx, client, servers, name); err != nil {
+		poolName, err := util.GetWorkloadPoolTag(server.Metadata.Tags)
+		if err != nil {
+			return err
+		}
+
+		pool, ok := p.cluster.GetWorkloadPool(poolName)
+		if !ok {
+			return fmt.Errorf("%w: unable to find pool name %s", errors.ErrConsistency, poolName)
+		}
+
+		// Delete any servers surplus to requirements.
+		if poolCounts[poolName] >= pool.Replicas {
+			if err := p.deleteServerWrapper(ctx, client, servers, serverName); err != nil {
 				return err
 			}
 
 			continue
 		}
 
-		log.Info("updating server", "name", name)
-
-		updated, err := p.updateServer(ctx, client, server.Metadata.Id, request)
+		// Generate the required specification.
+		required, err := p.generateServer(openstackIdentityStatus, pool, securitygroups)
 		if err != nil {
 			return err
 		}
 
-		servers[name] = updated
+		// If something has changed, we need to do something.
+		if needsUpdate(server, required) {
+			// Delete machines whose image/flavor/etc. have altered and
+			// require rebuilding.
+			if needsRebuild(server, required) {
+				if err := p.deleteServerWrapper(ctx, client, servers, serverName); err != nil {
+					return err
+				}
+
+				continue
+			}
+
+			// Otherwise update the existing servers networking/etc. that can
+			// be modified at runtime.
+			log.Info("updating server", "name", serverName)
+
+			// Preserve the existing name, this translates to a host name
+			// and should not change.
+			required.Metadata.Name = serverName
+
+			updated, err := p.updateServer(ctx, client, server.Metadata.Id, required)
+			if err != nil {
+				return err
+			}
+
+			// Important we fall through after this to do the accounting.
+			servers[serverName] = updated
+		}
+
+		poolCounts[poolName]++
 	}
 
-	// Create any that we can this time around.
-	for name := range create.All() {
-		log.Info("creating server", "name", name)
+	// Finally for each pool, scale up any instances that are missing.
+	for i := range p.cluster.Spec.WorkloadPools.Pools {
+		pool := &p.cluster.Spec.WorkloadPools.Pools[i]
 
-		request := required[name]
-
-		server, err := p.createServer(ctx, client, request)
-		if err != nil {
-			return err
+		if poolCounts[pool.Name] > pool.Replicas {
+			return fmt.Errorf("%w: observed pool size larger than required", errors.ErrConsistency)
 		}
 
-		if err := servers.add(name, server); err != nil {
-			return err
+		for i := poolCounts[pool.Name]; i < pool.Replicas; i++ {
+			required, err := p.generateServer(openstackIdentityStatus, pool, securitygroups)
+			if err != nil {
+				return err
+			}
+
+			log.Info("creating server", "name", required.Metadata.Name)
+
+			server, err := p.createServer(ctx, client, required)
+			if err != nil {
+				return err
+			}
+
+			if err := servers.add(required.Metadata.Name, server); err != nil {
+				return err
+			}
 		}
 	}
 
