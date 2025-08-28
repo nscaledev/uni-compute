@@ -89,7 +89,6 @@ paths:
         '500':
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
   /api/v1/organizations/{organizationID}/projects/{projectID}/clusters:
-    x-documentation-group: main
     description: Cluster services.
     parameters:
     - $ref: '#/components/parameters/organizationIDParameter'
@@ -115,7 +114,6 @@ paths:
         '500':
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
   /api/v1/organizations/{organizationID}/projects/{projectID}/clusters/{clusterID}:
-    x-documentation-group: main
     description: Cluster services.
     parameters:
     - $ref: '#/components/parameters/organizationIDParameter'
@@ -175,20 +173,20 @@ paths:
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/notFoundResponse'
         '500':
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
-  /api/v1/organizations/{organizationID}/projects/{projectID}/clusters/{clusterID}/machines/{machineID}:
-    x-documentation-group: main
+  /api/v1/organizations/{organizationID}/projects/{projectID}/clusters/{clusterID}/evict:
     description: Cluster services.
     parameters:
       - $ref: '#/components/parameters/organizationIDParameter'
       - $ref: '#/components/parameters/projectIDParameter'
       - $ref: '#/components/parameters/clusterIDParameter'
-      - $ref: '#/components/parameters/machineIDParameter'
-    delete:
+    post:
       description: |-
-        Delete a machine from a cluster. It will be recreated if the
-        number of machines in the pool is less than the desired number.
+        Delete a set of machines from a cluster.  This will implicitly scale down the
+        workload pools those machines were part of.
       security:
       - oauth2Authentication: []
+      requestBody:
+        $ref: '#/components/requestBodies/evictionRequest'
       responses:
         '202':
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/acceptedResponse'
@@ -235,14 +233,6 @@ components:
       required: true
       schema:
         $ref: '#/components/schemas/kubernetesNameParameter'
-    machineIDParameter:
-        name: machineID
-        in: path
-        description: |
-          The machine ID.
-        required: true
-        schema:
-          $ref: '#/components/schemas/kubernetesNameParameter'
   schemas:
     kubernetesNameParameter:
       description: A Kubernetes name. Must be a valid DNS containing only lower case characters, numbers or hyphens, start and end with a character or number, and be at most 63 characters in length.
@@ -523,6 +513,20 @@ components:
       type: array
       items:
         $ref: '#/components/schemas/computeClusterRead'
+    machineIDList:
+      description: A list of machine IDs, these are returned in the cluster status.
+      type: array
+      items:
+        description: A machine ID.
+        type: string
+    evictionWrite:
+      description: A set of machines to evict from a cluster.
+      type: object
+      required:
+      - machineIDs
+      properties:
+        machineIDs:
+          $ref: '#/components/schemas/machineIDList'
   requestBodies:
     createComputeClusterRequest:
       description: Compute cluster request parameters.
@@ -562,6 +566,17 @@ components:
                   enabled: true
                 allowedAddressPairs:
                   - cidr: 10.8.0.0/16
+    evictionRequest:
+      description: A set of machines to evict from a cluster.
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/evictionWrite'
+          example:
+            machineIDs:
+            - da920952-b2fc-4bd9-a0b6-54477a2c0254
+            - 713cf558-4d32-4598-8af2-48e587b67a50
   responses:
     computeClusterResponse:
       description: A Compute cluster.
