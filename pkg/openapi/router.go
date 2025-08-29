@@ -30,8 +30,8 @@ type ServerInterface interface {
 	// (PUT /api/v1/organizations/{organizationID}/projects/{projectID}/clusters/{clusterID})
 	PutApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterID(w http.ResponseWriter, r *http.Request, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter)
 
-	// (DELETE /api/v1/organizations/{organizationID}/projects/{projectID}/clusters/{clusterID}/machines/{machineID})
-	DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineID(w http.ResponseWriter, r *http.Request, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter)
+	// (POST /api/v1/organizations/{organizationID}/projects/{projectID}/clusters/{clusterID}/evict)
+	PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDEvict(w http.ResponseWriter, r *http.Request, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter)
 
 	// (GET /api/v1/organizations/{organizationID}/regions)
 	GetApiV1OrganizationsOrganizationIDRegions(w http.ResponseWriter, r *http.Request, organizationID OrganizationIDParameter)
@@ -72,8 +72,8 @@ func (_ Unimplemented) PutApiV1OrganizationsOrganizationIDProjectsProjectIDClust
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// (DELETE /api/v1/organizations/{organizationID}/projects/{projectID}/clusters/{clusterID}/machines/{machineID})
-func (_ Unimplemented) DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineID(w http.ResponseWriter, r *http.Request, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter) {
+// (POST /api/v1/organizations/{organizationID}/projects/{projectID}/clusters/{clusterID}/evict)
+func (_ Unimplemented) PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDEvict(w http.ResponseWriter, r *http.Request, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -330,8 +330,8 @@ func (siw *ServerInterfaceWrapper) PutApiV1OrganizationsOrganizationIDProjectsPr
 	handler.ServeHTTP(w, r)
 }
 
-// DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineID operation middleware
-func (siw *ServerInterfaceWrapper) DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineID(w http.ResponseWriter, r *http.Request) {
+// PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDEvict operation middleware
+func (siw *ServerInterfaceWrapper) PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDEvict(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 
@@ -362,15 +362,6 @@ func (siw *ServerInterfaceWrapper) DeleteApiV1OrganizationsOrganizationIDProject
 		return
 	}
 
-	// ------------- Path parameter "machineID" -------------
-	var machineID MachineIDParameter
-
-	err = runtime.BindStyledParameterWithOptions("simple", "machineID", chi.URLParam(r, "machineID"), &machineID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "machineID", Err: err})
-		return
-	}
-
 	ctx := r.Context()
 
 	ctx = context.WithValue(ctx, Oauth2AuthenticationScopes, []string{})
@@ -378,7 +369,7 @@ func (siw *ServerInterfaceWrapper) DeleteApiV1OrganizationsOrganizationIDProject
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineID(w, r, organizationID, projectID, clusterID, machineID)
+		siw.Handler.PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDEvict(w, r, organizationID, projectID, clusterID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -628,7 +619,7 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Put(options.BaseURL+"/api/v1/organizations/{organizationID}/projects/{projectID}/clusters/{clusterID}", wrapper.PutApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterID)
 	})
 	r.Group(func(r chi.Router) {
-		r.Delete(options.BaseURL+"/api/v1/organizations/{organizationID}/projects/{projectID}/clusters/{clusterID}/machines/{machineID}", wrapper.DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineID)
+		r.Post(options.BaseURL+"/api/v1/organizations/{organizationID}/projects/{projectID}/clusters/{clusterID}/evict", wrapper.PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDEvict)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/organizations/{organizationID}/regions", wrapper.GetApiV1OrganizationsOrganizationIDRegions)

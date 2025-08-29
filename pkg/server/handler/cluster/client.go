@@ -29,6 +29,7 @@ import (
 
 	unikornv1 "github.com/unikorn-cloud/compute/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/compute/pkg/openapi"
+	"github.com/unikorn-cloud/compute/pkg/provisioners/managers/cluster/util"
 	"github.com/unikorn-cloud/compute/pkg/server/handler/identity"
 	"github.com/unikorn-cloud/compute/pkg/server/handler/region"
 	"github.com/unikorn-cloud/core/pkg/constants"
@@ -537,7 +538,18 @@ func (c *Client) Update(ctx context.Context, organizationID, projectID, clusterI
 	return nil
 }
 
-func (c *Client) DeleteMachine(ctx context.Context, organizationID, projectID, clusterID, machineID string) error {
+// Evict is pretty complicated, we need to delete the requested servers from the
+// region service, and update the cluster's pools to remove those instances so they don't
+// just get recreated instantly, and also update the quota allocations.  Now, if you naively
+// deleted the servers, that would trigger a reconcile and a potential replacement before
+// we've had a chance to update the cluster.  If you updated the cluster then you've got
+// yourself a problem where we have no control over what's deleted.  So what we do is...
+// Pause cluster reconciliation, kill the requested servers, update the allocations, update
+// the cluster and unpause it.  Ideally everything would be a nice atomic transaction, but
+// you cannot do that with Kubernetes...
+//
+//nolint:cyclop
+func (c *Client) Evict(ctx context.Context, organizationID, projectID, clusterID string, request *openapi.EvictionWrite) error {
 	namespace, err := common.New(c.client).ProjectNamespace(ctx, organizationID, projectID)
 	if err != nil {
 		return err
@@ -547,13 +559,68 @@ func (c *Client) DeleteMachine(ctx context.Context, organizationID, projectID, c
 		return errors.OAuth2InvalidRequest("compute cluster is being deleted")
 	}
 
+	// Do the pause...
 	cluster, err := c.get(ctx, namespace.Name, clusterID)
 	if err != nil {
 		return err
 	}
 
-	if err = c.region.DeleteServer(ctx, organizationID, projectID, cluster.Annotations[constants.IdentityAnnotation], machineID); err != nil {
-		return err
+	pausedCluster := cluster.DeepCopy()
+	pausedCluster.Spec.Pause = true
+
+	if err := c.client.Patch(ctx, pausedCluster, client.MergeFrom(cluster)); err != nil {
+		return errors.OAuth2ServerError("failed to patch cluster").WithError(err)
+	}
+
+	// Lookup the servers and ensure they all exist...
+	servers, err := c.region.Servers(ctx, organizationID, cluster)
+	if err != nil {
+		return errors.OAuth2ServerError("failed to list servers").WithError(err)
+	}
+
+	servers = slices.DeleteFunc(servers, func(server regionapi.ServerRead) bool {
+		return !slices.Contains(request.MachineIDs, server.Metadata.Id)
+	})
+
+	if len(servers) != len(request.MachineIDs) {
+		return errors.OAuth2InvalidRequest("requested machine ID not found")
+	}
+
+	// Update the cluster...
+	scaledCluster := pausedCluster.DeepCopy()
+	scaledCluster.Spec.Pause = false
+
+	for i := range servers {
+		server := &servers[i]
+
+		poolName, err := util.GetWorkloadPoolTag(server.Metadata.Tags)
+		if err != nil {
+			return errors.OAuth2ServerError("failed to lookup server pool name")
+		}
+
+		pool, ok := scaledCluster.GetWorkloadPool(poolName)
+		if !ok {
+			return errors.OAuth2ServerError("failed to lookup server pool")
+		}
+
+		pool.Replicas--
+	}
+
+	// Kill the servers...
+	for _, id := range request.MachineIDs {
+		if err = c.region.DeleteServer(ctx, organizationID, projectID, cluster.Annotations[constants.IdentityAnnotation], id); err != nil {
+			return err
+		}
+	}
+
+	// Update the allocations...
+	if err := c.updateAllocation(ctx, scaledCluster); err != nil {
+		return errors.OAuth2ServerError("failed to update quota allocation").WithError(err)
+	}
+
+	// Commit the cluster...
+	if err := c.client.Patch(ctx, scaledCluster, client.MergeFrom(pausedCluster)); err != nil {
+		return errors.OAuth2ServerError("failed to patch cluster").WithError(err)
 	}
 
 	return nil

@@ -156,6 +156,12 @@ type ComputeImage0 = interface{}
 // ComputeImage1 defines model for .
 type ComputeImage1 = interface{}
 
+// EvictionWrite A set of machines to evict from a cluster.
+type EvictionWrite struct {
+	// MachineIDs A list of machine IDs, these are returned in the cluster status.
+	MachineIDs MachineIDList `json:"machineIDs"`
+}
+
 // FirewallRule A firewall rule applied to a workload pool.
 type FirewallRule struct {
 	// Direction The direction of network traffic to apply the rule to.
@@ -197,6 +203,9 @@ type ImageSelector struct {
 
 // KubernetesNameParameter A Kubernetes name. Must be a valid DNS containing only lower case characters, numbers or hyphens, start and end with a character or number, and be at most 63 characters in length.
 type KubernetesNameParameter = string
+
+// MachineIDList A list of machine IDs, these are returned in the cluster status.
+type MachineIDList = []string
 
 // MachinePool A Compute cluster machine pool.
 type MachinePool struct {
@@ -240,9 +249,6 @@ type Volume struct {
 // ClusterIDParameter A Kubernetes name. Must be a valid DNS containing only lower case characters, numbers or hyphens, start and end with a character or number, and be at most 63 characters in length.
 type ClusterIDParameter = KubernetesNameParameter
 
-// MachineIDParameter A Kubernetes name. Must be a valid DNS containing only lower case characters, numbers or hyphens, start and end with a character or number, and be at most 63 characters in length.
-type MachineIDParameter = KubernetesNameParameter
-
 // OrganizationIDParameter A Kubernetes name. Must be a valid DNS containing only lower case characters, numbers or hyphens, start and end with a character or number, and be at most 63 characters in length.
 type OrganizationIDParameter = KubernetesNameParameter
 
@@ -264,6 +270,9 @@ type ComputeClustersResponse = ComputeClusters
 // CreateComputeClusterRequest Compute cluster create or update.
 type CreateComputeClusterRequest = ComputeClusterWrite
 
+// EvictionRequest A set of machines to evict from a cluster.
+type EvictionRequest = EvictionWrite
+
 // GetApiV1OrganizationsOrganizationIDClustersParams defines parameters for GetApiV1OrganizationsOrganizationIDClusters.
 type GetApiV1OrganizationsOrganizationIDClustersParams struct {
 	// Tag A set of tags to match against resources in the form "name=value",
@@ -276,6 +285,9 @@ type PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersJSONRequestBod
 
 // PutApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDJSONRequestBody defines body for PutApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterID for application/json ContentType.
 type PutApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDJSONRequestBody = ComputeClusterWrite
+
+// PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDEvictJSONRequestBody defines body for PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDEvict for application/json ContentType.
+type PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDEvictJSONRequestBody = EvictionWrite
 
 // AsComputeImage0 returns the union data inside the ComputeImage as a ComputeImage0
 func (t ComputeImage) AsComputeImage0() (ComputeImage0, error) {
