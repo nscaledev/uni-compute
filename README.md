@@ -1,11 +1,8 @@
 # Compute Service
 
-![Unikorn Logo](https://raw.githubusercontent.com/unikorn-cloud/assets/main/images/logos/light-on-dark/logo.svg#gh-dark-mode-only)
-![Unikorn Logo](https://raw.githubusercontent.com/unikorn-cloud/assets/main/images/logos/dark-on-light/logo.svg#gh-light-mode-only)
-
 ## Overview
 
-The compute service is essentially a cut down version of the [Kubernetes service](https://github.com/unikorn-cloud/kubernetes) that provisions its own compute servers using hardware abstraction provided by the [Region service](https://github.com/unikorn-cloud/region).
+The compute service is essentially a cut down version of the [Kubernetes service](https://github.com/nscaledev/uni-kubernetes) that provisions its own compute servers using hardware abstraction provided by the [Region service](https://github.com/nscaledev/uni-region).
 
 Where possible, as the Compute service is very similar to the Kubernetes service, we must maintain type and API parity to ease creation of UX tools and services.
 
@@ -15,8 +12,8 @@ Where possible, as the Compute service is very similar to the Kubernetes service
 
 To use the Compute service you first need to install:
 
-* [The identity service](https://github.com/unikorn-cloud/identity) to provide API authentication and authorization.
-* [The region service](https://github.com/unikorn-cloud/region) to provide provider agnostic cloud services (e.g. images, flavors and identity management).
+* [The identity service](https://github.com/nscaledev/uni-identity) to provide API authentication and authorization.
+* [The region service](https://github.com/nscaledev/uni-region) to provide provider agnostic cloud services (e.g. images, flavors and identity management).
 
 ### Installing the Service
 
@@ -84,7 +81,7 @@ spec:
 
 ### Configuring Service Authentication and Authorization
 
-The [Identity Service](https://github.com/unikorn-cloud/identity) describes how to configure a service organization, groups and role mappings for services that require them.
+The [Identity Service](https://github.com/nscaledev/uni-identity) describes how to configure a service organization, groups and role mappings for services that require them.
 
 This service requires asynchronous access to the Region API in order to poll cloud identity and physical network status during cluster creation, and delete those resources on cluster deletion.
 
