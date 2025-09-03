@@ -625,3 +625,91 @@ func (c *Client) Evict(ctx context.Context, organizationID, projectID, clusterID
 
 	return nil
 }
+
+func (c *Client) HardRebootMachine(ctx context.Context, organizationID, projectID, clusterID, machineID string) error {
+	namespace, err := common.New(c.client).ProjectNamespace(ctx, organizationID, projectID)
+	if err != nil {
+		return err
+	}
+
+	if namespace.DeletionTimestamp != nil {
+		return errors.OAuth2InvalidRequest("compute cluster is being deleted")
+	}
+
+	cluster, err := c.get(ctx, namespace.Name, clusterID)
+	if err != nil {
+		return err
+	}
+
+	if err := c.region.HardRebootServer(ctx, organizationID, projectID, cluster.Annotations[constants.IdentityAnnotation], machineID); err != nil {
+		return errors.OAuth2ServerError("failed to hard reboot machine").WithError(err)
+	}
+
+	return nil
+}
+
+func (c *Client) SoftRebootMachine(ctx context.Context, organizationID, projectID, clusterID, machineID string) error {
+	namespace, err := common.New(c.client).ProjectNamespace(ctx, organizationID, projectID)
+	if err != nil {
+		return err
+	}
+
+	if namespace.DeletionTimestamp != nil {
+		return errors.OAuth2InvalidRequest("compute cluster is being deleted")
+	}
+
+	cluster, err := c.get(ctx, namespace.Name, clusterID)
+	if err != nil {
+		return err
+	}
+
+	if err := c.region.SoftRebootServer(ctx, organizationID, projectID, cluster.Annotations[constants.IdentityAnnotation], machineID); err != nil {
+		return errors.OAuth2ServerError("failed to soft reboot machine").WithError(err)
+	}
+
+	return nil
+}
+
+func (c *Client) StartMachine(ctx context.Context, organizationID, projectID, clusterID, machineID string) error {
+	namespace, err := common.New(c.client).ProjectNamespace(ctx, organizationID, projectID)
+	if err != nil {
+		return err
+	}
+
+	if namespace.DeletionTimestamp != nil {
+		return errors.OAuth2InvalidRequest("compute cluster is being deleted")
+	}
+
+	cluster, err := c.get(ctx, namespace.Name, clusterID)
+	if err != nil {
+		return err
+	}
+
+	if err := c.region.StartServer(ctx, organizationID, projectID, cluster.Annotations[constants.IdentityAnnotation], machineID); err != nil {
+		return errors.OAuth2ServerError("failed to start machine").WithError(err)
+	}
+
+	return nil
+}
+
+func (c *Client) StopMachine(ctx context.Context, organizationID, projectID, clusterID, machineID string) error {
+	namespace, err := common.New(c.client).ProjectNamespace(ctx, organizationID, projectID)
+	if err != nil {
+		return err
+	}
+
+	if namespace.DeletionTimestamp != nil {
+		return errors.OAuth2InvalidRequest("compute cluster is being deleted")
+	}
+
+	cluster, err := c.get(ctx, namespace.Name, clusterID)
+	if err != nil {
+		return err
+	}
+
+	if err := c.region.StopServer(ctx, organizationID, projectID, cluster.Annotations[constants.IdentityAnnotation], machineID); err != nil {
+		return errors.OAuth2ServerError("failed to stop machine").WithError(err)
+	}
+
+	return nil
+}

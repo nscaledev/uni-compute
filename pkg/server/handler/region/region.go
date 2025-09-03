@@ -214,3 +214,79 @@ func (c *Client) DeleteServer(ctx context.Context, organizationID, projectID, id
 
 	return nil
 }
+
+func (c *Client) HardRebootServer(ctx context.Context, organizationID, projectID, identityID, serverID string) error {
+	client, err := c.Client(ctx)
+	if err != nil {
+		return err
+	}
+
+	resp, err := client.PostApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDServersServerIDHardrebootWithResponse(ctx, organizationID, projectID, identityID, serverID)
+	if err != nil {
+		return err
+	}
+
+	// REVIEW_ME: The endpoint doesn't seem to return 404 when the server is not found. Maybe we should remove the check and update the OpenAPI spec?
+	if resp.StatusCode() != http.StatusAccepted && resp.StatusCode() != http.StatusNotFound {
+		return coreapiutils.ExtractError(resp.StatusCode(), resp)
+	}
+
+	return nil
+}
+
+func (c *Client) SoftRebootServer(ctx context.Context, organizationID, projectID, identityID, serverID string) error {
+	client, err := c.Client(ctx)
+	if err != nil {
+		return err
+	}
+
+	resp, err := client.PostApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDServersServerIDSoftrebootWithResponse(ctx, organizationID, projectID, identityID, serverID)
+	if err != nil {
+		return err
+	}
+
+	// REVIEW_ME: The endpoint doesn't seem to return 404 when the server is not found. Maybe we should remove the check and update the OpenAPI spec?
+	if resp.StatusCode() != http.StatusAccepted && resp.StatusCode() != http.StatusNotFound {
+		return coreapiutils.ExtractError(resp.StatusCode(), resp)
+	}
+
+	return nil
+}
+
+func (c *Client) StartServer(ctx context.Context, organizationID, projectID, identityID, serverID string) error {
+	client, err := c.Client(ctx)
+	if err != nil {
+		return err
+	}
+
+	resp, err := client.PostApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDServersServerIDStartWithResponse(ctx, organizationID, projectID, identityID, serverID)
+	if err != nil {
+		return err
+	}
+
+	// REVIEW_ME: The endpoint doesn't seem to return 404 when the server is not found. Maybe we should remove the check and update the OpenAPI spec?
+	if resp.StatusCode() != http.StatusAccepted && resp.StatusCode() != http.StatusNotFound {
+		return coreapiutils.ExtractError(resp.StatusCode(), resp)
+	}
+
+	return nil
+}
+
+func (c *Client) StopServer(ctx context.Context, organizationID, projectID, identityID, serverID string) error {
+	client, err := c.Client(ctx)
+	if err != nil {
+		return err
+	}
+
+	resp, err := client.PostApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDServersServerIDStopWithResponse(ctx, organizationID, projectID, identityID, serverID)
+	if err != nil {
+		return err
+	}
+
+	// REVIEW_ME: The endpoint doesn't seem to return 404 when the server is not found. Maybe we should remove the check and update the OpenAPI spec?
+	if resp.StatusCode() != http.StatusAccepted && resp.StatusCode() != http.StatusNotFound {
+		return coreapiutils.ExtractError(resp.StatusCode(), resp)
+	}
+
+	return nil
+}

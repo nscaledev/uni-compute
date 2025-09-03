@@ -69,6 +69,21 @@ func GetWorkloadPoolTag(tags *coreapi.TagList) (string, error) {
 	return t[index].Value, nil
 }
 
+func convertMachineStatusStatus(in regionapi.ServerStatusPhase) unikornv1.MachineStatusStatus {
+	//nolint:exhaustive
+	switch in {
+	case regionapi.Running:
+		return unikornv1.MachineStatusStatusRunning
+	case regionapi.Stopping:
+		return unikornv1.MachineStatusStatusStopping
+	case regionapi.Stopped:
+		return unikornv1.MachineStatusStatusStopped
+	default:
+		// REVIEW_ME: Should we introduce an `Unknown` status or leave it as `Pending`?
+		return unikornv1.MachineStatusStatusPending
+	}
+}
+
 // ConvertProvisioningStatusCondition converts from an OpenAPI status condition into a Kubernetes one.
 func ConvertProvisioningStatusCondition(in coreapi.ResourceProvisioningStatus) (corev1.ConditionStatus, unikornv1core.ConditionReason, string) {
 	//nolint:exhaustive
@@ -119,6 +134,7 @@ func UpdateServerStatus(cluster *unikornv1.ComputeCluster, server *regionapi.Ser
 		ImageID:   server.Spec.ImageId,
 		PrivateIP: server.Status.PrivateIP,
 		PublicIP:  server.Status.PublicIP,
+		Status:    convertMachineStatusStatus(server.Status.Phase),
 	}
 
 	provisioningStatus, provisioningReason, provisioningMessage := ConvertProvisioningStatusCondition(server.Metadata.ProvisioningStatus)
