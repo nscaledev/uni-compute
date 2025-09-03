@@ -16,6 +16,14 @@ const (
 	Oauth2AuthenticationScopes = "oauth2Authentication.Scopes"
 )
 
+// Defines values for ComputeClusterMachineStatusStatus.
+const (
+	Pending  ComputeClusterMachineStatusStatus = "Pending"
+	Running  ComputeClusterMachineStatusStatus = "Running"
+	Stopped  ComputeClusterMachineStatusStatus = "Stopped"
+	Stopping ComputeClusterMachineStatusStatus = "Stopping"
+)
+
 // Defines values for FirewallRuleDirection.
 const (
 	Egress  FirewallRuleDirection = "egress"
@@ -66,7 +74,13 @@ type ComputeClusterMachineStatus struct {
 
 	// PublicIP Machine public IP address.
 	PublicIP *string `json:"publicIP,omitempty"`
+
+	// Status Machine status.
+	Status ComputeClusterMachineStatusStatus `json:"status"`
 }
+
+// ComputeClusterMachineStatusStatus Machine status.
+type ComputeClusterMachineStatusStatus string
 
 // ComputeClusterMachinesStatus A list of Compute cluster machines status.
 type ComputeClusterMachinesStatus = []ComputeClusterMachineStatus
@@ -248,6 +262,9 @@ type Volume struct {
 
 // ClusterIDParameter A Kubernetes name. Must be a valid DNS containing only lower case characters, numbers or hyphens, start and end with a character or number, and be at most 63 characters in length.
 type ClusterIDParameter = KubernetesNameParameter
+
+// MachineIDParameter A Kubernetes name. Must be a valid DNS containing only lower case characters, numbers or hyphens, start and end with a character or number, and be at most 63 characters in length.
+type MachineIDParameter = KubernetesNameParameter
 
 // OrganizationIDParameter A Kubernetes name. Must be a valid DNS containing only lower case characters, numbers or hyphens, start and end with a character or number, and be at most 63 characters in length.
 type OrganizationIDParameter = KubernetesNameParameter

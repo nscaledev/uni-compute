@@ -217,6 +217,21 @@ func (g *generator) convertWorkloadPools(in *unikornv1.ComputeCluster) []openapi
 	return workloadPools
 }
 
+func convertMachineStatusStatus(in unikornv1.MachineStatusStatus) openapi.ComputeClusterMachineStatusStatus {
+	//nolint:exhaustive
+	switch in {
+	case unikornv1.MachineStatusStatusRunning:
+		return openapi.Running
+	case unikornv1.MachineStatusStatusStopping:
+		return openapi.Stopping
+	case unikornv1.MachineStatusStatusStopped:
+		return openapi.Stopped
+	default:
+		// REVIEW_ME: Should we introduce an `Unknown` status or leave it as `Pending`?
+		return openapi.Pending
+	}
+}
+
 func convertProvisioningStatus(in unikornv1core.ConditionReason) coreapi.ResourceProvisioningStatus {
 	//nolint:exhaustive
 	switch in {
@@ -265,6 +280,7 @@ func convertMachineStatus(in *unikornv1.MachineStatus) *openapi.ComputeClusterMa
 		ImageID:            in.ImageID,
 		PrivateIP:          in.PrivateIP,
 		PublicIP:           in.PublicIP,
+		Status:             convertMachineStatusStatus(in.Status),
 		ProvisioningStatus: provisioningStatus,
 		HealthStatus:       healthStatus,
 	}

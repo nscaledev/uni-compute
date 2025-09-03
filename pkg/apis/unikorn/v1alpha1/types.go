@@ -165,6 +165,16 @@ type WorkloadPoolStatus struct {
 	Machines []MachineStatus `json:"machines,omitempty"`
 }
 
+// +kubebuilder:validation:Enum=Pending;Running;Stopping;Stopped
+type MachineStatusStatus string
+
+const (
+	MachineStatusStatusPending  MachineStatusStatus = "Pending"
+	MachineStatusStatusRunning  MachineStatusStatus = "Running"
+	MachineStatusStatusStopping MachineStatusStatus = "Stopping"
+	MachineStatusStatusStopped  MachineStatusStatus = "Stopped"
+)
+
 type MachineStatus struct {
 	// ID is the unique identifier of the machine.
 	ID string `json:"id"`
@@ -180,6 +190,8 @@ type MachineStatus struct {
 	// PublicIP is the public IP address if requested.
 	// TODO: should be IPv4Address.
 	PublicIP *string `json:"publicIp,omitempty"`
+	// Status is the current status of the machine.
+	Status MachineStatusStatus `json:"status"`
 	// Conditions is a set of status conditions for the machine.
 	Conditions []unikornv1core.Condition `json:"conditions,omitempty"`
 }
