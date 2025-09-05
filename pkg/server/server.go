@@ -38,6 +38,7 @@ import (
 	"github.com/unikorn-cloud/core/pkg/server/middleware/timeout"
 	identityclient "github.com/unikorn-cloud/identity/pkg/client"
 	"github.com/unikorn-cloud/identity/pkg/middleware/audit"
+	"github.com/unikorn-cloud/identity/pkg/middleware/authorization"
 	openapimiddleware "github.com/unikorn-cloud/identity/pkg/middleware/openapi"
 	openapimiddlewareremote "github.com/unikorn-cloud/identity/pkg/middleware/openapi/remote"
 	regionclient "github.com/unikorn-cloud/region/pkg/client"
@@ -66,6 +67,9 @@ type Server struct {
 	// IdentityOptions are for a shared identity client.
 	IdentityOptions *identityclient.Options
 
+	// AuthOptions are for checking authentication and authorization
+	AuthOptions authorization.Options
+
 	// RegionOptions are for a shared region client.
 	RegionOptions *regionclient.Options
 
@@ -89,6 +93,7 @@ func (s *Server) AddFlags(goflags *flag.FlagSet, flags *pflag.FlagSet) {
 	s.CORSOptions.AddFlags(flags)
 	s.ClientOptions.AddFlags(flags)
 	s.IdentityOptions.AddFlags(flags)
+	s.AuthOptions.AddFlags(flags)
 	s.RegionOptions.AddFlags(flags)
 	s.OTelOptions.AddFlags(flags)
 }
@@ -148,7 +153,7 @@ func (s *Server) GetServer(client client.Client) (*http.Server, error) {
 		ErrorHandlerFunc: handler.HandleError,
 		Middlewares: []openapi.MiddlewareFunc{
 			audit.Middleware(schema, constants.Application, constants.Version),
-			openapimiddleware.Middleware(authorizer, schema),
+			openapimiddleware.Middleware(authorizer, s.AuthOptions, schema),
 		},
 	}
 
