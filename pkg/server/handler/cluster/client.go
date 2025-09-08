@@ -549,7 +549,7 @@ func (c *Client) Update(ctx context.Context, organizationID, projectID, clusterI
 // you cannot do that with Kubernetes...
 //
 //nolint:cyclop
-func (c *Client) Evict(ctx context.Context, organizationID, projectID, clusterID string, request *openapi.EvictionWrite) error {
+func (c *Client) Evict(ctx context.Context, organizationID, projectID, clusterID string, request *openapi.EvictionWrite) (derr error) {
 	namespace, err := common.New(c.client).ProjectNamespace(ctx, organizationID, projectID)
 	if err != nil {
 		return err
@@ -563,13 +563,6 @@ func (c *Client) Evict(ctx context.Context, organizationID, projectID, clusterID
 	cluster, err := c.get(ctx, namespace.Name, clusterID)
 	if err != nil {
 		return err
-	}
-
-	pausedCluster := cluster.DeepCopy()
-	pausedCluster.Spec.Pause = true
-
-	if err := c.client.Patch(ctx, pausedCluster, client.MergeFrom(cluster)); err != nil {
-		return errors.OAuth2ServerError("failed to patch cluster").WithError(err)
 	}
 
 	// Lookup the servers and ensure they all exist...
@@ -586,9 +579,29 @@ func (c *Client) Evict(ctx context.Context, organizationID, projectID, clusterID
 		return errors.OAuth2InvalidRequest("requested machine ID not found")
 	}
 
-	// Update the cluster...
-	scaledCluster := pausedCluster.DeepCopy()
-	scaledCluster.Spec.Pause = false
+	updatedCluster := cluster.DeepCopy()
+	updatedCluster.Spec.Pause = true
+
+	if err := c.client.Patch(ctx, updatedCluster, client.MergeFrom(cluster)); err != nil {
+		return errors.OAuth2ServerError("failed to patch cluster").WithError(err)
+	}
+
+	updatedClusterClone := updatedCluster.DeepCopy()
+
+	defer func() {
+		// Update the spec only if all dependencies are successfully updated.
+		// Otherwise, simply unpause the cluster and let the reconciler recreate the missing servers.
+		unpausedCluster := updatedCluster
+		if updatedCluster.Spec.Pause {
+			unpausedCluster = updatedClusterClone.DeepCopy()
+			unpausedCluster.Spec.Pause = false
+		}
+
+		if err := c.client.Patch(ctx, unpausedCluster, client.MergeFrom(updatedClusterClone)); err != nil {
+			// This derr (deferred error) should be returned to the caller, thanks to the named return value.
+			derr = errors.OAuth2ServerError("failed to patch cluster").WithError(err)
+		}
+	}()
 
 	for i := range servers {
 		server := &servers[i]
@@ -598,7 +611,7 @@ func (c *Client) Evict(ctx context.Context, organizationID, projectID, clusterID
 			return errors.OAuth2ServerError("failed to lookup server pool name")
 		}
 
-		pool, ok := scaledCluster.GetWorkloadPool(poolName)
+		pool, ok := updatedCluster.GetWorkloadPool(poolName)
 		if !ok {
 			return errors.OAuth2ServerError("failed to lookup server pool")
 		}
@@ -614,14 +627,11 @@ func (c *Client) Evict(ctx context.Context, organizationID, projectID, clusterID
 	}
 
 	// Update the allocations...
-	if err := c.updateAllocation(ctx, scaledCluster); err != nil {
+	if err := c.updateAllocation(ctx, updatedCluster); err != nil {
 		return errors.OAuth2ServerError("failed to update quota allocation").WithError(err)
 	}
 
-	// Commit the cluster...
-	if err := c.client.Patch(ctx, scaledCluster, client.MergeFrom(pausedCluster)); err != nil {
-		return errors.OAuth2ServerError("failed to patch cluster").WithError(err)
-	}
+	updatedCluster.Spec.Pause = false
 
 	return nil
 }
