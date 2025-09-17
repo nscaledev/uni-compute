@@ -200,7 +200,7 @@ paths:
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/notFoundResponse'
         '500':
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
-  /api/v1/organizations/{organizationID}/projects/{projectID}/clusters/{clusterID}/mahcines/{machineID}/start:
+  /api/v1/organizations/{organizationID}/projects/{projectID}/clusters/{clusterID}/machines/{machineID}/start:
     description: Cluster services.
     parameters:
     - $ref: '#/components/parameters/organizationIDParameter'
@@ -226,7 +226,7 @@ paths:
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/notFoundResponse'
         '500':
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
-  /api/v1/organizations/{organizationID}/projects/{projectID}/clusters/{clusterID}/mahcines/{machineID}/stop:
+  /api/v1/organizations/{organizationID}/projects/{projectID}/clusters/{clusterID}/machines/{machineID}/stop:
     description: Cluster services.
     parameters:
     - $ref: '#/components/parameters/organizationIDParameter'
@@ -252,7 +252,7 @@ paths:
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/notFoundResponse'
         '500':
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
-  /api/v1/organizations/{organizationID}/projects/{projectID}/clusters/{clusterID}/mahcines/{machineID}/softreboot:
+  /api/v1/organizations/{organizationID}/projects/{projectID}/clusters/{clusterID}/machines/{machineID}/softreboot:
     description: Cluster services.
     parameters:
     - $ref: '#/components/parameters/organizationIDParameter'
@@ -278,7 +278,7 @@ paths:
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/notFoundResponse'
         '500':
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
-  /api/v1/organizations/{organizationID}/projects/{projectID}/clusters/{clusterID}/mahcines/{machineID}/hardreboot:
+  /api/v1/organizations/{organizationID}/projects/{projectID}/clusters/{clusterID}/machines/{machineID}/hardreboot:
     description: Cluster services.
     parameters:
     - $ref: '#/components/parameters/organizationIDParameter'

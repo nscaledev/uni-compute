@@ -115,17 +115,17 @@ type ClientInterface interface {
 
 	PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDEvict(ctx context.Context, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, body PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDEvictJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDHardreboot request
-	PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDHardreboot(ctx context.Context, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDHardreboot request
+	PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDHardreboot(ctx context.Context, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDSoftreboot request
-	PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDSoftreboot(ctx context.Context, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDSoftreboot request
+	PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDSoftreboot(ctx context.Context, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDStart request
-	PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDStart(ctx context.Context, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDStart request
+	PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDStart(ctx context.Context, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDStop request
-	PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDStop(ctx context.Context, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDStop request
+	PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDStop(ctx context.Context, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetApiV1OrganizationsOrganizationIDRegions request
 	GetApiV1OrganizationsOrganizationIDRegions(ctx context.Context, organizationID OrganizationIDParameter, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -245,8 +245,8 @@ func (c *Client) PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersCl
 	return c.Client.Do(req)
 }
 
-func (c *Client) PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDHardreboot(ctx context.Context, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDHardrebootRequest(c.Server, organizationID, projectID, clusterID, machineID)
+func (c *Client) PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDHardreboot(ctx context.Context, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDHardrebootRequest(c.Server, organizationID, projectID, clusterID, machineID)
 	if err != nil {
 		return nil, err
 	}
@@ -257,8 +257,8 @@ func (c *Client) PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersCl
 	return c.Client.Do(req)
 }
 
-func (c *Client) PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDSoftreboot(ctx context.Context, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDSoftrebootRequest(c.Server, organizationID, projectID, clusterID, machineID)
+func (c *Client) PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDSoftreboot(ctx context.Context, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDSoftrebootRequest(c.Server, organizationID, projectID, clusterID, machineID)
 	if err != nil {
 		return nil, err
 	}
@@ -269,8 +269,8 @@ func (c *Client) PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersCl
 	return c.Client.Do(req)
 }
 
-func (c *Client) PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDStart(ctx context.Context, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDStartRequest(c.Server, organizationID, projectID, clusterID, machineID)
+func (c *Client) PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDStart(ctx context.Context, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDStartRequest(c.Server, organizationID, projectID, clusterID, machineID)
 	if err != nil {
 		return nil, err
 	}
@@ -281,8 +281,8 @@ func (c *Client) PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersCl
 	return c.Client.Do(req)
 }
 
-func (c *Client) PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDStop(ctx context.Context, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewPostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDStopRequest(c.Server, organizationID, projectID, clusterID, machineID)
+func (c *Client) PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDStop(ctx context.Context, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDStopRequest(c.Server, organizationID, projectID, clusterID, machineID)
 	if err != nil {
 		return nil, err
 	}
@@ -657,8 +657,8 @@ func NewPostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDEv
 	return req, nil
 }
 
-// NewPostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDHardrebootRequest generates requests for PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDHardreboot
-func NewPostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDHardrebootRequest(server string, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter) (*http.Request, error) {
+// NewPostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDHardrebootRequest generates requests for PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDHardreboot
+func NewPostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDHardrebootRequest(server string, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -694,7 +694,7 @@ func NewPostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMa
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/v1/organizations/%s/projects/%s/clusters/%s/mahcines/%s/hardreboot", pathParam0, pathParam1, pathParam2, pathParam3)
+	operationPath := fmt.Sprintf("/api/v1/organizations/%s/projects/%s/clusters/%s/machines/%s/hardreboot", pathParam0, pathParam1, pathParam2, pathParam3)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -712,8 +712,8 @@ func NewPostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMa
 	return req, nil
 }
 
-// NewPostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDSoftrebootRequest generates requests for PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDSoftreboot
-func NewPostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDSoftrebootRequest(server string, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter) (*http.Request, error) {
+// NewPostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDSoftrebootRequest generates requests for PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDSoftreboot
+func NewPostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDSoftrebootRequest(server string, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -749,7 +749,7 @@ func NewPostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMa
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/v1/organizations/%s/projects/%s/clusters/%s/mahcines/%s/softreboot", pathParam0, pathParam1, pathParam2, pathParam3)
+	operationPath := fmt.Sprintf("/api/v1/organizations/%s/projects/%s/clusters/%s/machines/%s/softreboot", pathParam0, pathParam1, pathParam2, pathParam3)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -767,8 +767,8 @@ func NewPostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMa
 	return req, nil
 }
 
-// NewPostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDStartRequest generates requests for PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDStart
-func NewPostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDStartRequest(server string, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter) (*http.Request, error) {
+// NewPostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDStartRequest generates requests for PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDStart
+func NewPostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDStartRequest(server string, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -804,7 +804,7 @@ func NewPostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMa
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/v1/organizations/%s/projects/%s/clusters/%s/mahcines/%s/start", pathParam0, pathParam1, pathParam2, pathParam3)
+	operationPath := fmt.Sprintf("/api/v1/organizations/%s/projects/%s/clusters/%s/machines/%s/start", pathParam0, pathParam1, pathParam2, pathParam3)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -822,8 +822,8 @@ func NewPostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMa
 	return req, nil
 }
 
-// NewPostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDStopRequest generates requests for PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDStop
-func NewPostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDStopRequest(server string, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter) (*http.Request, error) {
+// NewPostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDStopRequest generates requests for PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDStop
+func NewPostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDStopRequest(server string, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -859,7 +859,7 @@ func NewPostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMa
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/v1/organizations/%s/projects/%s/clusters/%s/mahcines/%s/stop", pathParam0, pathParam1, pathParam2, pathParam3)
+	operationPath := fmt.Sprintf("/api/v1/organizations/%s/projects/%s/clusters/%s/machines/%s/stop", pathParam0, pathParam1, pathParam2, pathParam3)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -1060,17 +1060,17 @@ type ClientWithResponsesInterface interface {
 
 	PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDEvictWithResponse(ctx context.Context, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, body PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDEvictJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDEvictResponse, error)
 
-	// PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDHardrebootWithResponse request
-	PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDHardrebootWithResponse(ctx context.Context, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter, reqEditors ...RequestEditorFn) (*PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDHardrebootResponse, error)
+	// PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDHardrebootWithResponse request
+	PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDHardrebootWithResponse(ctx context.Context, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter, reqEditors ...RequestEditorFn) (*PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDHardrebootResponse, error)
 
-	// PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDSoftrebootWithResponse request
-	PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDSoftrebootWithResponse(ctx context.Context, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter, reqEditors ...RequestEditorFn) (*PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDSoftrebootResponse, error)
+	// PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDSoftrebootWithResponse request
+	PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDSoftrebootWithResponse(ctx context.Context, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter, reqEditors ...RequestEditorFn) (*PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDSoftrebootResponse, error)
 
-	// PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDStartWithResponse request
-	PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDStartWithResponse(ctx context.Context, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter, reqEditors ...RequestEditorFn) (*PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDStartResponse, error)
+	// PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDStartWithResponse request
+	PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDStartWithResponse(ctx context.Context, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter, reqEditors ...RequestEditorFn) (*PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDStartResponse, error)
 
-	// PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDStopWithResponse request
-	PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDStopWithResponse(ctx context.Context, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter, reqEditors ...RequestEditorFn) (*PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDStopResponse, error)
+	// PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDStopWithResponse request
+	PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDStopWithResponse(ctx context.Context, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter, reqEditors ...RequestEditorFn) (*PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDStopResponse, error)
 
 	// GetApiV1OrganizationsOrganizationIDRegionsWithResponse request
 	GetApiV1OrganizationsOrganizationIDRegionsWithResponse(ctx context.Context, organizationID OrganizationIDParameter, reqEditors ...RequestEditorFn) (*GetApiV1OrganizationsOrganizationIDRegionsResponse, error)
@@ -1240,7 +1240,7 @@ func (r PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDEv
 	return 0
 }
 
-type PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDHardrebootResponse struct {
+type PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDHardrebootResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON400      *externalRef0.BadRequestResponse
@@ -1251,7 +1251,7 @@ type PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahci
 }
 
 // Status returns HTTPResponse.Status
-func (r PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDHardrebootResponse) Status() string {
+func (r PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDHardrebootResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -1259,14 +1259,14 @@ func (r PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMa
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDHardrebootResponse) StatusCode() int {
+func (r PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDHardrebootResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDSoftrebootResponse struct {
+type PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDSoftrebootResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON400      *externalRef0.BadRequestResponse
@@ -1277,7 +1277,7 @@ type PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahci
 }
 
 // Status returns HTTPResponse.Status
-func (r PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDSoftrebootResponse) Status() string {
+func (r PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDSoftrebootResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -1285,14 +1285,14 @@ func (r PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMa
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDSoftrebootResponse) StatusCode() int {
+func (r PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDSoftrebootResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDStartResponse struct {
+type PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDStartResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON400      *externalRef0.BadRequestResponse
@@ -1303,7 +1303,7 @@ type PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahci
 }
 
 // Status returns HTTPResponse.Status
-func (r PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDStartResponse) Status() string {
+func (r PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDStartResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -1311,14 +1311,14 @@ func (r PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMa
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDStartResponse) StatusCode() int {
+func (r PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDStartResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDStopResponse struct {
+type PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDStopResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON400      *externalRef0.BadRequestResponse
@@ -1329,7 +1329,7 @@ type PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahci
 }
 
 // Status returns HTTPResponse.Status
-func (r PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDStopResponse) Status() string {
+func (r PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDStopResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -1337,7 +1337,7 @@ func (r PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMa
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDStopResponse) StatusCode() int {
+func (r PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDStopResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -1497,40 +1497,40 @@ func (c *ClientWithResponses) PostApiV1OrganizationsOrganizationIDProjectsProjec
 	return ParsePostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDEvictResponse(rsp)
 }
 
-// PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDHardrebootWithResponse request returning *PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDHardrebootResponse
-func (c *ClientWithResponses) PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDHardrebootWithResponse(ctx context.Context, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter, reqEditors ...RequestEditorFn) (*PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDHardrebootResponse, error) {
-	rsp, err := c.PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDHardreboot(ctx, organizationID, projectID, clusterID, machineID, reqEditors...)
+// PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDHardrebootWithResponse request returning *PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDHardrebootResponse
+func (c *ClientWithResponses) PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDHardrebootWithResponse(ctx context.Context, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter, reqEditors ...RequestEditorFn) (*PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDHardrebootResponse, error) {
+	rsp, err := c.PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDHardreboot(ctx, organizationID, projectID, clusterID, machineID, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParsePostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDHardrebootResponse(rsp)
+	return ParsePostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDHardrebootResponse(rsp)
 }
 
-// PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDSoftrebootWithResponse request returning *PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDSoftrebootResponse
-func (c *ClientWithResponses) PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDSoftrebootWithResponse(ctx context.Context, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter, reqEditors ...RequestEditorFn) (*PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDSoftrebootResponse, error) {
-	rsp, err := c.PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDSoftreboot(ctx, organizationID, projectID, clusterID, machineID, reqEditors...)
+// PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDSoftrebootWithResponse request returning *PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDSoftrebootResponse
+func (c *ClientWithResponses) PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDSoftrebootWithResponse(ctx context.Context, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter, reqEditors ...RequestEditorFn) (*PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDSoftrebootResponse, error) {
+	rsp, err := c.PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDSoftreboot(ctx, organizationID, projectID, clusterID, machineID, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParsePostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDSoftrebootResponse(rsp)
+	return ParsePostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDSoftrebootResponse(rsp)
 }
 
-// PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDStartWithResponse request returning *PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDStartResponse
-func (c *ClientWithResponses) PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDStartWithResponse(ctx context.Context, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter, reqEditors ...RequestEditorFn) (*PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDStartResponse, error) {
-	rsp, err := c.PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDStart(ctx, organizationID, projectID, clusterID, machineID, reqEditors...)
+// PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDStartWithResponse request returning *PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDStartResponse
+func (c *ClientWithResponses) PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDStartWithResponse(ctx context.Context, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter, reqEditors ...RequestEditorFn) (*PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDStartResponse, error) {
+	rsp, err := c.PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDStart(ctx, organizationID, projectID, clusterID, machineID, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParsePostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDStartResponse(rsp)
+	return ParsePostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDStartResponse(rsp)
 }
 
-// PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDStopWithResponse request returning *PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDStopResponse
-func (c *ClientWithResponses) PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDStopWithResponse(ctx context.Context, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter, reqEditors ...RequestEditorFn) (*PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDStopResponse, error) {
-	rsp, err := c.PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDStop(ctx, organizationID, projectID, clusterID, machineID, reqEditors...)
+// PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDStopWithResponse request returning *PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDStopResponse
+func (c *ClientWithResponses) PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDStopWithResponse(ctx context.Context, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter, reqEditors ...RequestEditorFn) (*PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDStopResponse, error) {
+	rsp, err := c.PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDStop(ctx, organizationID, projectID, clusterID, machineID, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParsePostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDStopResponse(rsp)
+	return ParsePostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDStopResponse(rsp)
 }
 
 // GetApiV1OrganizationsOrganizationIDRegionsWithResponse request returning *GetApiV1OrganizationsOrganizationIDRegionsResponse
@@ -1898,15 +1898,15 @@ func ParsePostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterID
 	return response, nil
 }
 
-// ParsePostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDHardrebootResponse parses an HTTP response from a PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDHardrebootWithResponse call
-func ParsePostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDHardrebootResponse(rsp *http.Response) (*PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDHardrebootResponse, error) {
+// ParsePostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDHardrebootResponse parses an HTTP response from a PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDHardrebootWithResponse call
+func ParsePostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDHardrebootResponse(rsp *http.Response) (*PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDHardrebootResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDHardrebootResponse{
+	response := &PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDHardrebootResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -1952,15 +1952,15 @@ func ParsePostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterID
 	return response, nil
 }
 
-// ParsePostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDSoftrebootResponse parses an HTTP response from a PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDSoftrebootWithResponse call
-func ParsePostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDSoftrebootResponse(rsp *http.Response) (*PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDSoftrebootResponse, error) {
+// ParsePostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDSoftrebootResponse parses an HTTP response from a PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDSoftrebootWithResponse call
+func ParsePostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDSoftrebootResponse(rsp *http.Response) (*PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDSoftrebootResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDSoftrebootResponse{
+	response := &PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDSoftrebootResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -2006,15 +2006,15 @@ func ParsePostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterID
 	return response, nil
 }
 
-// ParsePostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDStartResponse parses an HTTP response from a PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDStartWithResponse call
-func ParsePostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDStartResponse(rsp *http.Response) (*PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDStartResponse, error) {
+// ParsePostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDStartResponse parses an HTTP response from a PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDStartWithResponse call
+func ParsePostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDStartResponse(rsp *http.Response) (*PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDStartResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDStartResponse{
+	response := &PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDStartResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -2060,15 +2060,15 @@ func ParsePostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterID
 	return response, nil
 }
 
-// ParsePostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDStopResponse parses an HTTP response from a PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDStopWithResponse call
-func ParsePostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDStopResponse(rsp *http.Response) (*PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDStopResponse, error) {
+// ParsePostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDStopResponse parses an HTTP response from a PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDStopWithResponse call
+func ParsePostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDStopResponse(rsp *http.Response) (*PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDStopResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDStopResponse{
+	response := &PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDStopResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}

@@ -33,17 +33,17 @@ type ServerInterface interface {
 	// (POST /api/v1/organizations/{organizationID}/projects/{projectID}/clusters/{clusterID}/evict)
 	PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDEvict(w http.ResponseWriter, r *http.Request, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter)
 
-	// (POST /api/v1/organizations/{organizationID}/projects/{projectID}/clusters/{clusterID}/mahcines/{machineID}/hardreboot)
-	PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDHardreboot(w http.ResponseWriter, r *http.Request, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter)
+	// (POST /api/v1/organizations/{organizationID}/projects/{projectID}/clusters/{clusterID}/machines/{machineID}/hardreboot)
+	PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDHardreboot(w http.ResponseWriter, r *http.Request, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter)
 
-	// (POST /api/v1/organizations/{organizationID}/projects/{projectID}/clusters/{clusterID}/mahcines/{machineID}/softreboot)
-	PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDSoftreboot(w http.ResponseWriter, r *http.Request, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter)
+	// (POST /api/v1/organizations/{organizationID}/projects/{projectID}/clusters/{clusterID}/machines/{machineID}/softreboot)
+	PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDSoftreboot(w http.ResponseWriter, r *http.Request, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter)
 
-	// (POST /api/v1/organizations/{organizationID}/projects/{projectID}/clusters/{clusterID}/mahcines/{machineID}/start)
-	PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDStart(w http.ResponseWriter, r *http.Request, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter)
+	// (POST /api/v1/organizations/{organizationID}/projects/{projectID}/clusters/{clusterID}/machines/{machineID}/start)
+	PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDStart(w http.ResponseWriter, r *http.Request, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter)
 
-	// (POST /api/v1/organizations/{organizationID}/projects/{projectID}/clusters/{clusterID}/mahcines/{machineID}/stop)
-	PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDStop(w http.ResponseWriter, r *http.Request, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter)
+	// (POST /api/v1/organizations/{organizationID}/projects/{projectID}/clusters/{clusterID}/machines/{machineID}/stop)
+	PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDStop(w http.ResponseWriter, r *http.Request, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter)
 
 	// (GET /api/v1/organizations/{organizationID}/regions)
 	GetApiV1OrganizationsOrganizationIDRegions(w http.ResponseWriter, r *http.Request, organizationID OrganizationIDParameter)
@@ -89,23 +89,23 @@ func (_ Unimplemented) PostApiV1OrganizationsOrganizationIDProjectsProjectIDClus
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// (POST /api/v1/organizations/{organizationID}/projects/{projectID}/clusters/{clusterID}/mahcines/{machineID}/hardreboot)
-func (_ Unimplemented) PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDHardreboot(w http.ResponseWriter, r *http.Request, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter) {
+// (POST /api/v1/organizations/{organizationID}/projects/{projectID}/clusters/{clusterID}/machines/{machineID}/hardreboot)
+func (_ Unimplemented) PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDHardreboot(w http.ResponseWriter, r *http.Request, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// (POST /api/v1/organizations/{organizationID}/projects/{projectID}/clusters/{clusterID}/mahcines/{machineID}/softreboot)
-func (_ Unimplemented) PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDSoftreboot(w http.ResponseWriter, r *http.Request, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter) {
+// (POST /api/v1/organizations/{organizationID}/projects/{projectID}/clusters/{clusterID}/machines/{machineID}/softreboot)
+func (_ Unimplemented) PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDSoftreboot(w http.ResponseWriter, r *http.Request, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// (POST /api/v1/organizations/{organizationID}/projects/{projectID}/clusters/{clusterID}/mahcines/{machineID}/start)
-func (_ Unimplemented) PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDStart(w http.ResponseWriter, r *http.Request, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter) {
+// (POST /api/v1/organizations/{organizationID}/projects/{projectID}/clusters/{clusterID}/machines/{machineID}/start)
+func (_ Unimplemented) PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDStart(w http.ResponseWriter, r *http.Request, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// (POST /api/v1/organizations/{organizationID}/projects/{projectID}/clusters/{clusterID}/mahcines/{machineID}/stop)
-func (_ Unimplemented) PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDStop(w http.ResponseWriter, r *http.Request, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter) {
+// (POST /api/v1/organizations/{organizationID}/projects/{projectID}/clusters/{clusterID}/machines/{machineID}/stop)
+func (_ Unimplemented) PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDStop(w http.ResponseWriter, r *http.Request, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -411,8 +411,8 @@ func (siw *ServerInterfaceWrapper) PostApiV1OrganizationsOrganizationIDProjectsP
 	handler.ServeHTTP(w, r)
 }
 
-// PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDHardreboot operation middleware
-func (siw *ServerInterfaceWrapper) PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDHardreboot(w http.ResponseWriter, r *http.Request) {
+// PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDHardreboot operation middleware
+func (siw *ServerInterfaceWrapper) PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDHardreboot(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 
@@ -459,7 +459,7 @@ func (siw *ServerInterfaceWrapper) PostApiV1OrganizationsOrganizationIDProjectsP
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDHardreboot(w, r, organizationID, projectID, clusterID, machineID)
+		siw.Handler.PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDHardreboot(w, r, organizationID, projectID, clusterID, machineID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -469,8 +469,8 @@ func (siw *ServerInterfaceWrapper) PostApiV1OrganizationsOrganizationIDProjectsP
 	handler.ServeHTTP(w, r)
 }
 
-// PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDSoftreboot operation middleware
-func (siw *ServerInterfaceWrapper) PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDSoftreboot(w http.ResponseWriter, r *http.Request) {
+// PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDSoftreboot operation middleware
+func (siw *ServerInterfaceWrapper) PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDSoftreboot(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 
@@ -517,7 +517,7 @@ func (siw *ServerInterfaceWrapper) PostApiV1OrganizationsOrganizationIDProjectsP
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDSoftreboot(w, r, organizationID, projectID, clusterID, machineID)
+		siw.Handler.PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDSoftreboot(w, r, organizationID, projectID, clusterID, machineID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -527,8 +527,8 @@ func (siw *ServerInterfaceWrapper) PostApiV1OrganizationsOrganizationIDProjectsP
 	handler.ServeHTTP(w, r)
 }
 
-// PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDStart operation middleware
-func (siw *ServerInterfaceWrapper) PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDStart(w http.ResponseWriter, r *http.Request) {
+// PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDStart operation middleware
+func (siw *ServerInterfaceWrapper) PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDStart(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 
@@ -575,7 +575,7 @@ func (siw *ServerInterfaceWrapper) PostApiV1OrganizationsOrganizationIDProjectsP
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDStart(w, r, organizationID, projectID, clusterID, machineID)
+		siw.Handler.PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDStart(w, r, organizationID, projectID, clusterID, machineID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -585,8 +585,8 @@ func (siw *ServerInterfaceWrapper) PostApiV1OrganizationsOrganizationIDProjectsP
 	handler.ServeHTTP(w, r)
 }
 
-// PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDStop operation middleware
-func (siw *ServerInterfaceWrapper) PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDStop(w http.ResponseWriter, r *http.Request) {
+// PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDStop operation middleware
+func (siw *ServerInterfaceWrapper) PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDStop(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 
@@ -633,7 +633,7 @@ func (siw *ServerInterfaceWrapper) PostApiV1OrganizationsOrganizationIDProjectsP
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDStop(w, r, organizationID, projectID, clusterID, machineID)
+		siw.Handler.PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDStop(w, r, organizationID, projectID, clusterID, machineID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -886,16 +886,16 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/api/v1/organizations/{organizationID}/projects/{projectID}/clusters/{clusterID}/evict", wrapper.PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDEvict)
 	})
 	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/api/v1/organizations/{organizationID}/projects/{projectID}/clusters/{clusterID}/mahcines/{machineID}/hardreboot", wrapper.PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDHardreboot)
+		r.Post(options.BaseURL+"/api/v1/organizations/{organizationID}/projects/{projectID}/clusters/{clusterID}/machines/{machineID}/hardreboot", wrapper.PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDHardreboot)
 	})
 	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/api/v1/organizations/{organizationID}/projects/{projectID}/clusters/{clusterID}/mahcines/{machineID}/softreboot", wrapper.PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDSoftreboot)
+		r.Post(options.BaseURL+"/api/v1/organizations/{organizationID}/projects/{projectID}/clusters/{clusterID}/machines/{machineID}/softreboot", wrapper.PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDSoftreboot)
 	})
 	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/api/v1/organizations/{organizationID}/projects/{projectID}/clusters/{clusterID}/mahcines/{machineID}/start", wrapper.PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDStart)
+		r.Post(options.BaseURL+"/api/v1/organizations/{organizationID}/projects/{projectID}/clusters/{clusterID}/machines/{machineID}/start", wrapper.PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDStart)
 	})
 	r.Group(func(r chi.Router) {
-		r.Post(options.BaseURL+"/api/v1/organizations/{organizationID}/projects/{projectID}/clusters/{clusterID}/mahcines/{machineID}/stop", wrapper.PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMahcinesMachineIDStop)
+		r.Post(options.BaseURL+"/api/v1/organizations/{organizationID}/projects/{projectID}/clusters/{clusterID}/machines/{machineID}/stop", wrapper.PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDStop)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/organizations/{organizationID}/regions", wrapper.GetApiV1OrganizationsOrganizationIDRegions)
