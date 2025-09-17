@@ -386,6 +386,7 @@ spec:
                         - hostname
                         - id
                         - imageId
+                        - status
                         type: object
                       type: array
                     name:

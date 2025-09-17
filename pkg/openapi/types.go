@@ -16,14 +16,6 @@ const (
 	Oauth2AuthenticationScopes = "oauth2Authentication.Scopes"
 )
 
-// Defines values for ComputeClusterMachineStatusStatus.
-const (
-	Pending  ComputeClusterMachineStatusStatus = "Pending"
-	Running  ComputeClusterMachineStatusStatus = "Running"
-	Stopped  ComputeClusterMachineStatusStatus = "Stopped"
-	Stopping ComputeClusterMachineStatusStatus = "Stopping"
-)
-
 // Defines values for FirewallRuleDirection.
 const (
 	Egress  FirewallRuleDirection = "egress"
@@ -75,12 +67,9 @@ type ComputeClusterMachineStatus struct {
 	// PublicIP Machine public IP address.
 	PublicIP *string `json:"publicIP,omitempty"`
 
-	// Status Machine status.
-	Status ComputeClusterMachineStatusStatus `json:"status"`
+	// Status The lifecycle phase of an instance.
+	Status externalRef1.InstanceLifecyclePhase `json:"status"`
 }
-
-// ComputeClusterMachineStatusStatus Machine status.
-type ComputeClusterMachineStatusStatus string
 
 // ComputeClusterMachinesStatus A list of Compute cluster machines status.
 type ComputeClusterMachinesStatus = []ComputeClusterMachineStatus

@@ -10,7 +10,7 @@ require (
 	github.com/spjmurray/go-util v0.1.3
 	github.com/unikorn-cloud/core v1.6.0
 	github.com/unikorn-cloud/identity v1.6.0
-	github.com/unikorn-cloud/region v1.6.0
+	github.com/unikorn-cloud/region v1.6.1-0.20250915093702-ec3e5a31edbe
 	go.opentelemetry.io/otel/sdk v1.35.0
 	k8s.io/api v0.33.1
 	k8s.io/apimachinery v0.33.1

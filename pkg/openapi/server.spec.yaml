@@ -594,13 +594,7 @@ components:
           description: Machine public IP address.
           type: string
         status:
-          description: Machine status.
-          type: string
-          enum:
-          - Pending
-          - Running
-          - Stopping
-          - Stopped
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/region/main/pkg/openapi/server.spec.yaml#/components/schemas/instanceLifecyclePhase'
         provisioningStatus:
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/schemas/resourceProvisioningStatus'
         healthStatus:
