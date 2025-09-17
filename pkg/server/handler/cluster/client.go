@@ -723,3 +723,55 @@ func (c *Client) StopMachine(ctx context.Context, organizationID, projectID, clu
 
 	return nil
 }
+
+func (c *Client) CreateConsoleSession(ctx context.Context, organizationID, projectID, clusterID, machineID string) (*regionapi.ConsoleSessionResponse, error) {
+	namespace, err := common.New(c.client).ProjectNamespace(ctx, organizationID, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	if namespace.DeletionTimestamp != nil {
+		return nil, errors.OAuth2InvalidRequest("compute cluster is being deleted")
+	}
+
+	cluster, err := c.get(ctx, namespace.Name, clusterID)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.region.CreateConsoleSession(ctx, organizationID, projectID, cluster.Annotations[constants.IdentityAnnotation], machineID)
+	if err != nil {
+		// REVIEW_ME: Is there a way to check if the underlying error is a 404 not found?
+		return nil, errors.OAuth2ServerError("failed to create console session").WithError(err)
+	}
+
+	return resp, err
+}
+
+func (c *Client) GetConsoleOutput(ctx context.Context, organizationID, projectID, clusterID, machineID string, params *openapi.GetApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDConsoleoutputParams) (*regionapi.ConsoleOutputResponse, error) {
+	namespace, err := common.New(c.client).ProjectNamespace(ctx, organizationID, projectID)
+	if err != nil {
+		return nil, err
+	}
+
+	if namespace.DeletionTimestamp != nil {
+		return nil, errors.OAuth2InvalidRequest("compute cluster is being deleted")
+	}
+
+	cluster, err := c.get(ctx, namespace.Name, clusterID)
+	if err != nil {
+		return nil, err
+	}
+
+	p := &regionapi.GetApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDServersServerIDConsoleoutputParams{
+		Length: params.Length,
+	}
+
+	resp, err := c.region.GetConsoleOutput(ctx, organizationID, projectID, cluster.Annotations[constants.IdentityAnnotation], machineID, p)
+	if err != nil {
+		// REVIEW_ME: Is there a way to check if the underlying error is a 404 not found?
+		return nil, errors.OAuth2ServerError("failed to get console output").WithError(err)
+	}
+
+	return resp, err
+}

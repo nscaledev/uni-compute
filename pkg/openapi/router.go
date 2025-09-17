@@ -33,6 +33,12 @@ type ServerInterface interface {
 	// (POST /api/v1/organizations/{organizationID}/projects/{projectID}/clusters/{clusterID}/evict)
 	PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDEvict(w http.ResponseWriter, r *http.Request, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter)
 
+	// (GET /api/v1/organizations/{organizationID}/projects/{projectID}/clusters/{clusterID}/machines/{machineID}/consoleoutput)
+	GetApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDConsoleoutput(w http.ResponseWriter, r *http.Request, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter, params GetApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDConsoleoutputParams)
+
+	// (GET /api/v1/organizations/{organizationID}/projects/{projectID}/clusters/{clusterID}/machines/{machineID}/consolesessions)
+	GetApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDConsolesessions(w http.ResponseWriter, r *http.Request, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter)
+
 	// (POST /api/v1/organizations/{organizationID}/projects/{projectID}/clusters/{clusterID}/machines/{machineID}/hardreboot)
 	PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDHardreboot(w http.ResponseWriter, r *http.Request, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter)
 
@@ -86,6 +92,16 @@ func (_ Unimplemented) PutApiV1OrganizationsOrganizationIDProjectsProjectIDClust
 
 // (POST /api/v1/organizations/{organizationID}/projects/{projectID}/clusters/{clusterID}/evict)
 func (_ Unimplemented) PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDEvict(w http.ResponseWriter, r *http.Request, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /api/v1/organizations/{organizationID}/projects/{projectID}/clusters/{clusterID}/machines/{machineID}/consoleoutput)
+func (_ Unimplemented) GetApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDConsoleoutput(w http.ResponseWriter, r *http.Request, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter, params GetApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDConsoleoutputParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /api/v1/organizations/{organizationID}/projects/{projectID}/clusters/{clusterID}/machines/{machineID}/consolesessions)
+func (_ Unimplemented) GetApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDConsolesessions(w http.ResponseWriter, r *http.Request, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -402,6 +418,133 @@ func (siw *ServerInterfaceWrapper) PostApiV1OrganizationsOrganizationIDProjectsP
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDEvict(w, r, organizationID, projectID, clusterID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDConsoleoutput operation middleware
+func (siw *ServerInterfaceWrapper) GetApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDConsoleoutput(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "organizationID" -------------
+	var organizationID OrganizationIDParameter
+
+	err = runtime.BindStyledParameterWithOptions("simple", "organizationID", chi.URLParam(r, "organizationID"), &organizationID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "organizationID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID ProjectIDParameter
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "clusterID" -------------
+	var clusterID ClusterIDParameter
+
+	err = runtime.BindStyledParameterWithOptions("simple", "clusterID", chi.URLParam(r, "clusterID"), &clusterID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "clusterID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "machineID" -------------
+	var machineID MachineIDParameter
+
+	err = runtime.BindStyledParameterWithOptions("simple", "machineID", chi.URLParam(r, "machineID"), &machineID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "machineID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, Oauth2AuthenticationScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDConsoleoutputParams
+
+	// ------------- Optional query parameter "length" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "length", r.URL.Query(), &params.Length)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "length", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDConsoleoutput(w, r, organizationID, projectID, clusterID, machineID, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDConsolesessions operation middleware
+func (siw *ServerInterfaceWrapper) GetApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDConsolesessions(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "organizationID" -------------
+	var organizationID OrganizationIDParameter
+
+	err = runtime.BindStyledParameterWithOptions("simple", "organizationID", chi.URLParam(r, "organizationID"), &organizationID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "organizationID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "projectID" -------------
+	var projectID ProjectIDParameter
+
+	err = runtime.BindStyledParameterWithOptions("simple", "projectID", chi.URLParam(r, "projectID"), &projectID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "projectID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "clusterID" -------------
+	var clusterID ClusterIDParameter
+
+	err = runtime.BindStyledParameterWithOptions("simple", "clusterID", chi.URLParam(r, "clusterID"), &clusterID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "clusterID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "machineID" -------------
+	var machineID MachineIDParameter
+
+	err = runtime.BindStyledParameterWithOptions("simple", "machineID", chi.URLParam(r, "machineID"), &machineID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "machineID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, Oauth2AuthenticationScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDConsolesessions(w, r, organizationID, projectID, clusterID, machineID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -884,6 +1027,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/organizations/{organizationID}/projects/{projectID}/clusters/{clusterID}/evict", wrapper.PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDEvict)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/organizations/{organizationID}/projects/{projectID}/clusters/{clusterID}/machines/{machineID}/consoleoutput", wrapper.GetApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDConsoleoutput)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/organizations/{organizationID}/projects/{projectID}/clusters/{clusterID}/machines/{machineID}/consolesessions", wrapper.GetApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDConsolesessions)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v1/organizations/{organizationID}/projects/{projectID}/clusters/{clusterID}/machines/{machineID}/hardreboot", wrapper.PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDHardreboot)

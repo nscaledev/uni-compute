@@ -290,3 +290,39 @@ func (c *Client) StopServer(ctx context.Context, organizationID, projectID, iden
 
 	return nil
 }
+
+func (c *Client) CreateConsoleSession(ctx context.Context, organizationID, projectID, identityID, serverID string) (*regionapi.ConsoleSessionResponse, error) {
+	client, err := c.Client(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := client.GetApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDServersServerIDConsolesessionsWithResponse(ctx, organizationID, projectID, identityID, serverID)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode() != http.StatusOK {
+		return nil, coreapiutils.ExtractError(resp.StatusCode(), resp)
+	}
+
+	return resp.JSON200, nil
+}
+
+func (c *Client) GetConsoleOutput(ctx context.Context, organizationID, projectID, identityID, serverID string, params *regionapi.GetApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDServersServerIDConsoleoutputParams) (*regionapi.ConsoleOutputResponse, error) {
+	client, err := c.Client(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := client.GetApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDServersServerIDConsoleoutputWithResponse(ctx, organizationID, projectID, identityID, serverID, params)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode() != http.StatusOK {
+		return nil, coreapiutils.ExtractError(resp.StatusCode(), resp)
+	}
+
+	return resp.JSON200, nil
+}
