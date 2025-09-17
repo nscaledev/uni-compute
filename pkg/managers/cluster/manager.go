@@ -119,13 +119,6 @@ func (*Factory) RegisterWatches(manager manager.Manager, controller controller.C
 	return nil
 }
 
-// Upgrade can perform metadata upgrades of all versioned resources on restart/upgrade
-// of the controller.  This must not affect the spec in any way as it causes split brain
-// and potential fail.
-func (*Factory) Upgrade(_ client.Client) error {
-	return nil
-}
-
 // Schemes allows controllers to add types to the client beyond
 // the defaults defined in this repository.
 func (*Factory) Schemes() []coreclient.SchemeAdder {
