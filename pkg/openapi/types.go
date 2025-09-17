@@ -66,6 +66,9 @@ type ComputeClusterMachineStatus struct {
 
 	// PublicIP Machine public IP address.
 	PublicIP *string `json:"publicIP,omitempty"`
+
+	// Status The lifecycle phase of an instance.
+	Status externalRef1.InstanceLifecyclePhase `json:"status"`
 }
 
 // ComputeClusterMachinesStatus A list of Compute cluster machines status.
@@ -248,6 +251,9 @@ type Volume struct {
 
 // ClusterIDParameter A Kubernetes name. Must be a valid DNS containing only lower case characters, numbers or hyphens, start and end with a character or number, and be at most 63 characters in length.
 type ClusterIDParameter = KubernetesNameParameter
+
+// MachineIDParameter A Kubernetes name. Must be a valid DNS containing only lower case characters, numbers or hyphens, start and end with a character or number, and be at most 63 characters in length.
+type MachineIDParameter = KubernetesNameParameter
 
 // OrganizationIDParameter A Kubernetes name. Must be a valid DNS containing only lower case characters, numbers or hyphens, start and end with a character or number, and be at most 63 characters in length.
 type OrganizationIDParameter = KubernetesNameParameter

@@ -18,6 +18,7 @@ package v1alpha1
 
 import (
 	unikornv1core "github.com/unikorn-cloud/core/pkg/apis/unikorn/v1alpha1"
+	unikornv1region "github.com/unikorn-cloud/region/pkg/apis/unikorn/v1alpha1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -180,6 +181,8 @@ type MachineStatus struct {
 	// PublicIP is the public IP address if requested.
 	// TODO: should be IPv4Address.
 	PublicIP *string `json:"publicIp,omitempty"`
+	// Status is the current status of the machine.
+	Status unikornv1region.InstanceLifecyclePhase `json:"status"`
 	// Conditions is a set of status conditions for the machine.
 	Conditions []unikornv1core.Condition `json:"conditions,omitempty"`
 }

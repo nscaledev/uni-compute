@@ -373,11 +373,20 @@ spec:
                           publicIp:
                             description: PublicIP is the public IP address if requested.
                             type: string
+                          status:
+                            description: Status is the current status of the machine.
+                            enum:
+                            - Pending
+                            - Running
+                            - Stopping
+                            - Stopped
+                            type: string
                         required:
                         - flavorId
                         - hostname
                         - id
                         - imageId
+                        - status
                         type: object
                       type: array
                     name:
