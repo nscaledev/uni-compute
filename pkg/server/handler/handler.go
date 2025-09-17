@@ -242,8 +242,7 @@ func (h *Handler) GetApiV1OrganizationsOrganizationIDProjectsProjectIDClustersCl
 		return
 	}
 
-	// REVIEW_ME: This should be cacheable, right?
-	// h.setUncacheable(w)
+	h.setUncacheable(w)
 	util.WriteJSONResponse(w, r, http.StatusOK, result)
 }
 
@@ -293,6 +292,51 @@ func (h *Handler) PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersC
 
 	h.setUncacheable(w)
 	w.WriteHeader(http.StatusAccepted)
+}
+
+func (h *Handler) GetApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDConsoleoutput(w http.ResponseWriter, r *http.Request, organizationID openapi.OrganizationIDParameter, projectID openapi.ProjectIDParameter, clusterID openapi.ClusterIDParameter, machineID openapi.MachineIDParameter) {
+	ctx := r.Context()
+
+	// FIXME: What permission is needed here?
+	// if err := rbac.AllowProjectScope(r.Context(), TBC1, TBC2, organizationID, projectID); err != nil {
+	// 	 errors.HandleError(w, r, err)
+	// 	 return
+	// }
+
+	request := &regionapi.ConsoleOutputRequest{}
+
+	if err := util.ReadJSONBody(r, request); err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	result, err := h.clusterClient().GetConsoleOutput(ctx, organizationID, projectID, clusterID, machineID, request)
+	if err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	h.setUncacheable(w)
+	util.WriteJSONResponse(w, r, http.StatusOK, result)
+}
+
+func (h *Handler) PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDConsolesessions(w http.ResponseWriter, r *http.Request, organizationID openapi.OrganizationIDParameter, projectID openapi.ProjectIDParameter, clusterID openapi.ClusterIDParameter, machineID openapi.MachineIDParameter) {
+	ctx := r.Context()
+
+	// FIXME: What permission is needed here?
+	// if err := rbac.AllowProjectScope(r.Context(), TBC1, TBC2, organizationID, projectID); err != nil {
+	// 	 errors.HandleError(w, r, err)
+	// 	 return
+	// }
+
+	result, err := h.clusterClient().CreateConsoleSession(ctx, organizationID, projectID, clusterID, machineID)
+	if err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	h.setUncacheable(w)
+	util.WriteJSONResponse(w, r, http.StatusOK, result)
 }
 
 func (h *Handler) PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDHardreboot(w http.ResponseWriter, r *http.Request, organizationID openapi.OrganizationIDParameter, projectID openapi.ProjectIDParameter, clusterID openapi.ClusterIDParameter, machineID openapi.MachineIDParameter) {
