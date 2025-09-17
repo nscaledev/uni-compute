@@ -33,6 +33,7 @@ import (
 	"github.com/unikorn-cloud/core/pkg/server/errors"
 	coreapiutils "github.com/unikorn-cloud/core/pkg/util/api"
 	"github.com/unikorn-cloud/identity/pkg/handler/common"
+	unikornv1region "github.com/unikorn-cloud/region/pkg/apis/unikorn/v1alpha1"
 	regionapi "github.com/unikorn-cloud/region/pkg/openapi"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -217,6 +218,21 @@ func (g *generator) convertWorkloadPools(in *unikornv1.ComputeCluster) []openapi
 	return workloadPools
 }
 
+func convertMachineStatusStatus(in unikornv1region.InstanceLifecyclePhase) regionapi.InstanceLifecyclePhase {
+	//nolint:exhaustive
+	switch in {
+	case unikornv1region.InstanceLifecyclePhaseRunning:
+		return regionapi.Running
+	case unikornv1region.InstanceLifecyclePhaseStopping:
+		return regionapi.Stopping
+	case unikornv1region.InstanceLifecyclePhaseStopped:
+		return regionapi.Stopped
+	default:
+		// REVIEW_ME: Should we introduce an `Unknown` status or leave it as `Pending`?
+		return regionapi.Pending
+	}
+}
+
 func convertProvisioningStatus(in unikornv1core.ConditionReason) coreapi.ResourceProvisioningStatus {
 	//nolint:exhaustive
 	switch in {
@@ -265,6 +281,7 @@ func convertMachineStatus(in *unikornv1.MachineStatus) *openapi.ComputeClusterMa
 		ImageID:            in.ImageID,
 		PrivateIP:          in.PrivateIP,
 		PublicIP:           in.PublicIP,
+		Status:             convertMachineStatusStatus(in.Status),
 		ProvisioningStatus: provisioningStatus,
 		HealthStatus:       healthStatus,
 	}

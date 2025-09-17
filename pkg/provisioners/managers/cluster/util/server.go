@@ -26,6 +26,7 @@ import (
 	unikornv1core "github.com/unikorn-cloud/core/pkg/apis/unikorn/v1alpha1"
 	coreconstants "github.com/unikorn-cloud/core/pkg/constants"
 	coreapi "github.com/unikorn-cloud/core/pkg/openapi"
+	unikornv1region "github.com/unikorn-cloud/region/pkg/apis/unikorn/v1alpha1"
 	regionapi "github.com/unikorn-cloud/region/pkg/openapi"
 
 	corev1 "k8s.io/api/core/v1"
@@ -67,6 +68,21 @@ func GetWorkloadPoolTag(tags *coreapi.TagList) (string, error) {
 	}
 
 	return t[index].Value, nil
+}
+
+func convertMachineStatusStatus(in regionapi.InstanceLifecyclePhase) unikornv1region.InstanceLifecyclePhase {
+	//nolint:exhaustive
+	switch in {
+	case regionapi.Running:
+		return unikornv1region.InstanceLifecyclePhaseRunning
+	case regionapi.Stopping:
+		return unikornv1region.InstanceLifecyclePhaseStopping
+	case regionapi.Stopped:
+		return unikornv1region.InstanceLifecyclePhaseStopped
+	default:
+		// REVIEW_ME: Should we introduce an `Unknown` status or leave it as `Pending`?
+		return unikornv1region.InstanceLifecyclePhasePending
+	}
 }
 
 // ConvertProvisioningStatusCondition converts from an OpenAPI status condition into a Kubernetes one.
@@ -119,6 +135,7 @@ func UpdateServerStatus(cluster *unikornv1.ComputeCluster, server *regionapi.Ser
 		ImageID:   server.Spec.ImageId,
 		PrivateIP: server.Status.PrivateIP,
 		PublicIP:  server.Status.PublicIP,
+		Status:    convertMachineStatusStatus(server.Status.Phase),
 	}
 
 	provisioningStatus, provisioningReason, provisioningMessage := ConvertProvisioningStatusCondition(server.Metadata.ProvisioningStatus)

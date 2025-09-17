@@ -190,6 +190,7 @@ func (p *Provisioner) reconcileServers(ctx context.Context, client regionapi.Cli
 	//   map current servers to required ones.
 	// * Instead we go through our existing servers and:
 	//   * Ignore any marked as being deleted
+	//   * Delete any that don't have a pool.
 	//   * Delete any that exceed the number seen for a particular pool
 	//   * Delete any that don't match the specification and cannot be updated
 	//   * Update those that can be updated online
@@ -212,7 +213,11 @@ func (p *Provisioner) reconcileServers(ctx context.Context, client regionapi.Cli
 
 		pool, ok := p.cluster.GetWorkloadPool(poolName)
 		if !ok {
-			return fmt.Errorf("%w: unable to find pool name %s", errors.ErrConsistency, poolName)
+			if err := p.deleteServerWrapper(ctx, client, servers, serverName); err != nil {
+				return err
+			}
+
+			continue
 		}
 
 		// Delete any servers surplus to requirements.
