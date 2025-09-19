@@ -158,7 +158,7 @@ func (h *Handler) GetApiV1OrganizationsOrganizationIDRegionsRegionIDImages(w htt
 
 	result, err := h.region.Images(ctx, organizationID, regionID)
 	if err != nil {
-		errors.HandleError(w, r, errors.OAuth2ServerError("unable to read flavors").WithError(err))
+		errors.HandleError(w, r, errors.OAuth2ServerError("unable to read images").WithError(err))
 		return
 	}
 
