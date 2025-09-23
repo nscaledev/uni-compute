@@ -12,20 +12,11 @@ var _ = Describe("Discovery and Metadata", func() {
 				// Given: A valid organization ID
 				// When: I request the list of available regions
 				regions, err := client.ListRegions(ctx, config.OrgID)
-
 				// Then: All regions accessible to the organization should be returned
 				Expect(err).NotTo(HaveOccurred())
 				Expect(regions).NotTo(BeEmpty())
-
 				// And: Each region should include necessary metadata
 				GinkgoWriter.Printf("Found %d regions\n", len(regions))
-			})
-
-			It("should handle organizations with no available regions", func() {
-				// Given: An organization with no region access
-				// When: I request the list of available regions
-				// Then: An empty list should be returned
-				// And: No error should occur
 			})
 		})
 
@@ -33,13 +24,10 @@ var _ = Describe("Discovery and Metadata", func() {
 			It("should reject requests with invalid organization IDs", func() {
 				// Given: An invalid organization ID format
 				// When: I request regions for that organization
-				// Then: The request should be rejected with 400 Bad Request
-			})
-
-			It("should reject requests with non-existent organization IDs", func() {
-				// Given: A valid format but non-existent organization ID
-				// When: I request regions for that organization
-				// Then: The request should be rejected with 404 Not Found
+				regions, err := client.ListRegions(ctx, "ABC123")
+				// Then: The request should be rejected with 403 Forbidden
+				Expect(err).To(HaveOccurred())
+				Expect(regions).To(BeEmpty())
 			})
 		})
 	})

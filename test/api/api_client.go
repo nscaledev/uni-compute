@@ -144,17 +144,25 @@ func (c *APIClient) doRequest(ctx context.Context, method, path string, body io.
 func (c *APIClient) ListRegions(ctx context.Context, orgID string) ([]map[string]interface{}, error) {
 	path := c.endpoints.ListRegions(orgID)
 
-	_, respBody, err := c.doRequest(ctx, http.MethodGet, path, nil, http.StatusOK)
+	resp, respBody, err := c.doRequest(ctx, http.MethodGet, path, nil, 0) // Don't expect specific status
 	if err != nil {
 		return nil, fmt.Errorf("listing regions: %w", err)
 	}
 
-	var regions []map[string]interface{}
-	if err := json.Unmarshal(respBody, &regions); err != nil {
-		return nil, fmt.Errorf("unmarshaling regions response: %w", err)
+	// Handle different status codes appropriately
+	switch resp.StatusCode {
+	case http.StatusOK:
+		var regions []map[string]interface{}
+		if err := json.Unmarshal(respBody, &regions); err != nil {
+			return nil, fmt.Errorf("unmarshaling regions response: %w", err)
+		}
+		return regions, nil
+	case http.StatusForbidden, http.StatusNotFound:
+		// Invalid organization ID - return empty list and error
+		return []map[string]interface{}{}, fmt.Errorf("organization '%s' not found or access denied (status: %d)", orgID, resp.StatusCode)
+	default:
+		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
-
-	return regions, nil
 }
 
 func (c *APIClient) ListFlavors(ctx context.Context, orgID, regionID string) ([]map[string]interface{}, error) {
