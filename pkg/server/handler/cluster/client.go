@@ -557,7 +557,6 @@ func (c *Client) Evict(ctx context.Context, organizationID, projectID, clusterID
 		return errors.OAuth2InvalidRequest("compute cluster is being deleted")
 	}
 
-	// Do the pause...
 	cluster, err := c.get(ctx, namespace.Name, clusterID)
 	if err != nil {
 		return err
@@ -580,6 +579,7 @@ func (c *Client) Evict(ctx context.Context, organizationID, projectID, clusterID
 	clusterToUpdate := cluster.DeepCopy()
 	clusterToUpdate.Spec.Pause = true
 
+	// Do the pause...
 	if err := c.client.Patch(ctx, clusterToUpdate, client.MergeFrom(cluster)); err != nil {
 		return errors.OAuth2ServerError("failed to patch cluster").WithError(err)
 	}
@@ -588,8 +588,10 @@ func (c *Client) Evict(ctx context.Context, organizationID, projectID, clusterID
 
 	var evictionErr error
 
-	// Update the spec only if all dependencies are successfully updated.
-	// Otherwise, simply unpause the cluster and let the reconciler recreate the missing servers.
+	// If an error occurs during actual eviction, we will not persist the updated replica count back to the CRD.
+	// Instead, the reconciler will detect the missing servers and recreate them, ensuring that server availability is maintained.
+	// The evictionErr will then be returned in the API response to inform the caller of the failure.
+	// This approach prevents failed evictions from corrupting replica counts while allowing automatic recovery.
 	if err := c.evictServers(ctx, organizationID, projectID, cluster.Annotations[constants.IdentityAnnotation], clusterToUpdate, servers); err != nil {
 		clusterToUpdate = clusterToUnpause
 		evictionErr = err
@@ -633,93 +635,6 @@ func (c *Client) evictServers(ctx context.Context, organizationID, projectID, id
 
 	return nil
 }
-
-// func (c *Client) Evict(ctx context.Context, organizationID, projectID, clusterID string, request *openapi.EvictionWrite) (derr error) {
-// 	namespace, err := common.New(c.client).ProjectNamespace(ctx, organizationID, projectID)
-// 	if err != nil {
-// 		return err
-// 	}
-//
-// 	if namespace.DeletionTimestamp != nil {
-// 		return errors.OAuth2InvalidRequest("compute cluster is being deleted")
-// 	}
-//
-// 	// Do the pause...
-// 	cluster, err := c.get(ctx, namespace.Name, clusterID)
-// 	if err != nil {
-// 		return err
-// 	}
-//
-// 	// Lookup the servers and ensure they all exist...
-// 	servers, err := c.region.Servers(ctx, organizationID, cluster)
-// 	if err != nil {
-// 		return errors.OAuth2ServerError("failed to list servers").WithError(err)
-// 	}
-//
-// 	servers = slices.DeleteFunc(servers, func(server regionapi.ServerRead) bool {
-// 		return !slices.Contains(request.MachineIDs, server.Metadata.Id)
-// 	})
-//
-// 	if len(servers) != len(request.MachineIDs) {
-// 		return errors.OAuth2InvalidRequest("requested machine ID not found")
-// 	}
-//
-// 	updatedCluster := cluster.DeepCopy()
-// 	updatedCluster.Spec.Pause = true
-//
-// 	if err := c.client.Patch(ctx, updatedCluster, client.MergeFrom(cluster)); err != nil {
-// 		return errors.OAuth2ServerError("failed to patch cluster").WithError(err)
-// 	}
-//
-// 	pausedCluster := updatedCluster.DeepCopy()
-//
-// 	defer func() {
-// 		// Update the spec only if all dependencies are successfully updated.
-// 		// Otherwise, simply unpause the cluster and let the reconciler recreate the missing servers.
-// 		unpausedCluster := updatedCluster
-// 		if updatedCluster.Spec.Pause {
-// 			unpausedCluster = pausedCluster.DeepCopy()
-// 			unpausedCluster.Spec.Pause = false
-// 		}
-//
-// 		if err := c.client.Patch(ctx, unpausedCluster, client.MergeFrom(pausedCluster)); err != nil {
-// 			// This derr (deferred error) should be returned to the caller, thanks to the named return value.
-// 			derr = errors.OAuth2ServerError("failed to patch cluster").WithError(err)
-// 		}
-// 	}()
-//
-// 	for i := range servers {
-// 		server := &servers[i]
-//
-// 		poolName, err := util.GetWorkloadPoolTag(server.Metadata.Tags)
-// 		if err != nil {
-// 			return errors.OAuth2ServerError("failed to lookup server pool name")
-// 		}
-//
-// 		pool, ok := updatedCluster.GetWorkloadPool(poolName)
-// 		if !ok {
-// 			return errors.OAuth2ServerError("failed to lookup server pool")
-// 		}
-//
-// 		pool.Replicas--
-// 	}
-//
-// 	// Kill the servers...
-// 	for _, id := range request.MachineIDs {
-// 		if err = c.region.DeleteServer(ctx, organizationID, projectID, cluster.Annotations[constants.IdentityAnnotation], id); err != nil {
-// 			return err
-// 		}
-// 	}
-//
-// 	// Update the allocations...
-// 	if err := c.updateAllocation(ctx, updatedCluster); err != nil {
-// 		return errors.OAuth2ServerError("failed to update quota allocation").WithError(err)
-// 	}
-//
-// 	updatedCluster.Spec.Pause = false
-//
-// 	return nil
-// }
 
 func (c *Client) HardRebootMachine(ctx context.Context, organizationID, projectID, clusterID, machineID string) error {
 	namespace, err := common.New(c.client).ProjectNamespace(ctx, organizationID, projectID)
