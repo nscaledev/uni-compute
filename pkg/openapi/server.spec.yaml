@@ -507,8 +507,7 @@ components:
       - machine
       properties:
         name:
-          description: Workload pool name.
-          type: string
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/schemas/kubernetesLabelValue'
         machine:
           $ref: '#/components/schemas/machinePool'
     computeClusterWorkloadPools:
@@ -551,8 +550,7 @@ components:
       - replicas
       properties:
         name:
-          description: Workload pool name.
-          type: string
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/schemas/kubernetesLabelValue'
         replicas:
           description: Number of machines.
           type: integer

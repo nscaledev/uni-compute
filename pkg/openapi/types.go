@@ -109,8 +109,9 @@ type ComputeClusterWorkloadPool struct {
 	// Machine A Compute cluster machine pool.
 	Machine MachinePool `json:"machine"`
 
-	// Name Workload pool name.
-	Name string `json:"name"`
+	// Name A valid Kubernetes label value, typically used for resource names that can be
+	// indexed in the database.
+	Name externalRef0.KubernetesLabelValue `json:"name"`
 }
 
 // ComputeClusterWorkloadPoolStatus Compute cluster workload pool status.
@@ -118,8 +119,9 @@ type ComputeClusterWorkloadPoolStatus struct {
 	// Machines A list of Compute cluster machines status.
 	Machines *ComputeClusterMachinesStatus `json:"machines,omitempty"`
 
-	// Name Workload pool name.
-	Name string `json:"name"`
+	// Name A valid Kubernetes label value, typically used for resource names that can be
+	// indexed in the database.
+	Name externalRef0.KubernetesLabelValue `json:"name"`
 
 	// Replicas Number of machines.
 	Replicas int `json:"replicas"`
