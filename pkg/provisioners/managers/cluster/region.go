@@ -99,13 +99,17 @@ func (p *Provisioner) deleteIdentity(ctx context.Context, client regionapi.Clien
 	statusCode := response.StatusCode()
 
 	// An accepted status means the API has recorded the deletion event and
-	// we can delete the cluster, a not found means it's been deleted already
-	// and again can proceed.  The goal here is not to leak resources.
-	if statusCode != http.StatusAccepted && statusCode != http.StatusNotFound {
-		return coreapiutils.ExtractError(statusCode, response)
+	// we can delete the cluster.  Yield and await deletion next time around.
+	if statusCode == http.StatusAccepted {
+		return fmt.Errorf("%w: awaiting identity deletion", provisioners.ErrYield)
 	}
 
-	return nil
+	// A not found means it's been deleted already and can proceed.
+	if statusCode == http.StatusNotFound {
+		return nil
+	}
+
+	return coreapiutils.ExtractError(statusCode, response)
 }
 
 // getNetwork returns the network associated with a compute cluster.
