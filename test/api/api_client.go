@@ -27,20 +27,17 @@ func NewAPIClient(baseURL string) *APIClient {
 	if baseURL == "" {
 		baseURL = config.BaseURL
 	}
-
-	return &APIClient{
-		baseURL: strings.TrimSuffix(baseURL, "/"),
-		client: &http.Client{
-			Timeout: config.RequestTimeout,
-		},
-		config:    config,
-		endpoints: NewEndpoints(),
-	}
+	return newAPIClientWithConfig(config, baseURL)
 }
 
 func NewAPIClientWithConfig(config *TestConfig) *APIClient {
+	return newAPIClientWithConfig(config, config.BaseURL)
+}
+
+// newAPIClientWithConfig is the common constructor logic
+func newAPIClientWithConfig(config *TestConfig, baseURL string) *APIClient {
 	return &APIClient{
-		baseURL: strings.TrimSuffix(config.BaseURL, "/"),
+		baseURL: strings.TrimSuffix(baseURL, "/"),
 		client: &http.Client{
 			Timeout: config.RequestTimeout,
 		},
@@ -52,6 +49,29 @@ func NewAPIClientWithConfig(config *TestConfig) *APIClient {
 
 func (c *APIClient) SetAuthToken(token string) {
 	c.authToken = token
+}
+
+// logError logs a generic error with trace context
+func (c *APIClient) logError(method, path string, duration time.Duration, traceParent string, err error, context string) {
+	ginkgo.GinkgoWriter.Printf("[%s %s] ERROR %s duration=%s traceparent=%s error=%v\n", method, path, context, duration, traceParent, err)
+	c.logTraceContext(traceParent)
+}
+
+// logErrorWithStatus logs an error with HTTP status code
+func (c *APIClient) logErrorWithStatus(method, path string, duration time.Duration, statusCode int, traceParent string, err error, context string) {
+	ginkgo.GinkgoWriter.Printf("[%s %s] ERROR %s duration=%s status=%d traceparent=%s error=%v\n", method, path, context, duration, statusCode, traceParent, err)
+	c.logTraceContext(traceParent)
+}
+
+// logUnexpectedStatus logs an unexpected HTTP status code
+func (c *APIClient) logUnexpectedStatus(method, path string, expectedStatus, actualStatus int, body, traceParent string) {
+	ginkgo.GinkgoWriter.Printf("[%s %s] UNEXPECTED STATUS expected=%d got=%d body=%s traceparent=%s\n", method, path, expectedStatus, actualStatus, body, traceParent)
+	c.logTraceContext(traceParent)
+}
+
+// logTraceContext logs the trace context information
+func (c *APIClient) logTraceContext(traceParent string) {
+	ginkgo.GinkgoWriter.Printf("TRACE CONTEXT: Use trace ID '%s' to search logs for this request\n", extractTraceID(traceParent))
 }
 
 // generateTraceID creates a new W3C trace ID (32 hex characters)
@@ -111,16 +131,14 @@ func (c *APIClient) doRequest(ctx context.Context, method, path string, body io.
 	duration := time.Since(start)
 
 	if err != nil {
-		ginkgo.GinkgoWriter.Printf("[%s %s] ERROR duration=%s traceparent=%s error=%v\n", method, path, duration, traceParent, err)
-		ginkgo.GinkgoWriter.Printf("TRACE CONTEXT: Use trace ID '%s' to search logs for this request\n", extractTraceID(traceParent))
+		c.logError(method, path, duration, traceParent, err, "http request failed")
 		return nil, nil, fmt.Errorf("http request failed: %w", err)
 	}
 
 	defer resp.Body.Close()
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		ginkgo.GinkgoWriter.Printf("[%s %s] ERROR reading body duration=%s status=%d traceparent=%s\n", method, path, duration, resp.StatusCode, traceParent)
-		ginkgo.GinkgoWriter.Printf("TRACE CONTEXT: Use trace ID '%s' to search logs for this request\n", extractTraceID(traceParent))
+		c.logErrorWithStatus(method, path, duration, resp.StatusCode, traceParent, err, "reading response body")
 		return resp, nil, fmt.Errorf("reading response body: %w", err)
 	}
 
@@ -133,66 +151,109 @@ func (c *APIClient) doRequest(ctx context.Context, method, path string, body io.
 	}
 
 	if expectedStatus > 0 && resp.StatusCode != expectedStatus {
-		ginkgo.GinkgoWriter.Printf("[%s %s] UNEXPECTED STATUS expected=%d got=%d body=%s traceparent=%s\n", method, path, expectedStatus, resp.StatusCode, string(respBody), traceParent)
-		ginkgo.GinkgoWriter.Printf("TRACE CONTEXT: Use trace ID '%s' to search logs for this failed request\n", extractTraceID(traceParent))
+		c.logUnexpectedStatus(method, path, expectedStatus, resp.StatusCode, string(respBody), traceParent)
 		return resp, respBody, fmt.Errorf("unexpected status code: expected %d, got %d, body: %s (trace ID: %s)", expectedStatus, resp.StatusCode, string(respBody), extractTraceID(traceParent))
 	}
 
 	return resp, respBody, nil
 }
 
-func (c *APIClient) ListRegions(ctx context.Context, orgID string) ([]map[string]interface{}, error) {
-	path := c.endpoints.ListRegions(orgID)
+// ResponseHandlerConfig configures how different status codes should be handled
+type ResponseHandlerConfig struct {
+	ResourceType   string
+	ResourceID     string
+	ResourceIDType string
+	AllowForbidden bool
+	AllowNotFound  bool
+}
 
-	resp, respBody, err := c.doRequest(ctx, http.MethodGet, path, nil, 0) // Don't expect specific status
+// ListResourceConfig defines configuration for list resource operations
+type ListResourceConfig struct {
+	ResourceType   string
+	ResourceID     string
+	ResourceIDType string
+	AllowForbidden bool
+	AllowNotFound  bool
+}
+
+// createResponseHandlerConfig creates a ResponseHandlerConfig from ListResourceConfig
+func (c *APIClient) createResponseHandlerConfig(config ListResourceConfig) ResponseHandlerConfig {
+	return ResponseHandlerConfig(config)
+}
+
+// listResource is a generic helper for list operations
+func (c *APIClient) listResource(ctx context.Context, path string, config ListResourceConfig) ([]map[string]interface{}, error) {
+	resp, respBody, err := c.doRequest(ctx, http.MethodGet, path, nil, 0)
 	if err != nil {
-		return nil, fmt.Errorf("listing regions: %w", err)
+		return nil, fmt.Errorf("listing %s: %w", config.ResourceType, err)
 	}
 
-	// Handle different status codes appropriately
+	return c.handleResourceListResponse(resp, respBody, c.createResponseHandlerConfig(config))
+}
+
+// handleResourceListResponse handles common response patterns for resource listing endpoints
+func (c *APIClient) handleResourceListResponse(resp *http.Response, respBody []byte, config ResponseHandlerConfig) ([]map[string]interface{}, error) {
 	switch resp.StatusCode {
 	case http.StatusOK:
-		var regions []map[string]interface{}
-		if err := json.Unmarshal(respBody, &regions); err != nil {
-			return nil, fmt.Errorf("unmarshaling regions response: %w", err)
+		var resources []map[string]interface{}
+		if err := json.Unmarshal(respBody, &resources); err != nil {
+			return nil, fmt.Errorf("unmarshaling %s response: %w", config.ResourceType, err)
 		}
-		return regions, nil
-	case http.StatusForbidden, http.StatusNotFound:
-		// Invalid organization ID - return empty list and error
-		return []map[string]interface{}{}, fmt.Errorf("organization '%s' not found or access denied (status: %d)", orgID, resp.StatusCode)
+		return resources, nil
+	case http.StatusNotFound:
+		if config.AllowNotFound {
+			// Return empty list with error for test scenarios
+			return []map[string]interface{}{}, fmt.Errorf("%s '%s' not found (status: %d)", config.ResourceIDType, config.ResourceID, resp.StatusCode)
+		}
+		// Return error without empty list
+		return nil, fmt.Errorf("%s '%s' not found (status: %d)", config.ResourceIDType, config.ResourceID, resp.StatusCode)
+	case http.StatusForbidden:
+		if config.AllowForbidden {
+			// Return empty list with error for test scenarios
+			return []map[string]interface{}{}, fmt.Errorf("%s '%s' access denied (status: %d)", config.ResourceIDType, config.ResourceID, resp.StatusCode)
+		}
+		// Return error without empty list
+		return nil, fmt.Errorf("%s '%s' access denied (status: %d)", config.ResourceIDType, config.ResourceID, resp.StatusCode)
+	case http.StatusInternalServerError:
+		// Server error - always return empty list and error for test scenarios
+		return []map[string]interface{}{}, fmt.Errorf("server error reading %s for %s '%s' (status: %d): %s", config.ResourceType, config.ResourceIDType, config.ResourceID, resp.StatusCode, string(respBody))
 	default:
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 }
 
+func (c *APIClient) ListRegions(ctx context.Context, orgID string) ([]map[string]interface{}, error) {
+	path := c.endpoints.ListRegions(orgID)
+	config := ListResourceConfig{
+		ResourceType:   "regions",
+		ResourceID:     orgID,
+		ResourceIDType: "organization",
+		AllowForbidden: true,
+		AllowNotFound:  true,
+	}
+	return c.listResource(ctx, path, config)
+}
+
 func (c *APIClient) ListFlavors(ctx context.Context, orgID, regionID string) ([]map[string]interface{}, error) {
 	path := c.endpoints.ListFlavors(orgID, regionID)
-
-	_, respBody, err := c.doRequest(ctx, http.MethodGet, path, nil, http.StatusOK)
-	if err != nil {
-		return nil, fmt.Errorf("listing flavors: %w", err)
+	config := ListResourceConfig{
+		ResourceType:   "flavors",
+		ResourceID:     regionID,
+		ResourceIDType: "region",
+		AllowForbidden: true,
+		AllowNotFound:  true,
 	}
-
-	var flavors []map[string]interface{}
-	if err := json.Unmarshal(respBody, &flavors); err != nil {
-		return nil, fmt.Errorf("unmarshaling flavors response: %w", err)
-	}
-
-	return flavors, nil
+	return c.listResource(ctx, path, config)
 }
 
 func (c *APIClient) ListImages(ctx context.Context, orgID, regionID string) ([]map[string]interface{}, error) {
 	path := c.endpoints.ListImages(orgID, regionID)
-
-	_, respBody, err := c.doRequest(ctx, http.MethodGet, path, nil, http.StatusOK)
-	if err != nil {
-		return nil, fmt.Errorf("listing images: %w", err)
+	config := ListResourceConfig{
+		ResourceType:   "images",
+		ResourceID:     regionID,
+		ResourceIDType: "region",
+		AllowForbidden: true,
+		AllowNotFound:  true,
 	}
-
-	var images []map[string]interface{}
-	if err := json.Unmarshal(respBody, &images); err != nil {
-		return nil, fmt.Errorf("unmarshaling images response: %w", err)
-	}
-
-	return images, nil
+	return c.listResource(ctx, path, config)
 }
