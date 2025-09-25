@@ -547,8 +547,6 @@ func (c *Client) Update(ctx context.Context, organizationID, projectID, clusterI
 // Pause cluster reconciliation, kill the requested servers, update the allocations, update
 // the cluster and unpause it.  Ideally everything would be a nice atomic transaction, but
 // you cannot do that with Kubernetes...
-//
-//nolint:cyclop
 func (c *Client) Evict(ctx context.Context, organizationID, projectID, clusterID string, request *openapi.EvictionWrite) error {
 	namespace, err := common.New(c.client).ProjectNamespace(ctx, organizationID, projectID)
 	if err != nil {
@@ -559,17 +557,9 @@ func (c *Client) Evict(ctx context.Context, organizationID, projectID, clusterID
 		return errors.OAuth2InvalidRequest("compute cluster is being deleted")
 	}
 
-	// Do the pause...
 	cluster, err := c.get(ctx, namespace.Name, clusterID)
 	if err != nil {
 		return err
-	}
-
-	pausedCluster := cluster.DeepCopy()
-	pausedCluster.Spec.Pause = true
-
-	if err := c.client.Patch(ctx, pausedCluster, client.MergeFrom(cluster)); err != nil {
-		return errors.OAuth2ServerError("failed to patch cluster").WithError(err)
 	}
 
 	// Lookup the servers and ensure they all exist...
@@ -586,10 +576,37 @@ func (c *Client) Evict(ctx context.Context, organizationID, projectID, clusterID
 		return errors.OAuth2InvalidRequest("requested machine ID not found")
 	}
 
-	// Update the cluster...
-	scaledCluster := pausedCluster.DeepCopy()
-	scaledCluster.Spec.Pause = false
+	clusterToUpdate := cluster.DeepCopy()
+	clusterToUpdate.Spec.Pause = true
 
+	// Do the pause...
+	if err := c.client.Patch(ctx, clusterToUpdate, client.MergeFrom(cluster)); err != nil {
+		return errors.OAuth2ServerError("failed to patch cluster").WithError(err)
+	}
+
+	clusterToUnpause := clusterToUpdate.DeepCopy()
+
+	var evictionErr error
+
+	// If an error occurs during actual eviction, we will not persist the updated replica count back to the CRD.
+	// Instead, the reconciler will detect the missing servers and recreate them, ensuring that server availability is maintained.
+	// The evictionErr will then be returned in the API response to inform the caller of the failure.
+	// This approach prevents failed evictions from corrupting replica counts while allowing automatic recovery.
+	if err := c.evictServers(ctx, organizationID, projectID, cluster.Annotations[constants.IdentityAnnotation], clusterToUpdate, servers); err != nil {
+		clusterToUpdate = clusterToUnpause.DeepCopy()
+		evictionErr = err
+	}
+
+	clusterToUpdate.Spec.Pause = false
+
+	if err := c.client.Patch(ctx, clusterToUpdate, client.MergeFrom(clusterToUnpause)); err != nil {
+		return errors.OAuth2ServerError("failed to patch cluster").WithError(err)
+	}
+
+	return evictionErr
+}
+
+func (c *Client) evictServers(ctx context.Context, organizationID, projectID, identityID string, resource *unikornv1.ComputeCluster, servers []regionapi.ServerRead) error {
 	for i := range servers {
 		server := &servers[i]
 
@@ -598,7 +615,7 @@ func (c *Client) Evict(ctx context.Context, organizationID, projectID, clusterID
 			return errors.OAuth2ServerError("failed to lookup server pool name")
 		}
 
-		pool, ok := scaledCluster.GetWorkloadPool(poolName)
+		pool, ok := resource.GetWorkloadPool(poolName)
 		if !ok {
 			return errors.OAuth2ServerError("failed to lookup server pool")
 		}
@@ -606,21 +623,14 @@ func (c *Client) Evict(ctx context.Context, organizationID, projectID, clusterID
 		pool.Replicas--
 	}
 
-	// Kill the servers...
-	for _, id := range request.MachineIDs {
-		if err = c.region.DeleteServer(ctx, organizationID, projectID, cluster.Annotations[constants.IdentityAnnotation], id); err != nil {
+	for _, server := range servers {
+		if err := c.region.DeleteServer(ctx, organizationID, projectID, identityID, server.Metadata.Id); err != nil {
 			return err
 		}
 	}
 
-	// Update the allocations...
-	if err := c.updateAllocation(ctx, scaledCluster); err != nil {
+	if err := c.updateAllocation(ctx, resource); err != nil {
 		return errors.OAuth2ServerError("failed to update quota allocation").WithError(err)
-	}
-
-	// Commit the cluster...
-	if err := c.client.Patch(ctx, scaledCluster, client.MergeFrom(pausedCluster)); err != nil {
-		return errors.OAuth2ServerError("failed to patch cluster").WithError(err)
 	}
 
 	return nil
