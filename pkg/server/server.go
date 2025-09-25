@@ -38,8 +38,8 @@ import (
 	"github.com/unikorn-cloud/core/pkg/server/middleware/timeout"
 	identityclient "github.com/unikorn-cloud/identity/pkg/client"
 	"github.com/unikorn-cloud/identity/pkg/middleware/audit"
-	"github.com/unikorn-cloud/identity/pkg/middleware/authorization"
 	openapimiddleware "github.com/unikorn-cloud/identity/pkg/middleware/openapi"
+	"github.com/unikorn-cloud/identity/pkg/middleware/openapi/hybrid"
 	openapimiddlewareremote "github.com/unikorn-cloud/identity/pkg/middleware/openapi/remote"
 	regionclient "github.com/unikorn-cloud/region/pkg/client"
 
@@ -66,9 +66,8 @@ type Server struct {
 
 	// IdentityOptions are for a shared identity client.
 	IdentityOptions *identityclient.Options
-
-	// AuthOptions are for checking authentication and authorization
-	AuthOptions authorization.Options
+	// ExternalOIDCOptions specifies an external OIDC platform to use for authentication.
+	ExternalOIDCOptions *identityclient.Options
 
 	// RegionOptions are for a shared region client.
 	RegionOptions *regionclient.Options
@@ -80,6 +79,9 @@ type Server struct {
 func (s *Server) AddFlags(goflags *flag.FlagSet, flags *pflag.FlagSet) {
 	if s.IdentityOptions == nil {
 		s.IdentityOptions = identityclient.NewOptions()
+	}
+	if s.ExternalOIDCOptions == nil {
+		s.ExternalOIDCOptions = identityclient.NewOIDCOptions()
 	}
 
 	if s.RegionOptions == nil {
@@ -93,7 +95,7 @@ func (s *Server) AddFlags(goflags *flag.FlagSet, flags *pflag.FlagSet) {
 	s.CORSOptions.AddFlags(flags)
 	s.ClientOptions.AddFlags(flags)
 	s.IdentityOptions.AddFlags(flags)
-	s.AuthOptions.AddFlags(flags)
+	s.ExternalOIDCOptions.AddFlags(flags)
 	s.RegionOptions.AddFlags(flags)
 	s.OTelOptions.AddFlags(flags)
 }
@@ -144,7 +146,14 @@ func (s *Server) GetServer(client client.Client) (*http.Server, error) {
 	router.NotFound(http.HandlerFunc(handler.NotFound))
 	router.MethodNotAllowed(http.HandlerFunc(handler.MethodNotAllowed))
 
-	authorizer := openapimiddlewareremote.NewAuthorizer(client, s.IdentityOptions, &s.ClientOptions)
+	var authorizer openapimiddleware.Authorizer
+	if s.ExternalOIDCOptions.Host() == "" {
+		authorizer = openapimiddlewareremote.NewAuthorizer(client, s.IdentityOptions, &s.ClientOptions)
+	} else {
+		externalAuth := openapimiddlewareremote.NewRemoteAuthenticator(client, s.ExternalOIDCOptions, &s.ClientOptions)
+		identityAuth := openapimiddlewareremote.NewAuthorizer(client, s.IdentityOptions, &s.ClientOptions) // so we get ACLs from identity service as well
+		authorizer = hybrid.NewHybridAuthorizer(identityAuth, externalAuth, identityAuth)
+	}
 
 	// Middleware specified here is applied to all requests post-routing.
 	// NOTE: these are applied in reverse order!!
@@ -153,7 +162,7 @@ func (s *Server) GetServer(client client.Client) (*http.Server, error) {
 		ErrorHandlerFunc: handler.HandleError,
 		Middlewares: []openapi.MiddlewareFunc{
 			audit.Middleware(schema, constants.Application, constants.Version),
-			openapimiddleware.Middleware(authorizer, s.AuthOptions, schema),
+			openapimiddleware.Middleware(authorizer, schema),
 		},
 	}
 

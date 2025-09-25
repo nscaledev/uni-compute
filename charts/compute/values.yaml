@@ -71,9 +71,9 @@ compute:
   host: compute.unikorn-cloud.org
 
 identity:
-  # OIDC issuer used to discover OIDC configuration and verify access tokens.
+  # Identity service, used for authorisation and (if external OIDC is _not_ set) for authentication
   host: identity.unikorn-cloud.org
-  externalIssuers: ~
+  externalOIDCHost: ~
 
 region:
   # Region controller URL.
