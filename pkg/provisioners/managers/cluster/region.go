@@ -39,7 +39,7 @@ import (
 // TODO: the client should be cached for an appropriate period to avoid polluting the
 // caches in identity with new tokens during busy periods.
 func (p *Provisioner) getRegionClient(ctx context.Context, traceName string) (regionapi.ClientWithResponsesInterface, error) {
-	cli, err := coreclient.ProvisionerClientFromContext(ctx)
+	cli, err := coreclient.FromContext(ctx)
 	if err != nil {
 		return nil, err
 	}
