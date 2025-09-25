@@ -593,9 +593,11 @@ func (c *Client) Evict(ctx context.Context, organizationID, projectID, clusterID
 	// The evictionErr will then be returned in the API response to inform the caller of the failure.
 	// This approach prevents failed evictions from corrupting replica counts while allowing automatic recovery.
 	if err := c.evictServers(ctx, organizationID, projectID, cluster.Annotations[constants.IdentityAnnotation], clusterToUpdate, servers); err != nil {
-		clusterToUpdate = clusterToUnpause
+		clusterToUpdate = clusterToUnpause.DeepCopy()
 		evictionErr = err
 	}
+
+	clusterToUpdate.Spec.Pause = false
 
 	if err := c.client.Patch(ctx, clusterToUpdate, client.MergeFrom(clusterToUnpause)); err != nil {
 		return errors.OAuth2ServerError("failed to patch cluster").WithError(err)
@@ -630,8 +632,6 @@ func (c *Client) evictServers(ctx context.Context, organizationID, projectID, id
 	if err := c.updateAllocation(ctx, resource); err != nil {
 		return errors.OAuth2ServerError("failed to update quota allocation").WithError(err)
 	}
-
-	resource.Spec.Pause = false
 
 	return nil
 }
