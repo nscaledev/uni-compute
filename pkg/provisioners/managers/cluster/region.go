@@ -39,7 +39,7 @@ import (
 // TODO: the client should be cached for an appropriate period to avoid polluting the
 // caches in identity with new tokens during busy periods.
 func (p *Provisioner) getRegionClient(ctx context.Context, traceName string) (regionapi.ClientWithResponsesInterface, error) {
-	cli, err := coreclient.ProvisionerClientFromContext(ctx)
+	cli, err := coreclient.FromContext(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -240,51 +240,23 @@ func (p *Provisioner) createSecurityGroup(ctx context.Context, client regionapi.
 	return resp.JSON201, nil
 }
 
-// deleteSecurityGroup delete's a security group.
-func (p *Provisioner) deleteSecurityGroup(ctx context.Context, client regionapi.ClientWithResponsesInterface, id string) error {
-	resp, err := client.DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDSecuritygroupsSecurityGroupIDWithResponse(ctx, p.cluster.Labels[coreconstants.OrganizationLabel], p.cluster.Labels[coreconstants.ProjectLabel], p.cluster.Annotations[coreconstants.IdentityAnnotation], id)
-	if err != nil {
-		return err
-	}
-
-	if resp.StatusCode() != http.StatusAccepted && resp.StatusCode() != http.StatusNotFound {
-		return coreapiutils.ExtractError(resp.StatusCode(), resp)
-	}
-
-	return nil
-}
-
-// listSecurityGroupRules lists all security group rules for a security group.
-func (p *Provisioner) listSecurityGroupRules(ctx context.Context, client regionapi.ClientWithResponsesInterface, securityGroupID string) (regionapi.SecurityGroupRulesRead, error) {
-	response, err := client.GetApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDSecuritygroupsSecurityGroupIDRulesWithResponse(ctx, p.cluster.Labels[coreconstants.OrganizationLabel], p.cluster.Labels[coreconstants.ProjectLabel], p.cluster.Annotations[coreconstants.IdentityAnnotation], securityGroupID)
+// updateSecurityGroup updates a security group.
+func (p *Provisioner) updateSecurityGroup(ctx context.Context, client regionapi.ClientWithResponsesInterface, id string, request *regionapi.SecurityGroupWrite) (*regionapi.SecurityGroupRead, error) {
+	resp, err := client.PutApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDSecuritygroupsSecurityGroupIDWithResponse(ctx, p.cluster.Labels[coreconstants.OrganizationLabel], p.cluster.Labels[coreconstants.ProjectLabel], p.cluster.Annotations[coreconstants.IdentityAnnotation], id, *request)
 	if err != nil {
 		return nil, err
 	}
 
-	if response.StatusCode() != http.StatusOK {
-		return nil, coreapiutils.ExtractError(response.StatusCode(), response)
-	}
-
-	return *response.JSON200, nil
-}
-
-// createSecurityGroupRule creates a security group rule.
-func (p *Provisioner) createSecurityGroupRule(ctx context.Context, client regionapi.ClientWithResponsesInterface, securityGroupID string, request *regionapi.SecurityGroupRuleWrite) (*regionapi.SecurityGroupRuleRead, error) {
-	resp, err := client.PostApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDSecuritygroupsSecurityGroupIDRulesWithResponse(ctx, p.cluster.Labels[coreconstants.OrganizationLabel], p.cluster.Labels[coreconstants.ProjectLabel], p.cluster.Annotations[coreconstants.IdentityAnnotation], securityGroupID, *request)
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.StatusCode() != http.StatusCreated {
+	if resp.StatusCode() != http.StatusAccepted {
 		return nil, coreapiutils.ExtractError(resp.StatusCode(), resp)
 	}
 
-	return resp.JSON201, nil
+	return resp.JSON202, nil
 }
 
-// deleteSecurityGroupRule deletes a security group rule.
-func (p *Provisioner) deleteSecurityGroupRule(ctx context.Context, client regionapi.ClientWithResponsesInterface, securityGroupID, ruleID string) error {
-	resp, err := client.DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDSecuritygroupsSecurityGroupIDRulesRuleIDWithResponse(ctx, p.cluster.Labels[coreconstants.OrganizationLabel], p.cluster.Labels[coreconstants.ProjectLabel], p.cluster.Annotations[coreconstants.IdentityAnnotation], securityGroupID, ruleID)
+// deleteSecurityGroup delete's a security group.
+func (p *Provisioner) deleteSecurityGroup(ctx context.Context, client regionapi.ClientWithResponsesInterface, id string) error {
+	resp, err := client.DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDSecuritygroupsSecurityGroupIDWithResponse(ctx, p.cluster.Labels[coreconstants.OrganizationLabel], p.cluster.Labels[coreconstants.ProjectLabel], p.cluster.Annotations[coreconstants.IdentityAnnotation], id)
 	if err != nil {
 		return err
 	}
