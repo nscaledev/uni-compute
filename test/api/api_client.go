@@ -34,7 +34,7 @@ func NewAPIClientWithConfig(config *TestConfig) *APIClient {
 	return newAPIClientWithConfig(config, config.BaseURL)
 }
 
-// newAPIClientWithConfig is the common constructor logic
+// common constructor logic
 func newAPIClientWithConfig(config *TestConfig, baseURL string) *APIClient {
 	return &APIClient{
 		baseURL: strings.TrimSuffix(baseURL, "/"),
@@ -74,7 +74,7 @@ func (c *APIClient) logTraceContext(traceParent string) {
 	ginkgo.GinkgoWriter.Printf("TRACE CONTEXT: Use trace ID '%s' to search logs for this request\n", extractTraceID(traceParent))
 }
 
-// generateTraceID creates a new W3C trace ID (32 hex characters)
+// generateTraceID creates a new W3C trace ID
 // we are using this to create a new trace ID for each request so if an error occurs we can find the request in the logs
 func generateTraceID() string {
 	bytes := make([]byte, 16)
@@ -82,7 +82,7 @@ func generateTraceID() string {
 	return hex.EncodeToString(bytes)
 }
 
-// generateSpanID creates a new W3C span ID (16 hex characters)
+// generateSpanID creates a new W3C span ID
 func generateSpanID() string {
 	bytes := make([]byte, 8)
 	rand.Read(bytes)
@@ -202,7 +202,7 @@ func (c *APIClient) handleResourceListResponse(resp *http.Response, respBody []b
 		return resources, nil
 	case http.StatusNotFound:
 		if config.AllowNotFound {
-			// Return empty list with error for test scenarios
+			// Return empty list with error for test scenarios (as sometimes we want to test the error case)
 			return []map[string]interface{}{}, fmt.Errorf("%s '%s' not found (status: %d)", config.ResourceIDType, config.ResourceID, resp.StatusCode)
 		}
 		// Return error without empty list
@@ -256,4 +256,77 @@ func (c *APIClient) ListImages(ctx context.Context, orgID, regionID string) ([]m
 		AllowNotFound:  true,
 	}
 	return c.listResource(ctx, path, config)
+}
+
+// CreateCluster creates a new compute cluster
+func (c *APIClient) CreateCluster(ctx context.Context, orgID, projectID string, body map[string]interface{}) (map[string]interface{}, error) {
+	path := c.endpoints.CreateCluster(orgID, projectID)
+
+	bodyBytes, err := json.Marshal(body)
+	if err != nil {
+		return nil, fmt.Errorf("marshaling cluster body: %w", err)
+	}
+
+	_, respBody, err := c.doRequest(ctx, http.MethodPost, path, strings.NewReader(string(bodyBytes)), http.StatusAccepted)
+	if err != nil {
+		return nil, fmt.Errorf("creating cluster: %w", err)
+	}
+
+	var cluster map[string]interface{}
+	if err := json.Unmarshal(respBody, &cluster); err != nil {
+		return nil, fmt.Errorf("unmarshaling cluster response: %w", err)
+	}
+
+	return cluster, nil
+}
+
+// GetCluster retrieves a specific cluster
+// Im using this to poll with eventually to wait for the cluster to be provisioned
+func (c *APIClient) GetCluster(ctx context.Context, orgID, projectID, clusterID string) (map[string]interface{}, error) {
+	path := c.endpoints.GetCluster(orgID, projectID, clusterID)
+
+	resp, respBody, err := c.doRequest(ctx, http.MethodGet, path, nil, 0)
+	if err != nil {
+		return nil, fmt.Errorf("getting cluster: %w", err)
+	}
+
+	switch resp.StatusCode {
+	case http.StatusOK:
+		var cluster map[string]interface{}
+		if err := json.Unmarshal(respBody, &cluster); err != nil {
+			return nil, fmt.Errorf("unmarshaling cluster response: %w", err)
+		}
+		return cluster, nil
+	case http.StatusNotFound:
+		return nil, fmt.Errorf("cluster '%s' not found (status: %d)", clusterID, resp.StatusCode)
+	case http.StatusForbidden:
+		return nil, fmt.Errorf("cluster '%s' access denied (status: %d)", clusterID, resp.StatusCode)
+	default:
+		return nil, fmt.Errorf("unexpected status code: %d, body: %s", resp.StatusCode, string(respBody))
+	}
+}
+
+// ListClusters lists all clusters for a project
+func (c *APIClient) ListClusters(ctx context.Context, orgID, projectID string) ([]map[string]interface{}, error) {
+	path := c.endpoints.ListClusters(orgID, projectID)
+	config := ListResourceConfig{
+		ResourceType:   "clusters",
+		ResourceID:     projectID,
+		ResourceIDType: "project",
+		AllowForbidden: true,
+		AllowNotFound:  true,
+	}
+	return c.listResource(ctx, path, config)
+}
+
+// DeleteCluster deletes a cluster
+func (c *APIClient) DeleteCluster(ctx context.Context, orgID, projectID, clusterID string) error {
+	path := c.endpoints.DeleteCluster(orgID, projectID, clusterID)
+
+	_, _, err := c.doRequest(ctx, http.MethodDelete, path, nil, http.StatusAccepted)
+	if err != nil {
+		return fmt.Errorf("deleting cluster: %w", err)
+	}
+
+	return nil
 }

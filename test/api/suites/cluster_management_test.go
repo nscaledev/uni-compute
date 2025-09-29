@@ -2,54 +2,76 @@ package suites
 
 import (
 	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"github.com/unikorn-cloud/compute/test/api"
 )
 
 var _ = Describe("Core Cluster Management", func() {
 	Context("When creating a new compute cluster", func() {
 		Describe("Given valid cluster configuration", func() {
 			It("should successfully create the cluster", func() {
-				// Given: A valid cluster configuration with workload pools
-				// When: I submit a cluster creation request
-				// Then: The cluster should be created successfully
-				// And: The cluster should have the correct status
-				// And: The workload pools should be configured
-			})
+				cluster, clusterID := api.CreateClusterWithCleanup(client, ctx, config,
+					api.NewClusterPayload().
+						WithRegionID(config.RegionID).
+						Build())
 
-			It("should assign the cluster to the correct project", func() {
-				// Given: A valid cluster configuration for a specific project
-				// When: I create the cluster
-				// Then: The cluster should be assigned to the specified project
-				// And: The cluster should be visible in the project's cluster list
+				Expect(cluster).To(HaveKey("metadata"))
+				metadata := cluster["metadata"].(map[string]interface{})
+				spec := cluster["spec"].(map[string]interface{})
+				Expect(metadata).To(HaveKey("id"))
+				Expect(metadata["id"]).NotTo(BeEmpty())
+				Expect(metadata["id"]).To(Equal(clusterID))
+				Expect(metadata["projectId"]).To(Equal(config.ProjectID))
+				Expect(metadata["organizationId"]).To(Equal(config.OrgID))
+				Expect(spec["regionId"]).To(Equal(config.RegionID))
 			})
 		})
 
 		Describe("Given invalid cluster configuration", func() {
 			It("should reject cluster creation with missing required fields", func() {
-				// Given: A cluster configuration missing required fields
-				// When: I attempt to create the cluster
-				// Then: The request should be rejected
-				// And: An appropriate error message should be returned
-			})
+				_, err := client.CreateCluster(ctx, config.OrgID, config.ProjectID,
+					api.NewClusterPayload().
+						WithRegionID(""). // Empty regionID to test missing required field
+						Build())
 
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("400"))
+				Expect(err.Error()).To(ContainSubstring("invalid_request"))
+			})
+			//TODO: this is currently returning an ungraceful error, should be handled better, will update this test when that is fixed
 			It("should reject cluster creation with invalid flavor", func() {
-				// Given: A cluster configuration with an unsupported flavor
-				// When: I attempt to create the cluster
-				// Then: The request should be rejected
-				// And: An error indicating invalid flavor should be returned
+				_, err := client.CreateCluster(ctx, config.OrgID, config.ProjectID,
+					api.NewClusterPayload().
+						WithRegionID(config.RegionID).
+						WithFlavorID("invalid-flavor-id").
+						Build())
+
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("500"))
+				Expect(err.Error()).To(ContainSubstring("unhandled error"))
 			})
 
 			It("should reject cluster creation with invalid image", func() {
-				// Given: A cluster configuration with an unsupported image
-				// When: I attempt to create the cluster
-				// Then: The request should be rejected
-				// And: An error indicating invalid image should be returned
-			})
+				_, err := client.CreateCluster(ctx, config.OrgID, config.ProjectID,
+					api.NewClusterPayload().
+						WithRegionID(config.RegionID).
+						WithImageID("invalid-image-id").
+						Build())
 
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("500"))
+				Expect(err.Error()).To(ContainSubstring("unable to select an image"))
+			})
+			//TODO: this is currently returning an ungraceful error, should be handled better, will update this test when that is fixed
 			It("should reject cluster creation with invalid region", func() {
-				// Given: A cluster configuration for with an invalid regionId
-				// When: I attempt to create the cluster
-				// Then: The request should be rejected
-				// And: An error indicating invalid region should be returned
+				_, err := client.CreateCluster(ctx, config.OrgID, config.ProjectID,
+					api.NewClusterPayload().
+						WithRegionID("invalid-region-id").
+						Build())
+
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("500"))
+				Expect(err.Error()).To(ContainSubstring("unhandled error"))
 			})
 		})
 	})
