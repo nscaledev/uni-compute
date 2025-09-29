@@ -144,12 +144,12 @@ func needsRebuild(ctx context.Context, current *regionapi.ServerRead, requested 
 	// a shutdown, resize, possible confirmation due to a cold migration, and then
 	// a restart.
 	if current.Spec.FlavorId != requested.Spec.FlavorId {
-		log.Info("rebuild required due to flavor change", "server", current.Metadata.Name, "desiredState", requested.Spec.FlavorId, "currentState", current.Spec.FlavorId)
+		log.Info("server rebuild required due to flavor change", "id", current.Metadata.Id, "desiredState", requested.Spec.FlavorId, "currentState", current.Spec.FlavorId)
 		return true
 	}
 
 	if current.Spec.ImageId != requested.Spec.ImageId {
-		log.Info("rebuild required due to image change", "server", current.Metadata.Name, "desiredState", requested.Spec.ImageId, "currentState", current.Spec.ImageId)
+		log.Info("server rebuild required due to image change", "id", current.Metadata.Id, "desiredState", requested.Spec.ImageId, "currentState", current.Spec.ImageId)
 		return true
 	}
 
@@ -159,7 +159,7 @@ func needsRebuild(ctx context.Context, current *regionapi.ServerRead, requested 
 	// may want to blow the machine away and reprovision from scratch.  This probably
 	// needs user interaction eventually.
 	if current.Spec.UserData != requested.Spec.UserData {
-		log.Info("rebuild required due to user data change", "server", current.Metadata.Name)
+		log.Info("server rebuild required due to user data change", "id", current.Metadata.Id)
 		return true
 	}
 
@@ -218,7 +218,7 @@ func (p *Provisioner) reconcileServers(ctx context.Context, client regionapi.Cli
 
 		pool, ok := p.cluster.GetWorkloadPool(poolName)
 		if !ok {
-			log.Info("deleting server with an unknown pool", "server", serverName, "pool", poolName)
+			log.Info("deleting server with an unknown pool", "id", server.Metadata.Id, "pool", poolName)
 
 			if err := p.deleteServerWrapper(ctx, client, servers, serverName); err != nil {
 				return err
@@ -229,7 +229,7 @@ func (p *Provisioner) reconcileServers(ctx context.Context, client regionapi.Cli
 
 		// Delete any servers surplus to requirements.
 		if poolCounts[poolName] >= pool.Replicas {
-			log.Info("deleting server due to scale down", "server", serverName, "pool", poolName, "desiredState", pool.Replicas, "currentState", poolCounts[poolName])
+			log.Info("deleting server due to scale down", "id", server.Metadata.Id, "pool", poolName, "desiredState", pool.Replicas, "currentState", poolCounts[poolName])
 
 			if err := p.deleteServerWrapper(ctx, client, servers, serverName); err != nil {
 				return err
