@@ -8,10 +8,12 @@ require (
 	github.com/oapi-codegen/runtime v1.1.1
 	github.com/spf13/pflag v1.0.6
 	github.com/spjmurray/go-util v0.1.3
+	github.com/stretchr/testify v1.10.0
 	github.com/unikorn-cloud/core v1.7.1-0.20250924143903-2274db8c05fe
 	github.com/unikorn-cloud/identity v1.7.0
 	github.com/unikorn-cloud/region v1.7.0
 	go.opentelemetry.io/otel/sdk v1.35.0
+	go.uber.org/mock v0.5.2
 	k8s.io/api v0.33.1
 	k8s.io/apimachinery v0.33.1
 	k8s.io/utils v0.0.0-20250502105355-0f33e8f1c979
@@ -59,6 +61,7 @@ require (
 	github.com/oasdiff/yaml3 v0.0.0-20250309153720-d2182401db90 // indirect
 	github.com/perimeterx/marshmallow v1.1.5 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
+	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/prometheus/client_golang v1.22.0 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.64.0 // indirect
