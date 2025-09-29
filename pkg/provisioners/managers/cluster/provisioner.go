@@ -152,14 +152,14 @@ func (p *Provisioner) updateStatus(ctx context.Context, serverSet serverPoolSet,
 // provision does what provisioning can and updates the cluster status.
 func (p *Provisioner) provision(ctx context.Context) error {
 	// Likewise identity creation is provisioned asynchronously as it too takes a
-	// long time, epspectially if a physical network is being provisioned and that
-	// needs to go out and talk to swiches.
+	// long time, especially if a physical network is being provisioned and that
+	// needs to go out and talk to switches.
 	client, err := p.getRegionClient(ctx, "provision")
 	if err != nil {
 		return err
 	}
 
-	openstackIndentityStatus, err := p.getOpenstackIdentityStatus(ctx, client)
+	openstackIdentityStatus, err := p.getOpenstackIdentityStatus(ctx, client)
 	if err != nil {
 		return err
 	}
@@ -176,7 +176,7 @@ func (p *Provisioner) provision(ctx context.Context) error {
 
 	// The server set will update as we reconcile, ensure we update the status
 	// regardless of what happened.
-	defer p.updateStatus(ctx, serverSet, openstackIndentityStatus)
+	defer p.updateStatus(ctx, serverSet, openstackIdentityStatus)
 
 	securityGroups, err := p.newSecurityGroupSet(ctx, client)
 	if err != nil {
@@ -187,7 +187,7 @@ func (p *Provisioner) provision(ctx context.Context) error {
 		return err
 	}
 
-	if err := p.reconcileServers(ctx, client, serverSet, securityGroups, openstackIndentityStatus); err != nil {
+	if err := p.reconcileServers(ctx, client, serverSet, securityGroups, openstackIdentityStatus); err != nil {
 		return err
 	}
 
