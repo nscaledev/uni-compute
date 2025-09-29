@@ -3,6 +3,7 @@ module github.com/unikorn-cloud/compute
 go 1.24.2
 
 require (
+	github.com/evanphx/json-patch v5.9.0+incompatible
 	github.com/getkin/kin-openapi v0.132.0
 	github.com/go-chi/chi/v5 v5.2.2
 	github.com/oapi-codegen/runtime v1.1.1

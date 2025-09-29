@@ -18,6 +18,7 @@ package cluster
 
 import (
 	"context"
+	"encoding/json"
 	goerrors "errors"
 	"fmt"
 	"net"
@@ -25,6 +26,7 @@ import (
 	"slices"
 	"strings"
 
+	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/spf13/pflag"
 
 	unikornv1 "github.com/unikorn-cloud/compute/pkg/apis/unikorn/v1alpha1"
@@ -50,6 +52,7 @@ import (
 	"k8s.io/utils/ptr"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var (
@@ -535,7 +538,33 @@ func (c *Client) Update(ctx context.Context, organizationID, projectID, clusterI
 		return errors.OAuth2ServerError("failed to patch cluster").WithError(err)
 	}
 
+	c.logDiff(ctx, clusterID, current, updated)
+
 	return nil
+}
+
+func (c *Client) logDiff(ctx context.Context, clusterID string, current, updated *unikornv1.ComputeCluster) {
+	log := log.FromContext(ctx)
+
+	bs1, err := json.Marshal(current)
+	if err != nil {
+		log.Error(err, "failed to marshal current compute cluster", "id", clusterID)
+		return
+	}
+
+	bs2, err := json.Marshal(updated)
+	if err != nil {
+		log.Error(err, "failed to marshal updated compute cluster", "id", clusterID)
+		return
+	}
+
+	diff, err := jsonpatch.CreateMergePatch(bs1, bs2)
+	if err != nil {
+		log.Error(err, "failed to create compute cluster diff", "id", clusterID)
+		return
+	}
+
+	log.Info("compute cluster diff", "id", clusterID, "diff", string(diff))
 }
 
 // Evict is pretty complicated, we need to delete the requested servers from the
