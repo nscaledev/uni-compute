@@ -51,7 +51,7 @@ type generator struct {
 	// options allows access to resource defaults.
 	options *Options
 	// region is a client to access regions.
-	region *region.Client
+	region region.ClientInterface
 	// namespace the resource is provisioned in.
 	namespace string
 	// organizationID is the unique organization identifier.
@@ -62,7 +62,7 @@ type generator struct {
 	current *unikornv1.ComputeCluster
 }
 
-func newGenerator(client client.Client, options *Options, region *region.Client, namespace, organizationID, projectID string, current *unikornv1.ComputeCluster) *generator {
+func newGenerator(client client.Client, options *Options, region region.ClientInterface, namespace, organizationID, projectID string, current *unikornv1.ComputeCluster) *generator {
 	return &generator{
 		client:         client,
 		options:        options,
@@ -358,22 +358,37 @@ func (g *generator) convertList(in *unikornv1.ComputeClusterList) openapi.Comput
 }
 
 // chooseImages returns an image for the requested machine and flavor.
-func (g *generator) chooseImage(ctx context.Context, request *openapi.ComputeClusterWrite, m *openapi.MachinePool, _ *regionapi.Flavor) (*regionapi.Image, error) {
-	images, err := g.region.Images(ctx, g.organizationID, request.Spec.RegionId)
+func (g *generator) chooseImage(ctx context.Context, regionID string, pool *openapi.ComputeClusterWorkloadPool, _ *regionapi.Flavor) (*regionapi.Image, error) {
+	images, err := g.region.Images(ctx, g.organizationID, regionID)
 	if err != nil {
 		return nil, errors.OAuth2ServerError("failed to list images").WithError(err)
 	}
 
 	// TODO: is the image compatible with the flavor virtualization type???
 	images = slices.DeleteFunc(images, func(image regionapi.Image) bool {
-		return g.filterImage(image, m)
+		return g.filterImage(image, &pool.Machine)
 	})
 
 	if len(images) == 0 {
 		return nil, errors.OAuth2ServerError("unable to select an image")
 	}
 
-	// Select the most recent, the region servie guarantees temporal ordering.
+	// Preserve existing image to prevent unexpected rebuilds.
+	if g.current != nil {
+		p, ok := g.current.GetWorkloadPool(pool.Name)
+		if ok {
+			matchImageID := func(image regionapi.Image) bool {
+				return image.Metadata.Id == p.ImageID
+			}
+
+			index := slices.IndexFunc(images, matchImageID)
+			if index >= 0 {
+				return &images[index], nil
+			}
+		}
+	}
+
+	// Select the most recent, the region service guarantees temporal ordering.
 	return &images[0], nil
 }
 
@@ -423,14 +438,14 @@ func (g *generator) generateNetwork() *unikornv1core.NetworkGeneric {
 }
 
 // generateMachineGeneric generates a generic machine part of the cluster.
-func (g *generator) generateMachineGeneric(ctx context.Context, request *openapi.ComputeClusterWrite, m *openapi.MachinePool, flavor *regionapi.Flavor) (*unikornv1core.MachineGeneric, error) {
-	image, err := g.chooseImage(ctx, request, m, flavor)
+func (g *generator) generateMachineGeneric(ctx context.Context, request *openapi.ComputeClusterWrite, pool *openapi.ComputeClusterWorkloadPool, flavor *regionapi.Flavor) (*unikornv1core.MachineGeneric, error) {
+	image, err := g.chooseImage(ctx, request.Spec.RegionId, pool, flavor)
 	if err != nil {
 		return nil, err
 	}
 
 	machine := &unikornv1core.MachineGeneric{
-		Replicas: m.Replicas,
+		Replicas: pool.Machine.Replicas,
 		ImageID:  image.Metadata.Id,
 		FlavorID: flavor.Metadata.Id,
 	}
@@ -450,7 +465,7 @@ func (g *generator) generateWorkloadPools(ctx context.Context, request *openapi.
 			return nil, err
 		}
 
-		machine, err := g.generateMachineGeneric(ctx, request, &pool.Machine, flavor)
+		machine, err := g.generateMachineGeneric(ctx, request, pool, flavor)
 		if err != nil {
 			return nil, err
 		}
@@ -647,8 +662,6 @@ func (g *generator) lookupFlavor(ctx context.Context, request *openapi.ComputeCl
 }
 
 // generate generates the full cluster custom resource.
-// TODO: there are a lot of parameters being passed about, we should make this
-// a struct and pass them as a single blob.
 func (g *generator) generate(ctx context.Context, request *openapi.ComputeClusterWrite) (*unikornv1.ComputeCluster, error) {
 	computeWorkloadPools, err := g.generateWorkloadPools(ctx, request)
 	if err != nil {
