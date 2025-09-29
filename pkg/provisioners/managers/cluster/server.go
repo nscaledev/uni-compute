@@ -153,16 +153,6 @@ func needsRebuild(ctx context.Context, current *regionapi.ServerRead, requested 
 		return true
 	}
 
-	// TODO: how to handle user data is as yet unknown.  Theoretically we can just
-	// update it and it'll take effect on a reboot without having to lose data,
-	// which is probably preferable.  Who is in charge of the reboot?  Or the user
-	// may want to blow the machine away and reprovision from scratch.  This probably
-	// needs user interaction eventually.
-	if current.Spec.UserData != requested.Spec.UserData {
-		log.Info("server rebuild required due to user data change", "id", current.Metadata.Id)
-		return true
-	}
-
 	return false
 }
 
