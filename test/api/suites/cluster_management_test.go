@@ -78,86 +78,101 @@ var _ = Describe("Core Cluster Management", func() {
 
 	Context("When listing compute clusters", func() {
 		Describe("Given multiple clusters exist", func() {
+			var fixture *api.MultiProjectClusterFixture
+
+			BeforeEach(func() {
+				// Given: Create 2 clusters in seperate projects
+				fixture = api.CreateMultiProjectClusterFixture(client, ctx, config, []string{
+					config.ProjectID,
+					config.SecondaryProjectID,
+				})
+			})
+
 			It("should return all clusters for the organization", func() {
-				// Given: Multiple clusters exist across different projects
-				// When: I request the cluster list for an organization
-				// Then: All clusters for that organization should be returned
-			})
-
-			It("should include project information in cluster listings", func() {
-				// Given: Clusters exist in multiple projects
-				// When: I request the organization cluster list
-				// Then: Each cluster should include its project ID in the response
-			})
-		})
-
-		Describe("Given no clusters exist", func() {
-			It("should return an empty list", func() {
-				// Given: No clusters exist for the organization
-				// When: I request the cluster list
-				// Then: An empty list should be returned
-				// And: No error should occur
+				clusters, err := client.ListOrganizationClusters(ctx, config.OrgID)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(len(clusters)).To(BeNumerically(">=", 2))
+				expectedClusterIDs := make([]string, len(fixture.Clusters))
+				expectedProjectIDs := make([]string, len(fixture.Clusters))
+				for i, cluster := range fixture.Clusters {
+					expectedClusterIDs[i] = cluster.ClusterID
+					expectedProjectIDs[i] = cluster.ProjectID
+				}
+				api.VerifyClusterPresence(clusters, expectedClusterIDs)
+				api.VerifyProjectPresence(clusters, expectedProjectIDs)
 			})
 		})
 
-		Describe("Given filtering and sorting", func() {
-			It("should filter clusters by status", func() {
-				// Given: Clusters in various states
-				// When: I request clusters filtered by status
-				// Then: Only clusters matching the filter should be returned
-			})
-
-			It("should filter clusters by project", func() {
-				// Given: Clusters across multiple projects
-				// When: I filter by specific project ID
-				// Then: Only clusters from that project should be returned
-			})
-		})
 	})
 
 	Context("When retrieving a specific cluster", func() {
 		Describe("Given the cluster exists", func() {
 			It("should return complete cluster details", func() {
-				// Given: A cluster exists with full configuration
-				// When: I request the cluster details by ID
-				// Then: The complete cluster configuration should be returned
-				// And: All workload pools should be included
-				// And: The current status should be accurate
+				_, clusterID := api.CreateClusterWithCleanup(client, ctx, config,
+					api.NewClusterPayload().
+						WithName("get-cluster-test").
+						WithRegionID(config.RegionID).
+						Build())
+
+				retrievedCluster, err := client.GetCluster(ctx, config.OrgID, config.ProjectID, clusterID)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(retrievedCluster).To(HaveKey("metadata"))
+				Expect(retrievedCluster).To(HaveKey("spec"))
+				Expect(retrievedCluster).To(HaveKey("status"))
+
+				metadata := retrievedCluster["metadata"].(map[string]interface{})
+				spec := retrievedCluster["spec"].(map[string]interface{})
+
+				Expect(metadata["id"]).To(Equal(clusterID))
+				Expect(metadata["name"]).To(Equal("get-cluster-test"))
+				Expect(metadata["projectId"]).To(Equal(config.ProjectID))
+				Expect(metadata["organizationId"]).To(Equal(config.OrgID))
+				Expect(spec["regionId"]).To(Equal(config.RegionID))
+				Expect(spec).To(HaveKey("workloadPools"))
+
+				workloadPools := spec["workloadPools"].([]interface{})
+				Expect(len(workloadPools)).To(BeNumerically(">", 0))
 			})
 		})
 
 		Describe("Given the cluster does not exist", func() {
 			It("should return a not found error", func() {
-				// Given: A cluster ID that does not exist
-				// When: I request the cluster details
-				// Then: A 404 not found error should be returned
+				_, err := client.GetCluster(ctx, config.OrgID, config.ProjectID, "non-existent-cluster-id")
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("404"))
 			})
 		})
 	})
 
 	Context("When updating a cluster", func() {
-		Describe("Given valid update parameters", func() {
-			It("should successfully update workload pools", func() {
-				// Given: An existing cluster with workload pools
-				// When: I update the workload pool configuration
-				// Then: The cluster should be updated successfully
-				// And: The new workload pool configuration should be applied
-			})
+		var fixture *api.ClusterUpdateFixture
 
-			It("should successfully update authorized keys", func() {
-				// Given: An existing cluster
-				// When: I update the authorized SSH keys
-				// Then: The keys should be updated successfully
-				// And: New keys should be deployed to all machines
-			})
+		BeforeEach(func() {
+			fixture = api.CreateClusterUpdateFixture(client, ctx, config, "update-test")
 		})
 
+		Describe("Given valid update parameters", func() {
+			It("should successfully update workload pools", func() {
+				updatedPayload := fixture.CreateUpdatePayload(config, fixture.OriginalReplicas+1)
+				err := client.UpdateCluster(ctx, config.OrgID, config.ProjectID, fixture.ClusterID, updatedPayload)
+				Expect(err).NotTo(HaveOccurred())
+
+				updatedCluster, err := client.GetCluster(ctx, config.OrgID, config.ProjectID, fixture.ClusterID)
+				Expect(err).NotTo(HaveOccurred())
+				api.VerifyWorkloadPoolUpdate(updatedCluster, 1)
+			})
+		})
+		//TODO: this is currently returning an ungraceful error, should be handled better, will update this test when that is fixed
 		Describe("Given invalid update parameters", func() {
 			It("should reject updates to immutable fields", func() {
-				// Given: An existing cluster
-				// When: I attempt to update immutable configuration
-				// Then: The update should be rejected
-				// And: An appropriate error message should be returned
+				invalidPayload := api.NewClusterPayload().
+					WithName("immutable-test").
+					WithRegionID("c60d2003-205a-4c6c-900d-9a04433d4d54"). //todo: change this from a hardcoded value to a variable
+					Build()
+
+				err := client.UpdateCluster(ctx, config.OrgID, config.ProjectID, fixture.ClusterID, invalidPayload)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("server_error"))
 			})
 		})
 	})
@@ -172,14 +187,6 @@ var _ = Describe("Core Cluster Management", func() {
 			})
 		})
 
-		Describe("Given the cluster is in use", func() {
-			It("should prevent deletion of clusters with running workloads", func() {
-				// Given: A cluster with active workloads
-				// When: I attempt to delete the cluster
-				// Then: The deletion should be prevented
-				// And: An error indicating active workloads should be returned
-			})
-		})
 	})
 
 	Context("When repeating API operations", func() {

@@ -319,7 +319,36 @@ func (c *APIClient) ListClusters(ctx context.Context, orgID, projectID string) (
 	return c.listResource(ctx, path, config)
 }
 
+// ListOrganizationClusters lists all clusters for an organization across all projects
+func (c *APIClient) ListOrganizationClusters(ctx context.Context, orgID string) ([]map[string]interface{}, error) {
+	path := c.endpoints.ListOrganizationClusters(orgID)
+	config := ListResourceConfig{
+		ResourceType:   "clusters",
+		ResourceID:     orgID,
+		ResourceIDType: "organization",
+		AllowForbidden: true,
+		AllowNotFound:  true,
+	}
+	return c.listResource(ctx, path, config)
+}
+
 // DeleteCluster deletes a cluster
+func (c *APIClient) UpdateCluster(ctx context.Context, orgID, projectID, clusterID string, body map[string]interface{}) error {
+	path := c.endpoints.UpdateCluster(orgID, projectID, clusterID)
+
+	jsonBody, err := json.Marshal(body)
+	if err != nil {
+		return fmt.Errorf("marshaling request body: %w", err)
+	}
+
+	_, _, err = c.doRequest(ctx, http.MethodPut, path, strings.NewReader(string(jsonBody)), http.StatusAccepted)
+	if err != nil {
+		return fmt.Errorf("updating cluster: %w", err)
+	}
+
+	return nil
+}
+
 func (c *APIClient) DeleteCluster(ctx context.Context, orgID, projectID, clusterID string) error {
 	path := c.endpoints.DeleteCluster(orgID, projectID, clusterID)
 

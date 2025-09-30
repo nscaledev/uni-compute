@@ -35,6 +35,11 @@ func (e *Endpoints) ListClusters(orgID, projectID string) string {
 		url.PathEscape(orgID), url.PathEscape(projectID))
 }
 
+func (e *Endpoints) ListOrganizationClusters(orgID string) string {
+	return fmt.Sprintf("/api/v1/organizations/%s/clusters",
+		url.PathEscape(orgID))
+}
+
 func (e *Endpoints) GetCluster(orgID, projectID, clusterID string) string {
 	return fmt.Sprintf("/api/v1/organizations/%s/projects/%s/clusters/%s",
 		url.PathEscape(orgID), url.PathEscape(projectID), url.PathEscape(clusterID))

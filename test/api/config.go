@@ -9,36 +9,38 @@ import (
 )
 
 type TestConfig struct {
-	BaseURL         string
-	AuthToken       string
-	RequestTimeout  time.Duration
-	TestTimeout     time.Duration
-	OrgID           string
-	ProjectID       string
-	RegionID        string
-	FlavorID        string
-	ImageID         string
-	SkipIntegration bool
-	DebugLogging    bool
-	LogRequests     bool
-	LogResponses    bool
+	BaseURL            string
+	AuthToken          string
+	RequestTimeout     time.Duration
+	TestTimeout        time.Duration
+	OrgID              string
+	ProjectID          string
+	SecondaryProjectID string
+	RegionID           string
+	FlavorID           string
+	ImageID            string
+	SkipIntegration    bool
+	DebugLogging       bool
+	LogRequests        bool
+	LogResponses       bool
 }
 
 // all of the errors that show below should only show locally, not in the CI/CD pipeline since we will add secrets
 func LoadTestConfig() *TestConfig {
 	config := &TestConfig{
-		BaseURL:         "REQUIRED: Set API_BASE_URL in the .env file",
-		RequestTimeout:  30 * time.Second,
-		TestTimeout:     20 * time.Minute, // 20 minutes is the default timeout for the tests for now, as thats what I had it in SOS
-		OrgID:           "REQUIRED: Set TEST_ORG_ID in the .env file",
-		ProjectID:       "REQUIRED: Set TEST_PROJECT_ID in the .env file",
-		RegionID:        "REQUIRED: Set TEST_REGION_ID in the .env file",
-		FlavorID:        "REQUIRED: Set TEST_FLAVOR_ID in the .env file",
-		ImageID:         "REQUIRED: Set TEST_IMAGE_ID in the .env file",
-		SkipIntegration: false,
-		DebugLogging:    false,
-		LogRequests:     true,
-		LogResponses:    false,
+		BaseURL:            "REQUIRED: Set API_BASE_URL in the .env file",
+		RequestTimeout:     30 * time.Second,
+		TestTimeout:        20 * time.Minute, // 20 minutes is the default timeout for the tests for now, as thats what I had it in SOS
+		OrgID:              "REQUIRED: Set TEST_ORG_ID in the .env file",
+		ProjectID:          "REQUIRED: Set TEST_PROJECT_ID in the .env file",
+		SecondaryProjectID: "REQUIRED: Set TEST_SECONDARY_PROJECT_ID in the .env file",
+		RegionID:           "REQUIRED: Set TEST_REGION_ID in the .env file",
+		FlavorID:           "REQUIRED: Set TEST_FLAVOR_ID in the .env file",
+		ImageID:            "REQUIRED: Set TEST_IMAGE_ID in the .env file",
+		SkipIntegration:    false,
+		DebugLogging:       false,
+		LogRequests:        true,
+		LogResponses:       false,
 	}
 
 	envVars := loadEnvFile()
@@ -64,6 +66,9 @@ func LoadTestConfig() *TestConfig {
 	}
 	if val := getEnvValue(envVars, "TEST_PROJECT_ID"); val != "" {
 		config.ProjectID = val
+	}
+	if val := getEnvValue(envVars, "TEST_SECONDARY_PROJECT_ID"); val != "" {
+		config.SecondaryProjectID = val
 	}
 	if val := getEnvValue(envVars, "TEST_REGION_ID"); val != "" {
 		config.RegionID = val

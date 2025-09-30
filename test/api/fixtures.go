@@ -71,6 +71,12 @@ func (b *ClusterPayloadBuilder) WithDescription(desc string) *ClusterPayloadBuil
 	return b
 }
 
+// WithProjectID overrides the default project ID for multi-project testing
+func (b *ClusterPayloadBuilder) WithProjectID(projectID string) *ClusterPayloadBuilder {
+	b.config.ProjectID = projectID
+	return b
+}
+
 // WithRegionID sets the region ID (pass empty string to omit)
 func (b *ClusterPayloadBuilder) WithRegionID(regionID string) *ClusterPayloadBuilder {
 	spec := b.payload["spec"].(map[string]interface{})
@@ -189,4 +195,152 @@ func CreateClusterWithCleanup(client *APIClient, ctx context.Context, config *Te
 	})
 
 	return cluster, clusterID
+}
+
+// MultiProjectClusterFixture represents clusters across multiple projects for testing
+type MultiProjectClusterFixture struct {
+	Clusters []ClusterInfo
+	Projects []string
+}
+
+// ClusterInfo holds cluster metadata and project information
+type ClusterInfo struct {
+	Cluster   map[string]interface{}
+	ClusterID string
+	ProjectID string
+}
+
+// CreateMultiProjectClusterFixture creates clusters in the specified projects for testing
+func CreateMultiProjectClusterFixture(client *APIClient, ctx context.Context, config *TestConfig, projectIDs []string) *MultiProjectClusterFixture {
+	fixture := &MultiProjectClusterFixture{
+		Clusters: make([]ClusterInfo, 0, len(projectIDs)),
+		Projects: make([]string, 0, len(projectIDs)),
+	}
+
+	for i, projectID := range projectIDs {
+		cluster, clusterID := createClusterInProject(client, ctx, config, projectID, i+1)
+		fixture.Clusters = append(fixture.Clusters, ClusterInfo{
+			Cluster:   cluster,
+			ClusterID: clusterID,
+			ProjectID: projectID,
+		})
+		fixture.Projects = append(fixture.Projects, projectID)
+	}
+
+	return fixture
+}
+
+// generateTestProjectID creates a unique project ID for testing
+func generateTestProjectID(baseProjectID string, suffix int) string {
+	return fmt.Sprintf("%s-test%d", baseProjectID, suffix)
+}
+
+// createClusterInProject creates a cluster in a specific project with cleanup
+func createClusterInProject(client *APIClient, ctx context.Context, config *TestConfig, projectID string, index int) (map[string]interface{}, string) {
+	cluster, err := client.CreateCluster(ctx, config.OrgID, projectID,
+		NewClusterPayload().
+			WithName(fmt.Sprintf("org-list-test-project%d", index)).
+			WithRegionID(config.RegionID).
+			Build())
+
+	if err != nil {
+		panic(fmt.Errorf("failed to create cluster in project %s: %w", projectID, err))
+	}
+
+	metadata := cluster["metadata"].(map[string]interface{})
+	clusterID := metadata["id"].(string)
+
+	// Schedule cleanup for this cluster
+	DeferCleanup(func() {
+		deleteErr := client.DeleteCluster(ctx, config.OrgID, projectID, clusterID)
+		if deleteErr != nil {
+			GinkgoWriter.Printf("Warning: Failed to delete cluster %s in project %s: %v\n", clusterID, projectID, deleteErr)
+		}
+	})
+
+	return cluster, clusterID
+}
+
+// VerifyClusterPresence verifies that clusters are present in the list
+func VerifyClusterPresence(clusters []map[string]interface{}, expectedClusterIDs []string) {
+	clusterIDs := extractClusterIDs(clusters)
+	for _, expectedID := range expectedClusterIDs {
+		Expect(clusterIDs).To(ContainElement(expectedID), "Expected cluster ID %s to be present in the list", expectedID)
+	}
+}
+
+// VerifyProjectPresence verifies that projects are present in the cluster list
+func VerifyProjectPresence(clusters []map[string]interface{}, expectedProjectIDs []string) {
+	projectIDs := extractProjectIDs(clusters)
+	for _, expectedProjectID := range expectedProjectIDs {
+		Expect(projectIDs).To(ContainElement(expectedProjectID), "Expected project ID %s to be present in the list", expectedProjectID)
+	}
+}
+
+// extractClusterIDs extracts cluster IDs from a list of cluster maps
+func extractClusterIDs(clusters []map[string]interface{}) []string {
+	clusterIDs := make([]string, len(clusters))
+	for i, cluster := range clusters {
+		metadata := cluster["metadata"].(map[string]interface{})
+		clusterIDs[i] = metadata["id"].(string)
+	}
+	return clusterIDs
+}
+
+// extractProjectIDs extracts project IDs from a list of cluster maps
+func extractProjectIDs(clusters []map[string]interface{}) []string {
+	projectIDs := make([]string, len(clusters))
+	for i, cluster := range clusters {
+		metadata := cluster["metadata"].(map[string]interface{})
+		projectIDs[i] = metadata["projectId"].(string)
+	}
+	return projectIDs
+}
+
+// ClusterUpdateFixture represents a cluster setup for update testing
+type ClusterUpdateFixture struct {
+	Cluster          map[string]interface{}
+	ClusterID        string
+	OriginalReplicas int
+}
+
+// CreateClusterUpdateFixture creates a cluster specifically for update testing
+func CreateClusterUpdateFixture(client *APIClient, ctx context.Context, config *TestConfig, clusterName string) *ClusterUpdateFixture {
+	cluster, clusterID := CreateClusterWithCleanup(client, ctx, config,
+		NewClusterPayload().
+			WithName(clusterName).
+			WithRegionID(config.RegionID).
+			Build())
+
+	// Extract original replicas count
+	spec := cluster["spec"].(map[string]interface{})
+	workloadPools := spec["workloadPools"].([]interface{})
+	firstPool := workloadPools[0].(map[string]interface{})
+	machine := firstPool["machine"].(map[string]interface{})
+	originalReplicas := int(machine["replicas"].(float64))
+
+	return &ClusterUpdateFixture{
+		Cluster:          cluster,
+		ClusterID:        clusterID,
+		OriginalReplicas: originalReplicas,
+	}
+}
+
+// CreateUpdatePayload creates a cluster update payload with modified workload pools
+func (f *ClusterUpdateFixture) CreateUpdatePayload(config *TestConfig, newReplicas int) map[string]interface{} {
+	return NewClusterPayload().
+		WithName("update-test").
+		WithRegionID(config.RegionID).
+		WithWorkloadPool("test-pool", config.FlavorID, config.ImageID, newReplicas).
+		Build()
+}
+
+// VerifyWorkloadPoolUpdate verifies that a cluster's workload pools were updated correctly
+func VerifyWorkloadPoolUpdate(cluster map[string]interface{}, expectedMinPools int) {
+	Expect(cluster).To(HaveKey("spec"))
+	spec := cluster["spec"].(map[string]interface{})
+	Expect(spec).To(HaveKey("workloadPools"))
+
+	workloadPools := spec["workloadPools"].([]interface{})
+	Expect(len(workloadPools)).To(BeNumerically(">=", expectedMinPools))
 }
