@@ -196,10 +196,10 @@ github.com/ugorji/go/codec v1.2.12 h1:9LC83zGrHhuUA9l16C9AHXAqEV/2wBQ4nkvumAE65E
 github.com/ugorji/go/codec v1.2.12/go.mod h1:UNopzCgEMSXjBc6AOMqYvWC1ktqTAfzJZUZgYf6w6lg=
 github.com/unikorn-cloud/core v1.7.1-0.20250929135440-f20f4911a87f h1:X0LKiPLGfGK7bXM+JdPbEFg27PbK5XBwvRkLSd7I5H0=
 github.com/unikorn-cloud/core v1.7.1-0.20250929135440-f20f4911a87f/go.mod h1:KZLGw/EyZWjem4c80QF70KqpHIT7MAk7o6L4VAWsnGM=
-github.com/unikorn-cloud/identity v1.7.0 h1:k4J+fbxlAqmFIRbXfEPJRF2zGY/useay2zRg12W4jJM=
-github.com/unikorn-cloud/identity v1.7.0/go.mod h1:MNlj8LyEHAWWZ+CLoBnjgk5AViTY7OVyGDQ2M1N/dTo=
-github.com/unikorn-cloud/region v1.7.1-0.20250924140126-2a8024d56de4 h1:khAtdLv3GAvIxQ/GCUZnUnCpAFDWWfyNm+Kt0NXKkRI=
-github.com/unikorn-cloud/region v1.7.1-0.20250924140126-2a8024d56de4/go.mod h1:hkwkfDN/YoqZM8YG2uRv5owBUfNyrfkZwmeJ7K3YEFc=
+github.com/unikorn-cloud/identity v1.7.1-0.20250924144813-5629afb944f9 h1:G1ZIdurXxeJXMSzwn780EM2RoDi/2o0ZfDTSoac/98k=
+github.com/unikorn-cloud/identity v1.7.1-0.20250924144813-5629afb944f9/go.mod h1:9v0e908IVxZ6IXT62a6QuoNfnLZiu8b+K+IBYsaAW2I=
+github.com/unikorn-cloud/region v1.7.1-0.20250930125929-167fc780855f h1:fJVNyxfM77pJBloJ+8T/thCtbOQKi/EmTQ9IAJtIRp0=
+github.com/unikorn-cloud/region v1.7.1-0.20250930125929-167fc780855f/go.mod h1:rksgresMuHVJdpP6NsGM7L+jIEfU38l6G6yA6HMYBkU=
 github.com/vmware-labs/yaml-jsonpath v0.3.2 h1:/5QKeCBGdsInyDCyVNLbXyilb61MXGi9NP674f9Hobk=
 github.com/vmware-labs/yaml-jsonpath v0.3.2/go.mod h1:U6whw1z03QyqgWdgXxvVnQ90zN1BWz5V+51Ewf8k+rQ=
 github.com/x448/float16 v0.8.4 h1:qLwI1I70+NjRFUR3zs1JPUCgaCXSh3SW62uAKT1mSBM=

@@ -10,8 +10,8 @@ require (
 	github.com/spjmurray/go-util v0.1.3
 	github.com/stretchr/testify v1.10.0
 	github.com/unikorn-cloud/core v1.7.1-0.20250929135440-f20f4911a87f
-	github.com/unikorn-cloud/identity v1.7.0
-	github.com/unikorn-cloud/region v1.7.1-0.20250924140126-2a8024d56de4
+	github.com/unikorn-cloud/identity v1.7.1-0.20250924144813-5629afb944f9
+	github.com/unikorn-cloud/region v1.7.1-0.20250930125929-167fc780855f
 	go.opentelemetry.io/otel/sdk v1.35.0
 	go.uber.org/mock v0.5.2
 	k8s.io/api v0.33.1

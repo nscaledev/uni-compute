@@ -254,6 +254,9 @@ type Volume struct {
 // ClusterIDParameter A Kubernetes name. Must be a valid DNS containing only lower case characters, numbers or hyphens, start and end with a character or number, and be at most 63 characters in length.
 type ClusterIDParameter = KubernetesNameParameter
 
+// LengthParameter defines model for lengthParameter.
+type LengthParameter = int
+
 // MachineIDParameter A Kubernetes name. Must be a valid DNS containing only lower case characters, numbers or hyphens, start and end with a character or number, and be at most 63 characters in length.
 type MachineIDParameter = KubernetesNameParameter
 
@@ -286,6 +289,12 @@ type GetApiV1OrganizationsOrganizationIDClustersParams struct {
 	// Tag A set of tags to match against resources in the form "name=value",
 	// thus when encoded you get "?tag=foo%3Dcat&bar%3Ddog".
 	Tag *externalRef0.TagSelectorParameter `form:"tag,omitempty" json:"tag,omitempty"`
+}
+
+// GetApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDConsoleoutputParams defines parameters for GetApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDConsoleoutput.
+type GetApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDConsoleoutputParams struct {
+	// Length The requested output length.
+	Length *LengthParameter `form:"length,omitempty" json:"length,omitempty"`
 }
 
 // PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersJSONRequestBody defines body for PostApiV1OrganizationsOrganizationIDProjectsProjectIDClusters for application/json ContentType.
