@@ -476,11 +476,7 @@ func (c *Client) Delete(ctx context.Context, organizationID, projectID, clusterI
 
 	cluster, err := c.get(ctx, namespace.Name, clusterID)
 	if err != nil {
-		if kerrors.IsNotFound(err) {
-			return errors.HTTPNotFound().WithError(err)
-		}
-
-		return errors.OAuth2ServerError("failed to get cluster").WithError(err)
+		return err
 	}
 
 	if err := c.client.Delete(ctx, cluster); err != nil {
