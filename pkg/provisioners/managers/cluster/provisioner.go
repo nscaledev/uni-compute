@@ -214,6 +214,19 @@ func (p *Provisioner) Deprovision(ctx context.Context) error {
 		return err
 	}
 
+	// This actually shows you server deleting.
+	servers, err := p.listServers(ctx, client)
+	if err != nil {
+		return err
+	}
+
+	serverSet, err := newServerSet(ctx, servers)
+	if err != nil {
+		return err
+	}
+
+	defer p.updateStatus(ctx, serverSet, &openstackIdentityStatus{})
+
 	if err := p.deleteIdentity(ctx, client); err != nil {
 		return err
 	}
