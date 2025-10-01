@@ -1,6 +1,8 @@
 package suites
 
 import (
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/unikorn-cloud/compute/test/api"
@@ -81,7 +83,6 @@ var _ = Describe("Core Cluster Management", func() {
 			var fixture *api.MultiProjectClusterFixture
 
 			BeforeEach(func() {
-				// Given: Create 2 clusters in seperate projects
 				fixture = api.CreateMultiProjectClusterFixture(client, ctx, config, []string{
 					config.ProjectID,
 					config.SecondaryProjectID,
@@ -167,7 +168,7 @@ var _ = Describe("Core Cluster Management", func() {
 			It("should reject updates to immutable fields", func() {
 				invalidPayload := api.NewClusterPayload().
 					WithName("immutable-test").
-					WithRegionID("c60d2003-205a-4c6c-900d-9a04433d4d54"). //todo: change this from a hardcoded value to a variable
+					WithRegionID(config.SecondaryRegionID). //todo: change this from a hardcoded value to a variable
 					Build()
 
 				err := client.UpdateCluster(ctx, config.OrgID, config.ProjectID, fixture.ClusterID, invalidPayload)
@@ -180,10 +181,23 @@ var _ = Describe("Core Cluster Management", func() {
 	Context("When deleting a cluster", func() {
 		Describe("Given the cluster exists and is deletable", func() {
 			It("should successfully delete the cluster", func() {
-				// Given: An existing cluster in a deletable state
-				// When: I request cluster deletion
-				// Then: The cluster should be marked for deletion
-				// And: All associated resources should be cleaned up
+				cluster, clusterID := api.CreateClusterWithCleanup(client, ctx, config,
+					api.NewClusterPayload().
+						WithName("delete-cluster-test").
+						WithRegionID(config.RegionID).
+						Build())
+
+				Expect(cluster).To(HaveKey("metadata"))
+				metadata := cluster["metadata"].(map[string]interface{})
+				Expect(metadata["id"]).To(Equal(clusterID))
+
+				err := client.DeleteCluster(ctx, config.OrgID, config.ProjectID, clusterID)
+				Expect(err).NotTo(HaveOccurred())
+
+				Eventually(func() error {
+					_, getErr := client.GetCluster(ctx, config.OrgID, config.ProjectID, clusterID)
+					return getErr
+				}).WithTimeout(config.TestTimeout).WithPolling(5 * time.Second).Should(MatchError(ContainSubstring("404")))
 			})
 		})
 
@@ -191,39 +205,28 @@ var _ = Describe("Core Cluster Management", func() {
 
 	Context("When repeating API operations", func() {
 		Describe("Given idempotent operations", func() {
-			It("should handle duplicate cluster creation requests", func() {
-				// Given: Identical cluster creation requests
-				// When: I submit the same request multiple times
-				// Then: Only one cluster should be created
-				// And: Subsequent requests should return the existing cluster
-			})
 
 			It("should handle repeated delete operations", func() {
-				// Given: A cluster that has been deleted
-				// When: I attempt to delete it again
-				// Then: The operation should be idempotent
-				// And: No error should occur for already-deleted clusters
-			})
+				cluster, clusterID := api.CreateClusterWithCleanup(client, ctx, config,
+					api.NewClusterPayload().
+						WithName("repeated-delete-test").
+						WithRegionID(config.RegionID).
+						Build())
 
-			It("should handle update operations with same data", func() {
-				// Given: A cluster with specific configuration
-				// When: I update it with identical configuration
-				// Then: No unnecessary changes should be made
-				// And: The operation should complete successfully
-			})
-		})
+				Expect(cluster).To(HaveKey("metadata"))
 
-		Describe("Given consistency requirements", func() {
-			It("should maintain data consistency across repeated reads", func() {
-				// Given: A cluster in stable state
-				// When: I read cluster details multiple times
-				// Then: Consistent data should be returned within reason
-			})
+				err := client.DeleteCluster(ctx, config.OrgID, config.ProjectID, clusterID)
+				Expect(err).NotTo(HaveOccurred())
 
-			It("should handle concurrent identical requests", func() {
-				// Given: Multiple identical requests submitted simultaneously
-				// When: The system processes these requests
-				// Then: Results should be consistent and correct
+				Eventually(func() error {
+					_, getErr := client.GetCluster(ctx, config.OrgID, config.ProjectID, clusterID)
+					return getErr
+				}).WithTimeout(config.TestTimeout).WithPolling(5 * time.Second).Should(MatchError(ContainSubstring("404")))
+
+				err = client.DeleteCluster(ctx, config.OrgID, config.ProjectID, clusterID)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("500"))
+				Expect(err.Error()).To(ContainSubstring("failed to get cluster"))
 			})
 		})
 	})

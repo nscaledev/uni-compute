@@ -17,6 +17,7 @@ type TestConfig struct {
 	ProjectID          string
 	SecondaryProjectID string
 	RegionID           string
+	SecondaryRegionID  string
 	FlavorID           string
 	ImageID            string
 	SkipIntegration    bool
@@ -35,6 +36,7 @@ func LoadTestConfig() *TestConfig {
 		ProjectID:          "REQUIRED: Set TEST_PROJECT_ID in the .env file",
 		SecondaryProjectID: "REQUIRED: Set TEST_SECONDARY_PROJECT_ID in the .env file",
 		RegionID:           "REQUIRED: Set TEST_REGION_ID in the .env file",
+		SecondaryRegionID:  "REQUIRED: Set TEST_SECONDARY_REGION_ID in the .env file",
 		FlavorID:           "REQUIRED: Set TEST_FLAVOR_ID in the .env file",
 		ImageID:            "REQUIRED: Set TEST_IMAGE_ID in the .env file",
 		SkipIntegration:    false,
@@ -72,6 +74,9 @@ func LoadTestConfig() *TestConfig {
 	}
 	if val := getEnvValue(envVars, "TEST_REGION_ID"); val != "" {
 		config.RegionID = val
+	}
+	if val := getEnvValue(envVars, "TEST_SECONDARY_REGION_ID"); val != "" {
+		config.SecondaryRegionID = val
 	}
 	if val := getEnvValue(envVars, "TEST_FLAVOR_ID"); val != "" {
 		config.FlavorID = val
