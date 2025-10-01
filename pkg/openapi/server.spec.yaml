@@ -689,6 +689,7 @@ components:
       items:
         description: A machine ID.
         type: string
+        minItems: 1
     evictionWrite:
       description: A set of machines to evict from a cluster.
       type: object

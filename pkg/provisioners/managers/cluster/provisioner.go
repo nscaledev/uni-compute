@@ -129,7 +129,7 @@ func (p *Provisioner) getOpenstackIdentityStatus(ctx context.Context, client reg
 }
 
 // updateStatus updates the compute cluster status.
-func (p *Provisioner) updateStatus(ctx context.Context, serverSet serverPoolSet, options *openstackIdentityStatus) {
+func (p *Provisioner) updateStatus(ctx context.Context, serverSet serverSet, options *openstackIdentityStatus) {
 	log := log.FromContext(ctx)
 
 	// NOTE: the shared update function expects a list, but we use a map
@@ -169,7 +169,7 @@ func (p *Provisioner) provision(ctx context.Context) error {
 		return err
 	}
 
-	serverSet, err := p.newServerSet(ctx, servers)
+	serverSet, err := newServerSet(ctx, servers)
 	if err != nil {
 		return err
 	}
