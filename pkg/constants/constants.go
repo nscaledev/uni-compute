@@ -42,3 +42,7 @@ var (
 func VersionString() string {
 	return fmt.Sprintf("%s/%s (revision/%s)", Application, Version, Revision)
 }
+
+const (
+	ServerDeletionHintAnnotation = "cluster.compute.unikorn-cloud.org/deletion-hint"
+)

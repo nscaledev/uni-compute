@@ -19,10 +19,15 @@ package cluster
 import (
 	"context"
 	"fmt"
+	"maps"
 	"reflect"
+	"slices"
+	"strings"
 
 	unikornv1 "github.com/unikorn-cloud/compute/pkg/apis/unikorn/v1alpha1"
+	"github.com/unikorn-cloud/compute/pkg/constants"
 	"github.com/unikorn-cloud/compute/pkg/provisioners/managers/cluster/util"
+	coreclient "github.com/unikorn-cloud/core/pkg/client"
 	"github.com/unikorn-cloud/core/pkg/errors"
 	coreapi "github.com/unikorn-cloud/core/pkg/openapi"
 	regionapi "github.com/unikorn-cloud/region/pkg/openapi"
@@ -33,11 +38,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-// serverPoolSet maps the server name to its API resource.
-type serverPoolSet map[string]*regionapi.ServerRead
+// serverSet maps the server name to its API resource.
+type serverSet map[string]*regionapi.ServerRead
 
 // add adds a server to the set and raises an error if one already exists.
-func (s serverPoolSet) add(serverName string, server *regionapi.ServerRead) error {
+func (s serverSet) add(serverName string, server *regionapi.ServerRead) error {
 	if _, ok := s[serverName]; ok {
 		return fmt.Errorf("%w: server %s already exists in set", ErrConsistency, serverName)
 	}
@@ -47,11 +52,29 @@ func (s serverPoolSet) add(serverName string, server *regionapi.ServerRead) erro
 	return nil
 }
 
+// selectDeletionCandidate picks an arbitrary server to delete after first
+// searching for preferred options.
+func (s serverSet) selectDeletionCandidate(preferredIDs []string) *regionapi.ServerRead {
+	servers := slices.Collect(maps.Values(s))
+
+	for _, id := range preferredIDs {
+		matchesID := func(server *regionapi.ServerRead) bool {
+			return server.Metadata.Id == id
+		}
+
+		if index := slices.IndexFunc(servers, matchesID); index >= 0 {
+			return servers[index]
+		}
+	}
+
+	return servers[0]
+}
+
 // newServerSet returns a new set of servers indexed by pool and by name.
-func (p *Provisioner) newServerSet(ctx context.Context, servers regionapi.ServersRead) (serverPoolSet, error) {
+func newServerSet(ctx context.Context, servers regionapi.ServersRead) (serverSet, error) {
 	log := log.FromContext(ctx)
 
-	result := serverPoolSet{}
+	result := serverSet{}
 
 	for i := range servers {
 		server := &servers[i]
@@ -61,7 +84,7 @@ func (p *Provisioner) newServerSet(ctx context.Context, servers regionapi.Server
 		}
 	}
 
-	log.Info("reading existing servers for cluster", "servers", result)
+	log.V(1).Info("reading existing servers for cluster", "servers", result)
 
 	return result, nil
 }
@@ -158,12 +181,10 @@ func needsRebuild(ctx context.Context, current *regionapi.ServerRead, requested 
 
 // deleteServerWrapper wraps up common server deletion handling as it's called from
 // multiple different places.
-func (p *Provisioner) deleteServerWrapper(ctx context.Context, client regionapi.ClientWithResponsesInterface, servers serverPoolSet, name string) error {
+func (p *Provisioner) deleteServerWrapper(ctx context.Context, client regionapi.ClientWithResponsesInterface, server *regionapi.ServerRead) error {
 	log := log.FromContext(ctx)
 
-	server := servers[name]
-
-	log.Info("deleting server", "id", server.Metadata.Id, "name", name)
+	log.Info("deleting server", "id", server.Metadata.Id, "name", server.Metadata.Name)
 
 	if err := p.deleteServer(ctx, client, server.Metadata.Id); err != nil {
 		return err
@@ -174,74 +195,109 @@ func (p *Provisioner) deleteServerWrapper(ctx context.Context, client regionapi.
 	return nil
 }
 
-// reconcileServers creates/updates/deletes all servers for the cluster.
-//
-//nolint:cyclop,gocognit
-func (p *Provisioner) reconcileServers(ctx context.Context, client regionapi.ClientWithResponsesInterface, servers serverPoolSet, securityGroups securityGroupSet, openstackIdentityStatus *openstackIdentityStatus) error {
-	log := log.FromContext(ctx)
+// serverPoolSet organizes servers by pool so we can better reason about
+// the number of replicas in that pool.
+type serverPoolSet map[string]serverSet
 
-	// Algorithm:
-	// * Names are generated, and thus unpredictable, so we cannot rely on this to
-	//   map current servers to required ones.
-	// * Instead we go through our existing servers and:
-	//   * Ignore any marked as being deleted
-	//   * Delete any that don't have a pool.
-	//   * Delete any that exceed the number seen for a particular pool
-	//   * Delete any that don't match the specification and cannot be updated
-	//   * Update those that can be updated online
-	//   * Of those that weren't ignored or deleted, we tally them up based on pool.
-	// * If any pools don't contain the number of servers that are requested:
-	//   * Create new servers to fill the gaps
-	poolCounts := map[string]int{}
+func newServerPoolSet(servers serverSet) (serverPoolSet, error) {
+	s := serverPoolSet{}
 
-	// Handle deletes and updates...
-	for serverName, server := range servers {
-		// Ignore deleting instances.
+	for name, server := range servers {
 		if server.Metadata.DeletionTime != nil {
 			continue
 		}
 
-		poolName, err := util.GetWorkloadPoolTag(server.Metadata.Tags)
+		pool, err := util.GetWorkloadPoolTag(server.Metadata.Tags)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
+		if _, ok := s[pool]; !ok {
+			s[pool] = serverSet{}
+		}
+
+		s[pool][name] = server
+	}
+
+	return s, nil
+}
+
+// getPreferredDeletionIDs gets a set of servers that we should delete as a priority.
+// This is set by the API during eviction while scaling down the pools in a single
+// atomic operation.
+func (p *Provisioner) getPreferredDeletionIDs() []string {
+	var out []string
+
+	if t, ok := p.cluster.Annotations[constants.ServerDeletionHintAnnotation]; ok {
+		out = strings.Split(t, ",")
+	}
+
+	return out
+}
+
+// reconcileServers creates/updates/deletes all servers for the cluster.
+//
+//nolint:cyclop,gocognit
+func (p *Provisioner) reconcileServers(ctx context.Context, client regionapi.ClientWithResponsesInterface, servers serverSet, securityGroups securityGroupSet, openstackIdentityStatus *openstackIdentityStatus) error {
+	log := log.FromContext(ctx)
+
+	serverPoolSet, err := newServerPoolSet(servers)
+	if err != nil {
+		return err
+	}
+
+	preferredDeletionIDs := p.getPreferredDeletionIDs()
+
+	// Handle deletions and updates.
+	for poolName, serverSet := range serverPoolSet {
+		// Pool doesn't exist, delete all.
 		pool, ok := p.cluster.GetWorkloadPool(poolName)
 		if !ok {
-			log.Info("deleting server with an unknown pool", "id", server.Metadata.Id, "pool", poolName)
+			for _, server := range serverSet {
+				log.Info("deleting server with an unknown pool", "id", server.Metadata.Id, "pool", poolName)
 
-			if err := p.deleteServerWrapper(ctx, client, servers, serverName); err != nil {
-				return err
-			}
-
-			continue
-		}
-
-		// Delete any servers surplus to requirements.
-		if poolCounts[poolName] >= pool.Replicas {
-			log.Info("deleting server due to scale down", "id", server.Metadata.Id, "pool", poolName, "desiredState", pool.Replicas, "currentState", poolCounts[poolName])
-
-			if err := p.deleteServerWrapper(ctx, client, servers, serverName); err != nil {
-				return err
-			}
-
-			continue
-		}
-
-		// Generate the required specification.
-		required, err := p.generateServer(openstackIdentityStatus, pool, securityGroups)
-		if err != nil {
-			return err
-		}
-
-		// If something has changed, we need to do something.
-		if needsUpdate(server, required) {
-			// Delete machines whose image/flavor/etc. have altered and
-			// require rebuilding.
-			if needsRebuild(ctx, server, required) {
-				if err := p.deleteServerWrapper(ctx, client, servers, serverName); err != nil {
+				if err := p.deleteServerWrapper(ctx, client, server); err != nil {
 					return err
 				}
+			}
+
+			delete(serverPoolSet, poolName)
+
+			continue
+		}
+
+		// Scale down.
+		for len(serverSet) > pool.Replicas {
+			server := serverSet.selectDeletionCandidate(p.getPreferredDeletionIDs())
+
+			log.Info("deleting server due to scale down", "id", server.Metadata.Id, "pool", poolName)
+
+			if err := p.deleteServerWrapper(ctx, client, server); err != nil {
+				return err
+			}
+
+			delete(serverSet, server.Metadata.Name)
+		}
+
+		// Rebuilds and updates.
+		for serverName, server := range serverSet {
+			required, err := p.generateServer(openstackIdentityStatus, pool, securityGroups)
+			if err != nil {
+				return err
+			}
+
+			if !needsUpdate(server, required) {
+				continue
+			}
+
+			if needsRebuild(ctx, server, required) {
+				log.Info("deleting server due to rebuild", "id", server.Metadata.Id, "pool", poolName)
+
+				if err := p.deleteServerWrapper(ctx, client, server); err != nil {
+					return err
+				}
+
+				delete(serverSet, server.Metadata.Name)
 
 				continue
 			}
@@ -259,22 +315,38 @@ func (p *Provisioner) reconcileServers(ctx context.Context, client regionapi.Cli
 				return err
 			}
 
-			// Important we fall through after this to do the accounting.
-			servers[serverName] = updated
+			serverSet[serverName] = updated
+		}
+	}
+
+	if len(preferredDeletionIDs) > 0 {
+		delete(p.cluster.Annotations, constants.ServerDeletionHintAnnotation)
+
+		cli, err := coreclient.FromContext(ctx)
+		if err != nil {
+			return err
 		}
 
-		poolCounts[poolName]++
+		if err := cli.Update(ctx, &p.cluster); err != nil {
+			return err
+		}
 	}
 
 	// Finally for each pool, scale up any instances that are missing.
 	for i := range p.cluster.Spec.WorkloadPools.Pools {
 		pool := &p.cluster.Spec.WorkloadPools.Pools[i]
 
-		if poolCounts[pool.Name] > pool.Replicas {
+		creations := pool.Replicas
+
+		if serverPool, ok := serverPoolSet[pool.Name]; ok {
+			creations = pool.Replicas - len(serverPool)
+		}
+
+		if creations < 0 {
 			return fmt.Errorf("%w: observed pool size larger than required", errors.ErrConsistency)
 		}
 
-		for i := poolCounts[pool.Name]; i < pool.Replicas; i++ {
+		for range creations {
 			required, err := p.generateServer(openstackIdentityStatus, pool, securityGroups)
 			if err != nil {
 				return err

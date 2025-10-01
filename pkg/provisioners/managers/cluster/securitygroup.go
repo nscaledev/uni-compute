@@ -81,7 +81,7 @@ func (p *Provisioner) newSecurityGroupSet(ctx context.Context, client regionapi.
 		}
 	}
 
-	log.Info("reading existing security groups for cluster", "securityGroups", result)
+	log.V(1).Info("reading existing security groups for cluster", "securityGroups", result)
 
 	return result, nil
 }
