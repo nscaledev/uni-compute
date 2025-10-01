@@ -4,7 +4,7 @@ info:
   description: |-
     The Compute Service API provides services that allows provisioning and life cycle
     management of Compute clusters.
-  version: 1.6.0
+  version: 1.7.0
 paths:
   /api/v1/organizations/{organizationID}/regions:
     description: |-
@@ -176,9 +176,9 @@ paths:
   /api/v1/organizations/{organizationID}/projects/{projectID}/clusters/{clusterID}/evict:
     description: Cluster services.
     parameters:
-      - $ref: '#/components/parameters/organizationIDParameter'
-      - $ref: '#/components/parameters/projectIDParameter'
-      - $ref: '#/components/parameters/clusterIDParameter'
+    - $ref: '#/components/parameters/organizationIDParameter'
+    - $ref: '#/components/parameters/projectIDParameter'
+    - $ref: '#/components/parameters/clusterIDParameter'
     post:
       description: |-
         Delete a set of machines from a cluster.  This will implicitly scale down the
@@ -304,6 +304,57 @@ paths:
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/notFoundResponse'
         '500':
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
+  /api/v1/organizations/{organizationID}/projects/{projectID}/clusters/{clusterID}/machines/{machineID}/consolesessions:
+    description: Cluster services.
+    parameters:
+    - $ref: '#/components/parameters/organizationIDParameter'
+    - $ref: '#/components/parameters/projectIDParameter'
+    - $ref: '#/components/parameters/clusterIDParameter'
+    - $ref: '#/components/parameters/machineIDParameter'
+    get:
+      description: |-
+        Create a new console session for a machine.
+      security:
+      - oauth2Authentication: []
+      responses:
+        '200':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/region/main/pkg/openapi/server.spec.yaml#/components/responses/consoleSessionResponse'
+        '400':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/badRequestResponse'
+        '401':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
+        '403':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/forbiddenResponse'
+        '404':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/notFoundResponse'
+        '500':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
+  /api/v1/organizations/{organizationID}/projects/{projectID}/clusters/{clusterID}/machines/{machineID}/consoleoutput:
+    description: Cluster services.
+    parameters:
+    - $ref: '#/components/parameters/organizationIDParameter'
+    - $ref: '#/components/parameters/projectIDParameter'
+    - $ref: '#/components/parameters/clusterIDParameter'
+    - $ref: '#/components/parameters/machineIDParameter'
+    - $ref: '#/components/parameters/lengthParameter'
+    get:
+      description: |-
+        Get the console output for a machine.
+      security:
+      - oauth2Authentication: []
+      responses:
+        '200':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/region/main/pkg/openapi/server.spec.yaml#/components/responses/consoleOutputResponse'
+        '400':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/badRequestResponse'
+        '401':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
+        '403':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/forbiddenResponse'
+        '404':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/notFoundResponse'
+        '500':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
 components:
   parameters:
     organizationIDParameter:
@@ -345,6 +396,12 @@ components:
       required: true
       schema:
         $ref: '#/components/schemas/kubernetesNameParameter'
+    lengthParameter:
+      name: length
+      in: query
+      description: The requested output length.
+      schema:
+        type: integer
   schemas:
     kubernetesNameParameter:
       description: A Kubernetes name. Must be a valid DNS containing only lower case characters, numbers or hyphens, start and end with a character or number, and be at most 63 characters in length.
@@ -507,8 +564,7 @@ components:
       - machine
       properties:
         name:
-          description: Workload pool name.
-          type: string
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/schemas/kubernetesLabelValue'
         machine:
           $ref: '#/components/schemas/machinePool'
     computeClusterWorkloadPools:
@@ -551,8 +607,7 @@ components:
       - replicas
       properties:
         name:
-          description: Workload pool name.
-          type: string
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/schemas/kubernetesLabelValue'
         replicas:
           description: Number of machines.
           type: integer

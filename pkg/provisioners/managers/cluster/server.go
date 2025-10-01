@@ -137,24 +137,19 @@ func needsUpdate(current *regionapi.ServerRead, requested *regionapi.ServerWrite
 // needsRebuild compares the current and requested specifications to determine whether
 // we should do an inplace update of the resource (where supported) or rebuild it from
 // scratch.
-func needsRebuild(current *regionapi.ServerRead, requested *regionapi.ServerWrite) bool {
+func needsRebuild(ctx context.Context, current *regionapi.ServerRead, requested *regionapi.ServerWrite) bool {
+	log := log.FromContext(ctx)
+
 	// TODO: flavors can usually be scaled up without losing data but this requires
 	// a shutdown, resize, possible confirmation due to a cold migration, and then
 	// a restart.
 	if current.Spec.FlavorId != requested.Spec.FlavorId {
+		log.Info("server rebuild required due to flavor change", "id", current.Metadata.Id, "desiredState", requested.Spec.FlavorId, "currentState", current.Spec.FlavorId)
 		return true
 	}
 
 	if current.Spec.ImageId != requested.Spec.ImageId {
-		return true
-	}
-
-	// TODO: how to handle user data is as yet unknown.  Theoretically we can just
-	// update it and it'll take effect on a reboot without having to lose data,
-	// which is probably preferable.  Who is in charge of the reboot?  Or the user
-	// may want to blow the machine away and reprovision from scratch.  This probably
-	// needs user interaction eventually.
-	if current.Spec.UserData != requested.Spec.UserData {
+		log.Info("server rebuild required due to image change", "id", current.Metadata.Id, "desiredState", requested.Spec.ImageId, "currentState", current.Spec.ImageId)
 		return true
 	}
 
@@ -182,7 +177,7 @@ func (p *Provisioner) deleteServerWrapper(ctx context.Context, client regionapi.
 // reconcileServers creates/updates/deletes all servers for the cluster.
 //
 //nolint:cyclop,gocognit
-func (p *Provisioner) reconcileServers(ctx context.Context, client regionapi.ClientWithResponsesInterface, servers serverPoolSet, securitygroups securityGroupSet, openstackIdentityStatus *openstackIdentityStatus) error {
+func (p *Provisioner) reconcileServers(ctx context.Context, client regionapi.ClientWithResponsesInterface, servers serverPoolSet, securityGroups securityGroupSet, openstackIdentityStatus *openstackIdentityStatus) error {
 	log := log.FromContext(ctx)
 
 	// Algorithm:
@@ -213,6 +208,8 @@ func (p *Provisioner) reconcileServers(ctx context.Context, client regionapi.Cli
 
 		pool, ok := p.cluster.GetWorkloadPool(poolName)
 		if !ok {
+			log.Info("deleting server with an unknown pool", "id", server.Metadata.Id, "pool", poolName)
+
 			if err := p.deleteServerWrapper(ctx, client, servers, serverName); err != nil {
 				return err
 			}
@@ -222,6 +219,8 @@ func (p *Provisioner) reconcileServers(ctx context.Context, client regionapi.Cli
 
 		// Delete any servers surplus to requirements.
 		if poolCounts[poolName] >= pool.Replicas {
+			log.Info("deleting server due to scale down", "id", server.Metadata.Id, "pool", poolName, "desiredState", pool.Replicas, "currentState", poolCounts[poolName])
+
 			if err := p.deleteServerWrapper(ctx, client, servers, serverName); err != nil {
 				return err
 			}
@@ -230,7 +229,7 @@ func (p *Provisioner) reconcileServers(ctx context.Context, client regionapi.Cli
 		}
 
 		// Generate the required specification.
-		required, err := p.generateServer(openstackIdentityStatus, pool, securitygroups)
+		required, err := p.generateServer(openstackIdentityStatus, pool, securityGroups)
 		if err != nil {
 			return err
 		}
@@ -239,7 +238,7 @@ func (p *Provisioner) reconcileServers(ctx context.Context, client regionapi.Cli
 		if needsUpdate(server, required) {
 			// Delete machines whose image/flavor/etc. have altered and
 			// require rebuilding.
-			if needsRebuild(server, required) {
+			if needsRebuild(ctx, server, required) {
 				if err := p.deleteServerWrapper(ctx, client, servers, serverName); err != nil {
 					return err
 				}
@@ -276,7 +275,7 @@ func (p *Provisioner) reconcileServers(ctx context.Context, client regionapi.Cli
 		}
 
 		for i := poolCounts[pool.Name]; i < pool.Replicas; i++ {
-			required, err := p.generateServer(openstackIdentityStatus, pool, securitygroups)
+			required, err := p.generateServer(openstackIdentityStatus, pool, securityGroups)
 			if err != nil {
 				return err
 			}
