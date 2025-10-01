@@ -1,3 +1,4 @@
+//nolint:revive,staticcheck // dot imports are standard for Ginkgo/Gomega test code
 package api
 
 import (
@@ -9,13 +10,13 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-// ClusterPayloadBuilder builds cluster payloads for testing
+// ClusterPayloadBuilder builds cluster payloads for testing.
 type ClusterPayloadBuilder struct {
 	payload map[string]interface{}
 	config  *TestConfig
 }
 
-// NewClusterPayload creates a new cluster payload builder with defaults from config
+// NewClusterPayload creates a new cluster payload builder with defaults from config.
 func NewClusterPayload() *ClusterPayloadBuilder {
 	config := LoadTestConfig()
 	timestamp := time.Now().Format("20060102-150405")
@@ -57,68 +58,71 @@ func NewClusterPayload() *ClusterPayloadBuilder {
 	}
 }
 
-// WithName sets the cluster name
+// WithName sets the cluster name.
 func (b *ClusterPayloadBuilder) WithName(name string) *ClusterPayloadBuilder {
-	metadata := b.payload["metadata"].(map[string]interface{})
+	metadata := b.payload["metadata"].(map[string]interface{}) //nolint:forcetypeassert // safe: we control payload structure
 	metadata["name"] = name
+
 	return b
 }
 
-// WithDescription sets the cluster description
+// WithDescription sets the cluster description.
 func (b *ClusterPayloadBuilder) WithDescription(desc string) *ClusterPayloadBuilder {
-	metadata := b.payload["metadata"].(map[string]interface{})
+	metadata := b.payload["metadata"].(map[string]interface{}) //nolint:forcetypeassert // safe: we control payload structure
 	metadata["description"] = desc
+
 	return b
 }
 
-// WithProjectID overrides the default project ID for multi-project testing
+// WithProjectID overrides the default project ID for multi-project testing.
 func (b *ClusterPayloadBuilder) WithProjectID(projectID string) *ClusterPayloadBuilder {
 	b.config.ProjectID = projectID
 	return b
 }
 
-// WithRegionID sets the region ID (pass empty string to omit)
+// WithRegionID sets the region ID (pass empty string to omit).
 func (b *ClusterPayloadBuilder) WithRegionID(regionID string) *ClusterPayloadBuilder {
-	spec := b.payload["spec"].(map[string]interface{})
+	spec := b.payload["spec"].(map[string]interface{}) //nolint:forcetypeassert // safe: we control payload structure
 	if regionID == "" {
 		delete(spec, "regionId")
 	} else {
 		spec["regionId"] = regionID
 	}
+
 	return b
 }
 
-// WithFlavorID sets the flavor ID for all workload pools
+// WithFlavorID sets the flavor ID for all workload pools.
 func (b *ClusterPayloadBuilder) WithFlavorID(flavorID string) *ClusterPayloadBuilder {
-	spec := b.payload["spec"].(map[string]interface{})
-	pools := spec["workloadPools"].([]map[string]interface{})
+	spec := b.payload["spec"].(map[string]interface{})        //nolint:forcetypeassert // safe: we control payload structure
+	pools := spec["workloadPools"].([]map[string]interface{}) //nolint:forcetypeassert // safe: we control payload structure
 
 	for _, pool := range pools {
-		machine := pool["machine"].(map[string]interface{})
+		machine := pool["machine"].(map[string]interface{}) //nolint:forcetypeassert // safe: we control payload structure
 		machine["flavorId"] = flavorID
 	}
 
 	return b
 }
 
-// WithImageID sets the image ID for all workload pools
+// WithImageID sets the image ID for all workload pools.
 func (b *ClusterPayloadBuilder) WithImageID(imageID string) *ClusterPayloadBuilder {
-	spec := b.payload["spec"].(map[string]interface{})
-	pools := spec["workloadPools"].([]map[string]interface{})
+	spec := b.payload["spec"].(map[string]interface{})        //nolint:forcetypeassert // safe: we control payload structure
+	pools := spec["workloadPools"].([]map[string]interface{}) //nolint:forcetypeassert // safe: we control payload structure
 
 	for _, pool := range pools {
-		machine := pool["machine"].(map[string]interface{})
-		image := machine["image"].(map[string]interface{})
+		machine := pool["machine"].(map[string]interface{}) //nolint:forcetypeassert // safe: we control payload structure
+		image := machine["image"].(map[string]interface{})  //nolint:forcetypeassert // safe: we control payload structure
 		image["id"] = imageID
 	}
 
 	return b
 }
 
-// WithWorkloadPool adds a workload pool configuration
+// WithWorkloadPool adds a workload pool configuration.
 func (b *ClusterPayloadBuilder) WithWorkloadPool(name, flavorID, imageID string, replicas int) *ClusterPayloadBuilder {
-	spec := b.payload["spec"].(map[string]interface{})
-	pools := spec["workloadPools"].([]map[string]interface{})
+	spec := b.payload["spec"].(map[string]interface{})        //nolint:forcetypeassert // safe: we control payload structure
+	pools := spec["workloadPools"].([]map[string]interface{}) //nolint:forcetypeassert // safe: we control payload structure
 
 	pool := map[string]interface{}{
 		"name": name,
@@ -143,23 +147,24 @@ func (b *ClusterPayloadBuilder) WithWorkloadPool(name, flavorID, imageID string,
 
 	pools = append(pools, pool)
 	spec["workloadPools"] = pools
+
 	return b
 }
 
-// Build returns the completed cluster payload
+// Build returns the completed cluster payload.
 func (b *ClusterPayloadBuilder) Build() map[string]interface{} {
 	return b.payload
 }
 
-// CreateClusterWithCleanup creates a cluster, waits for provisioning, and schedules automatic cleanup
+// CreateClusterWithCleanup creates a cluster, waits for provisioning, and schedules automatic cleanup.
 func CreateClusterWithCleanup(client *APIClient, ctx context.Context, config *TestConfig, payload map[string]interface{}) (map[string]interface{}, string) {
 	cluster, err := client.CreateCluster(ctx, config.OrgID, config.ProjectID, payload)
 	if err != nil {
 		panic(err)
 	}
 
-	metadata := cluster["metadata"].(map[string]interface{})
-	clusterID := metadata["id"].(string)
+	metadata := cluster["metadata"].(map[string]interface{}) //nolint:forcetypeassert // safe: API response structure
+	clusterID := metadata["id"].(string)                     //nolint:forcetypeassert // safe: API response structure
 
 	GinkgoWriter.Printf("Created cluster with ID: %s\n", clusterID)
 	// Wait for cluster to be provisioned
@@ -180,12 +185,17 @@ func CreateClusterWithCleanup(client *APIClient, ctx context.Context, config *Te
 		if !ok {
 			return "no-provisioning-status"
 		}
+		if provisioningStatus == "error" {
+			Fail(fmt.Sprintf("Cluster %s entered error state during provisioning", clusterID))
+		}
+
 		return provisioningStatus
 	}).WithTimeout(config.TestTimeout).WithPolling(5 * time.Second).Should(Equal("provisioned"))
 
 	// Schedule cleanup - this runs whether the test passes or fails so we don't need to clean up manually
 	DeferCleanup(func() {
 		GinkgoWriter.Printf("Cleaning up cluster: %s\n", clusterID)
+
 		deleteErr := client.DeleteCluster(ctx, config.OrgID, config.ProjectID, clusterID)
 		if deleteErr != nil {
 			GinkgoWriter.Printf("Warning: Failed to delete cluster %s: %v\n", clusterID, deleteErr)
@@ -197,20 +207,20 @@ func CreateClusterWithCleanup(client *APIClient, ctx context.Context, config *Te
 	return cluster, clusterID
 }
 
-// MultiProjectClusterFixture represents clusters across multiple projects for testing
+// MultiProjectClusterFixture represents clusters across multiple projects for testing.
 type MultiProjectClusterFixture struct {
 	Clusters []ClusterInfo
 	Projects []string
 }
 
-// ClusterInfo holds cluster metadata and project information
+// ClusterInfo holds cluster metadata and project information.
 type ClusterInfo struct {
 	Cluster   map[string]interface{}
 	ClusterID string
 	ProjectID string
 }
 
-// CreateMultiProjectClusterFixture creates clusters in the specified projects for testing
+// CreateMultiProjectClusterFixture creates clusters in the specified projects for testing.
 func CreateMultiProjectClusterFixture(client *APIClient, ctx context.Context, config *TestConfig, projectIDs []string) *MultiProjectClusterFixture {
 	fixture := &MultiProjectClusterFixture{
 		Clusters: make([]ClusterInfo, 0, len(projectIDs)),
@@ -230,12 +240,7 @@ func CreateMultiProjectClusterFixture(client *APIClient, ctx context.Context, co
 	return fixture
 }
 
-// generateTestProjectID creates a unique project ID for testing
-func generateTestProjectID(baseProjectID string, suffix int) string {
-	return fmt.Sprintf("%s-test%d", baseProjectID, suffix)
-}
-
-// createClusterInProject creates a cluster in a specific project with cleanup
+// createClusterInProject creates a cluster in a specific project with cleanup.
 func createClusterInProject(client *APIClient, ctx context.Context, config *TestConfig, projectID string, index int) (map[string]interface{}, string) {
 	cluster, err := client.CreateCluster(ctx, config.OrgID, projectID,
 		NewClusterPayload().
@@ -247,8 +252,8 @@ func createClusterInProject(client *APIClient, ctx context.Context, config *Test
 		panic(fmt.Errorf("failed to create cluster in project %s: %w", projectID, err))
 	}
 
-	metadata := cluster["metadata"].(map[string]interface{})
-	clusterID := metadata["id"].(string)
+	metadata := cluster["metadata"].(map[string]interface{}) //nolint:forcetypeassert // safe: API response structure
+	clusterID := metadata["id"].(string)                     //nolint:forcetypeassert // safe: API response structure
 
 	// Schedule cleanup for this cluster
 	DeferCleanup(func() {
@@ -261,7 +266,7 @@ func createClusterInProject(client *APIClient, ctx context.Context, config *Test
 	return cluster, clusterID
 }
 
-// VerifyClusterPresence verifies that clusters are present in the list
+// VerifyClusterPresence verifies that clusters are present in the list.
 func VerifyClusterPresence(clusters []map[string]interface{}, expectedClusterIDs []string) {
 	clusterIDs := extractClusterIDs(clusters)
 	for _, expectedID := range expectedClusterIDs {
@@ -269,7 +274,7 @@ func VerifyClusterPresence(clusters []map[string]interface{}, expectedClusterIDs
 	}
 }
 
-// VerifyProjectPresence verifies that projects are present in the cluster list
+// VerifyProjectPresence verifies that projects are present in the cluster list.
 func VerifyProjectPresence(clusters []map[string]interface{}, expectedProjectIDs []string) {
 	projectIDs := extractProjectIDs(clusters)
 	for _, expectedProjectID := range expectedProjectIDs {
@@ -277,34 +282,38 @@ func VerifyProjectPresence(clusters []map[string]interface{}, expectedProjectIDs
 	}
 }
 
-// extractClusterIDs extracts cluster IDs from a list of cluster maps
+// extractClusterIDs extracts cluster IDs from a list of cluster maps.
 func extractClusterIDs(clusters []map[string]interface{}) []string {
 	clusterIDs := make([]string, len(clusters))
+
 	for i, cluster := range clusters {
-		metadata := cluster["metadata"].(map[string]interface{})
-		clusterIDs[i] = metadata["id"].(string)
+		metadata := cluster["metadata"].(map[string]interface{}) //nolint:forcetypeassert // safe: API response structure
+		clusterIDs[i] = metadata["id"].(string)                  //nolint:forcetypeassert // safe: API response structure
 	}
+
 	return clusterIDs
 }
 
-// extractProjectIDs extracts project IDs from a list of cluster maps
+// extractProjectIDs extracts project IDs from a list of cluster maps.
 func extractProjectIDs(clusters []map[string]interface{}) []string {
 	projectIDs := make([]string, len(clusters))
+
 	for i, cluster := range clusters {
-		metadata := cluster["metadata"].(map[string]interface{})
-		projectIDs[i] = metadata["projectId"].(string)
+		metadata := cluster["metadata"].(map[string]interface{}) //nolint:forcetypeassert // safe: API response structure
+		projectIDs[i] = metadata["projectId"].(string)           //nolint:forcetypeassert // safe: API response structure
 	}
+
 	return projectIDs
 }
 
-// ClusterUpdateFixture represents a cluster setup for update testing
+// ClusterUpdateFixture represents a cluster setup for update testing.
 type ClusterUpdateFixture struct {
 	Cluster          map[string]interface{}
 	ClusterID        string
 	OriginalReplicas int
 }
 
-// CreateClusterUpdateFixture creates a cluster specifically for update testing
+// CreateClusterUpdateFixture creates a cluster specifically for update testing.
 func CreateClusterUpdateFixture(client *APIClient, ctx context.Context, config *TestConfig, clusterName string) *ClusterUpdateFixture {
 	cluster, clusterID := CreateClusterWithCleanup(client, ctx, config,
 		NewClusterPayload().
@@ -312,12 +321,12 @@ func CreateClusterUpdateFixture(client *APIClient, ctx context.Context, config *
 			WithRegionID(config.RegionID).
 			Build())
 
-	// Extract original replicas count
-	spec := cluster["spec"].(map[string]interface{})
-	workloadPools := spec["workloadPools"].([]interface{})
-	firstPool := workloadPools[0].(map[string]interface{})
-	machine := firstPool["machine"].(map[string]interface{})
-	originalReplicas := int(machine["replicas"].(float64))
+	// Extract original replicas count.
+	spec := cluster["spec"].(map[string]interface{})         //nolint:forcetypeassert // safe: API response structure
+	workloadPools := spec["workloadPools"].([]interface{})   //nolint:forcetypeassert // safe: API response structure
+	firstPool := workloadPools[0].(map[string]interface{})   //nolint:forcetypeassert // safe: API response structure
+	machine := firstPool["machine"].(map[string]interface{}) //nolint:forcetypeassert // safe: API response structure
+	originalReplicas := int(machine["replicas"].(float64))   //nolint:forcetypeassert // safe: API response structure
 
 	return &ClusterUpdateFixture{
 		Cluster:          cluster,
@@ -326,7 +335,7 @@ func CreateClusterUpdateFixture(client *APIClient, ctx context.Context, config *
 	}
 }
 
-// CreateUpdatePayload creates a cluster update payload with modified workload pools
+// CreateUpdatePayload creates a cluster update payload with modified workload pools.
 func (f *ClusterUpdateFixture) CreateUpdatePayload(config *TestConfig, newReplicas int) map[string]interface{} {
 	return NewClusterPayload().
 		WithName("update-test").
@@ -335,12 +344,12 @@ func (f *ClusterUpdateFixture) CreateUpdatePayload(config *TestConfig, newReplic
 		Build()
 }
 
-// VerifyWorkloadPoolUpdate verifies that a cluster's workload pools were updated correctly
+// VerifyWorkloadPoolUpdate verifies that a cluster's workload pools were updated correctly.
 func VerifyWorkloadPoolUpdate(cluster map[string]interface{}, expectedMinPools int) {
 	Expect(cluster).To(HaveKey("spec"))
-	spec := cluster["spec"].(map[string]interface{})
+	spec := cluster["spec"].(map[string]interface{}) //nolint:forcetypeassert // safe: API response structure
 	Expect(spec).To(HaveKey("workloadPools"))
 
-	workloadPools := spec["workloadPools"].([]interface{})
+	workloadPools := spec["workloadPools"].([]interface{}) //nolint:forcetypeassert // safe: API response structure
 	Expect(len(workloadPools)).To(BeNumerically(">=", expectedMinPools))
 }

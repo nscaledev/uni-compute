@@ -1,3 +1,4 @@
+//nolint:testpackage,revive // stub test file
 package suites
 
 import (

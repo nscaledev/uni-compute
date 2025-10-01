@@ -1,3 +1,4 @@
+//nolint:testpackage,revive // test package in suites is standard for these tests
 package suites
 
 import (
@@ -15,7 +16,7 @@ var _ = Describe("Discovery and Metadata", func() {
 				for _, region := range regions {
 					Expect(region).To(HaveKey("metadata"))
 					Expect(region).To(HaveKey("spec"))
-					metadata := region["metadata"].(map[string]interface{})
+					metadata := region["metadata"].(map[string]interface{}) //nolint:forcetypeassert // safe: API response structure
 					Expect(metadata).To(HaveKey("id"))
 					Expect(metadata).To(HaveKey("name"))
 					Expect(metadata["id"]).NotTo(BeEmpty())
@@ -43,7 +44,7 @@ var _ = Describe("Discovery and Metadata", func() {
 				for _, flavor := range flavors {
 					Expect(flavor).To(HaveKey("metadata"))
 					Expect(flavor).To(HaveKey("spec"))
-					metadata := flavor["metadata"].(map[string]interface{})
+					metadata := flavor["metadata"].(map[string]interface{}) //nolint:forcetypeassert // safe: API response structure
 					Expect(metadata).To(HaveKey("id"))
 					Expect(metadata).To(HaveKey("name"))
 					Expect(metadata["id"]).NotTo(BeEmpty())
@@ -59,14 +60,14 @@ var _ = Describe("Discovery and Metadata", func() {
 				for _, image := range images {
 					Expect(image).To(HaveKey("metadata"))
 					Expect(image).To(HaveKey("spec"))
-					metadata := image["metadata"].(map[string]interface{})
-					spec := image["spec"].(map[string]interface{})
+					metadata := image["metadata"].(map[string]interface{}) //nolint:forcetypeassert // safe: API response structure
+					spec := image["spec"].(map[string]interface{})         //nolint:forcetypeassert // safe: API response structure
 					Expect(metadata).To(HaveKey("id"))
 					Expect(metadata).To(HaveKey("name"))
 					Expect(metadata["id"]).NotTo(BeEmpty())
 					Expect(metadata["name"]).NotTo(BeEmpty())
 					Expect(spec).To(HaveKey("os"))
-					os := spec["os"].(map[string]interface{})
+					os := spec["os"].(map[string]interface{}) //nolint:forcetypeassert // safe: API response structure
 					Expect(os).To(HaveKey("distro"))
 					Expect(os).To(HaveKey("version"))
 				}

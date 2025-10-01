@@ -5,15 +5,15 @@ import (
 	"net/url"
 )
 
-// Endpoints contains all API endpoint patterns
+// Endpoints contains all API endpoint patterns.
 type Endpoints struct{}
 
-// NewEndpoints creates a new Endpoints instance
+// NewEndpoints creates a new Endpoints instance.
 func NewEndpoints() *Endpoints {
 	return &Endpoints{}
 }
 
-// Discovery endpoints
+// Discovery endpoints.
 func (e *Endpoints) ListRegions(orgID string) string {
 	return fmt.Sprintf("/api/v1/organizations/%s/regions",
 		url.PathEscape(orgID))
@@ -29,7 +29,7 @@ func (e *Endpoints) ListImages(orgID, regionID string) string {
 		url.PathEscape(orgID), url.PathEscape(regionID))
 }
 
-// Cluster management endpoints
+// Cluster management endpoints.
 func (e *Endpoints) ListClusters(orgID, projectID string) string {
 	return fmt.Sprintf("/api/v1/organizations/%s/projects/%s/clusters",
 		url.PathEscape(orgID), url.PathEscape(projectID))
@@ -60,7 +60,7 @@ func (e *Endpoints) DeleteCluster(orgID, projectID, clusterID string) string {
 		url.PathEscape(orgID), url.PathEscape(projectID), url.PathEscape(clusterID))
 }
 
-// Health and metadata endpoints
+// Health and metadata endpoints.
 func (e *Endpoints) HealthCheck() string {
 	return "/api/v1/health"
 }

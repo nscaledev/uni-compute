@@ -1,3 +1,4 @@
+//nolint:testpackage,revive // test package in suites is standard for these tests, dot imports standard for Ginkgo
 package suites
 
 import (
@@ -5,6 +6,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
 	"github.com/unikorn-cloud/compute/test/api"
 )
 
@@ -18,8 +20,10 @@ var _ = Describe("Core Cluster Management", func() {
 						Build())
 
 				Expect(cluster).To(HaveKey("metadata"))
-				metadata := cluster["metadata"].(map[string]interface{})
-				spec := cluster["spec"].(map[string]interface{})
+				metadata, ok := cluster["metadata"].(map[string]interface{})
+				Expect(ok).To(BeTrue())
+				spec, ok := cluster["spec"].(map[string]interface{})
+				Expect(ok).To(BeTrue())
 				Expect(metadata).To(HaveKey("id"))
 				Expect(metadata["id"]).NotTo(BeEmpty())
 				Expect(metadata["id"]).To(Equal(clusterID))
@@ -121,8 +125,10 @@ var _ = Describe("Core Cluster Management", func() {
 				Expect(retrievedCluster).To(HaveKey("spec"))
 				Expect(retrievedCluster).To(HaveKey("status"))
 
-				metadata := retrievedCluster["metadata"].(map[string]interface{})
-				spec := retrievedCluster["spec"].(map[string]interface{})
+				metadata, ok := retrievedCluster["metadata"].(map[string]interface{})
+				Expect(ok).To(BeTrue())
+				spec, ok := retrievedCluster["spec"].(map[string]interface{})
+				Expect(ok).To(BeTrue())
 
 				Expect(metadata["id"]).To(Equal(clusterID))
 				Expect(metadata["name"]).To(Equal("get-cluster-test"))
@@ -131,8 +137,9 @@ var _ = Describe("Core Cluster Management", func() {
 				Expect(spec["regionId"]).To(Equal(config.RegionID))
 				Expect(spec).To(HaveKey("workloadPools"))
 
-				workloadPools := spec["workloadPools"].([]interface{})
-				Expect(len(workloadPools)).To(BeNumerically(">", 0))
+				workloadPools, ok := spec["workloadPools"].([]interface{})
+				Expect(ok).To(BeTrue())
+				Expect(workloadPools).ToNot(BeEmpty())
 			})
 		})
 
@@ -168,7 +175,7 @@ var _ = Describe("Core Cluster Management", func() {
 			It("should reject updates to immutable fields", func() {
 				invalidPayload := api.NewClusterPayload().
 					WithName("immutable-test").
-					WithRegionID(config.SecondaryRegionID). //todo: change this from a hardcoded value to a variable
+					WithRegionID(config.SecondaryRegionID).
 					Build()
 
 				err := client.UpdateCluster(ctx, config.OrgID, config.ProjectID, fixture.ClusterID, invalidPayload)
@@ -188,7 +195,8 @@ var _ = Describe("Core Cluster Management", func() {
 						Build())
 
 				Expect(cluster).To(HaveKey("metadata"))
-				metadata := cluster["metadata"].(map[string]interface{})
+				metadata, ok := cluster["metadata"].(map[string]interface{})
+				Expect(ok).To(BeTrue())
 				Expect(metadata["id"]).To(Equal(clusterID))
 
 				err := client.DeleteCluster(ctx, config.OrgID, config.ProjectID, clusterID)

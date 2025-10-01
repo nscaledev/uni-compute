@@ -8,7 +8,8 @@ import (
 
 func generateRandomName(prefix string) string {
 	bytes := make([]byte, 4) // 8 hex characters
-	rand.Read(bytes)
+	_, _ = rand.Read(bytes)
+
 	return fmt.Sprintf("%s-%s", prefix, hex.EncodeToString(bytes))
 }
 

@@ -3,7 +3,6 @@ package api
 import (
 	"bufio"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -26,7 +25,7 @@ type TestConfig struct {
 	LogResponses       bool
 }
 
-// all of the errors that show below should only show locally, not in the CI/CD pipeline since we will add secrets
+// all of the errors that show below should only show locally, not in the CI/CD pipeline since we will add secrets.
 func LoadTestConfig() *TestConfig {
 	config := &TestConfig{
 		BaseURL:            "REQUIRED: Set API_BASE_URL in the .env file",
@@ -39,66 +38,33 @@ func LoadTestConfig() *TestConfig {
 		SecondaryRegionID:  "REQUIRED: Set TEST_SECONDARY_REGION_ID in the .env file",
 		FlavorID:           "REQUIRED: Set TEST_FLAVOR_ID in the .env file",
 		ImageID:            "REQUIRED: Set TEST_IMAGE_ID in the .env file",
-		SkipIntegration:    false,
-		DebugLogging:       false,
-		LogRequests:        true,
-		LogResponses:       false,
 	}
 
 	envVars := loadEnvFile()
-
-	if val := getEnvValue(envVars, "API_BASE_URL"); val != "" {
-		config.BaseURL = val
-	}
-	if val := getEnvValue(envVars, "API_AUTH_TOKEN"); val != "" {
-		config.AuthToken = val
-	}
-	if val := getEnvValue(envVars, "REQUEST_TIMEOUT"); val != "" {
-		if timeout, err := strconv.Atoi(val); err == nil {
-			config.RequestTimeout = time.Duration(timeout) * time.Second
-		}
-	}
-	if val := getEnvValue(envVars, "TEST_TIMEOUT"); val != "" {
-		if timeout, err := strconv.Atoi(val); err == nil {
-			config.TestTimeout = time.Duration(timeout) * time.Second
-		}
-	}
-	if val := getEnvValue(envVars, "TEST_ORG_ID"); val != "" {
-		config.OrgID = val
-	}
-	if val := getEnvValue(envVars, "TEST_PROJECT_ID"); val != "" {
-		config.ProjectID = val
-	}
-	if val := getEnvValue(envVars, "TEST_SECONDARY_PROJECT_ID"); val != "" {
-		config.SecondaryProjectID = val
-	}
-	if val := getEnvValue(envVars, "TEST_REGION_ID"); val != "" {
-		config.RegionID = val
-	}
-	if val := getEnvValue(envVars, "TEST_SECONDARY_REGION_ID"); val != "" {
-		config.SecondaryRegionID = val
-	}
-	if val := getEnvValue(envVars, "TEST_FLAVOR_ID"); val != "" {
-		config.FlavorID = val
-	}
-	if val := getEnvValue(envVars, "TEST_IMAGE_ID"); val != "" {
-		config.ImageID = val
-	}
-	// todo: all this crap needs to be tidied before I merge this PR
-	if val := getEnvValue(envVars, "SKIP_INTEGRATION_TESTS"); val != "" {
-		config.SkipIntegration = parseBool(val)
-	}
-	if val := getEnvValue(envVars, "ENABLE_DEBUG_LOGGING"); val != "" {
-		config.DebugLogging = parseBool(val)
-	}
-	if val := getEnvValue(envVars, "LOG_HTTP_REQUESTS"); val != "" {
-		config.LogRequests = parseBool(val)
-	}
-	if val := getEnvValue(envVars, "LOG_HTTP_RESPONSES"); val != "" {
-		config.LogResponses = parseBool(val)
-	}
+	loadConfigFromEnv(config, envVars)
 
 	return config
+}
+
+// loadConfigFromEnv loads configuration values from environment variables.
+func loadConfigFromEnv(config *TestConfig, envVars map[string]string) {
+	// String values
+	setStringValue(&config.BaseURL, getEnvValue(envVars, "API_BASE_URL"))
+	setStringValue(&config.AuthToken, getEnvValue(envVars, "API_AUTH_TOKEN"))
+	setStringValue(&config.OrgID, getEnvValue(envVars, "TEST_ORG_ID"))
+	setStringValue(&config.ProjectID, getEnvValue(envVars, "TEST_PROJECT_ID"))
+	setStringValue(&config.SecondaryProjectID, getEnvValue(envVars, "TEST_SECONDARY_PROJECT_ID"))
+	setStringValue(&config.RegionID, getEnvValue(envVars, "TEST_REGION_ID"))
+	setStringValue(&config.SecondaryRegionID, getEnvValue(envVars, "TEST_SECONDARY_REGION_ID"))
+	setStringValue(&config.FlavorID, getEnvValue(envVars, "TEST_FLAVOR_ID"))
+	setStringValue(&config.ImageID, getEnvValue(envVars, "TEST_IMAGE_ID"))
+}
+
+// setStringValue sets a string value if the env value is not empty.
+func setStringValue(target *string, value string) {
+	if value != "" {
+		*target = value
+	}
 }
 
 func loadEnvFile() map[string]string {
@@ -113,8 +79,10 @@ func loadEnvFile() map[string]string {
 		".env",               // Current directory
 	}
 
-	var file *os.File
-	var err error
+	var (
+		file *os.File
+		err  error
+	)
 
 	for _, envPath := range envPaths {
 		file, err = os.Open(envPath)
@@ -126,6 +94,7 @@ func loadEnvFile() map[string]string {
 	if err != nil {
 		return envVars
 	}
+
 	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
@@ -150,14 +119,6 @@ func getEnvValue(envVars map[string]string, key string) string {
 	if val := os.Getenv(key); val != "" {
 		return val
 	}
-	return envVars[key]
-}
 
-func parseBool(value string) bool {
-	switch strings.ToLower(value) {
-	case "true", "1", "yes", "on":
-		return true
-	default:
-		return false
-	}
+	return envVars[key]
 }

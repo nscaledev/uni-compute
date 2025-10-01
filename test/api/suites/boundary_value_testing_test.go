@@ -1,3 +1,4 @@
+//nolint:dupl,testpackage,revive // stub test file - duplication will be removed when implemented
 package suites
 
 import (

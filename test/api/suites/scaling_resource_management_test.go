@@ -1,3 +1,4 @@
+//nolint:testpackage,revive // test package in suites is standard for these tests, dot imports standard for Ginkgo
 package suites
 
 import (

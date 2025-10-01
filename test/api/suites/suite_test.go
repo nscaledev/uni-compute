@@ -1,3 +1,4 @@
+//nolint:gochecknoglobals,revive,paralleltest,testpackage // global vars and dot imports standard for Ginkgo
 package suites
 
 import (
@@ -6,6 +7,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
 	"github.com/unikorn-cloud/compute/test/api"
 )
 
