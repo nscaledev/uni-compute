@@ -28,8 +28,8 @@ spec:
     message: Resource must contain a unikorn-cloud.org/identity-id annotations
   - expression: "oldObject == null || oldObject.metadata.?labels[?'principal.unikorn-cloud.org/project'].orValue('') ==  object.metadata.?labels[?'principal.unikorn-cloud.org/project'].orValue('')"
     message: Resource principal/unikorn-cloud.org/project label is immutable
-  - expression: "object.metadata.?annotations[?'unikorn-cloud.org/physical-network-id'].orValue('') != ''"
-    message: Resource must contain a unikorn-cloud.org/physical-network-id annotations
+  - expression: "object.metadata.?labels[?'unikorn-cloud.org/network-id'].orValue('') != ''"
+    message: Resource must contain a unikorn-cloud.org/network-id label
   - expression: "object.metadata.?annotations[?'unikorn-cloud.org/allocation-id'].orValue('') != ''"
     message: Resource must contain a unikorn-cloud.org/allocation-id annotation
 ---

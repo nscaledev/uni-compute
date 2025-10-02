@@ -14,6 +14,8 @@ rules:
   - list
   - watch
   - update
+  - create
+  - delete
 - apiGroups:
   - compute.unikorn-cloud.org
   resources:
