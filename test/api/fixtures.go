@@ -20,6 +20,7 @@ package api
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -174,13 +175,37 @@ func (b *ClusterPayloadBuilder) Build() map[string]interface{} {
 
 // CreateClusterWithCleanup creates a cluster, waits for provisioning, and schedules automatic cleanup.
 func CreateClusterWithCleanup(client *APIClient, ctx context.Context, config *TestConfig, payload map[string]interface{}) (map[string]interface{}, string) {
+	var clusterID string
+
+	// Schedule cleanup FIRST - ensures cleanup runs even if creation/provisioning fails
+	DeferCleanup(func() {
+		if clusterID == "" {
+			GinkgoWriter.Printf("Skipping cleanup: no cluster ID available\n")
+			return
+		}
+
+		GinkgoWriter.Printf("Cleaning up cluster: %s\n", clusterID)
+
+		deleteErr := client.DeleteCluster(ctx, config.OrgID, config.ProjectID, clusterID)
+		if deleteErr != nil {
+			GinkgoWriter.Printf("Warning: Failed to delete cluster %s: %v\n", clusterID, deleteErr)
+		} else {
+			GinkgoWriter.Printf("Successfully deleted cluster: %s\n", clusterID)
+		}
+	})
+
 	cluster, err := client.CreateCluster(ctx, config.OrgID, config.ProjectID, payload)
 	if err != nil {
+		// Check if this is a quota allocation error (insufficient resources)
+		if strings.Contains(err.Error(), "insufficient resources") || strings.Contains(err.Error(), "failed to create quota allocation") {
+			Skip(fmt.Sprintf("Skipping test due to insufficient resources: %v", err))
+		}
+
 		panic(err)
 	}
 
 	metadata := cluster["metadata"].(map[string]interface{}) //nolint:forcetypeassert // safe: API response structure
-	clusterID := metadata["id"].(string)                     //nolint:forcetypeassert // safe: API response structure
+	clusterID = metadata["id"].(string)                      //nolint:forcetypeassert // safe: API response structure
 
 	GinkgoWriter.Printf("Created cluster with ID: %s\n", clusterID)
 	// Wait for cluster to be provisioned
@@ -199,18 +224,6 @@ func CreateClusterWithCleanup(client *APIClient, ctx context.Context, config *Te
 
 		return provisioningStatus
 	}).WithTimeout(config.TestTimeout).WithPolling(5 * time.Second).Should(Equal("provisioned"))
-
-	// Schedule cleanup - this runs whether the test passes or fails so we don't need to clean up manually
-	DeferCleanup(func() {
-		GinkgoWriter.Printf("Cleaning up cluster: %s\n", clusterID)
-
-		deleteErr := client.DeleteCluster(ctx, config.OrgID, config.ProjectID, clusterID)
-		if deleteErr != nil {
-			GinkgoWriter.Printf("Warning: Failed to delete cluster %s: %v\n", clusterID, deleteErr)
-		} else {
-			GinkgoWriter.Printf("Successfully deleted cluster: %s\n", clusterID)
-		}
-	})
 
 	return cluster, clusterID
 }

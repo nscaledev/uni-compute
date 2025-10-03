@@ -283,9 +283,18 @@ func (c *APIClient) CreateCluster(ctx context.Context, orgID, projectID string, 
 	}
 
 	//nolint:bodyclose // response body is closed in doRequest
-	_, respBody, err := c.doRequest(ctx, http.MethodPost, path, strings.NewReader(string(bodyBytes)), http.StatusAccepted)
+	resp, respBody, err := c.doRequest(ctx, http.MethodPost, path, strings.NewReader(string(bodyBytes)), 0)
 	if err != nil {
 		return nil, fmt.Errorf("creating cluster: %w", err)
+	}
+
+	// Check for quota allocation errors (500 with specific message)
+	if resp.StatusCode == http.StatusInternalServerError && strings.Contains(string(respBody), "failed to create quota allocation") {
+		return nil, fmt.Errorf("insufficient resources: failed to create quota allocation - environment may not have enough capacity (trace ID: %s)", extractTraceID(resp.Header.Get("Traceparent")))
+	}
+
+	if resp.StatusCode != http.StatusAccepted {
+		return nil, fmt.Errorf("unexpected status code: expected %d, got %d, body: %s", http.StatusAccepted, resp.StatusCode, string(respBody))
 	}
 
 	var cluster map[string]interface{}
@@ -373,9 +382,14 @@ func (c *APIClient) DeleteCluster(ctx context.Context, orgID, projectID, cluster
 	path := c.endpoints.DeleteCluster(orgID, projectID, clusterID)
 
 	//nolint:bodyclose // response body is closed in doRequest
-	_, _, err := c.doRequest(ctx, http.MethodDelete, path, nil, http.StatusAccepted)
+	resp, _, err := c.doRequest(ctx, http.MethodDelete, path, nil, 0)
 	if err != nil {
 		return fmt.Errorf("deleting cluster: %w", err)
+	}
+
+	// Accept both 202 (deletion in progress) and 404 (already deleted/never existed)
+	if resp.StatusCode != http.StatusAccepted && resp.StatusCode != http.StatusNotFound {
+		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
 	return nil
