@@ -208,14 +208,18 @@ func (g *generator) convertWorkloadPool(in *unikornv1.ComputeClusterWorkloadPool
 }
 
 // convertWorkloadPools converts from a custom resource into the API definition.
-func (g *generator) convertWorkloadPools(in *unikornv1.ComputeCluster) []openapi.ComputeClusterWorkloadPool {
+func (g *generator) convertWorkloadPools(in *unikornv1.ComputeCluster) *[]openapi.ComputeClusterWorkloadPool {
+	if len(in.Spec.WorkloadPools.Pools) == 0 {
+		return nil
+	}
+
 	workloadPools := make([]openapi.ComputeClusterWorkloadPool, len(in.Spec.WorkloadPools.Pools))
 
 	for i := range in.Spec.WorkloadPools.Pools {
 		workloadPools[i] = *g.convertWorkloadPool(&in.Spec.WorkloadPools.Pools[i])
 	}
 
-	return workloadPools
+	return &workloadPools
 }
 
 func convertMachineStatusStatus(in unikornv1region.InstanceLifecyclePhase) regionapi.InstanceLifecyclePhase {
@@ -457,8 +461,12 @@ func (g *generator) generateMachineGeneric(ctx context.Context, request *openapi
 func (g *generator) generateWorkloadPools(ctx context.Context, request *openapi.ComputeClusterWrite) (*unikornv1.ComputeClusterWorkloadPoolsSpec, error) {
 	workloadPools := &unikornv1.ComputeClusterWorkloadPoolsSpec{}
 
-	for i := range request.Spec.WorkloadPools {
-		pool := &request.Spec.WorkloadPools[i]
+	if request.Spec.WorkloadPools == nil {
+		return workloadPools, nil
+	}
+
+	for i := range *request.Spec.WorkloadPools {
+		pool := &(*request.Spec.WorkloadPools)[i]
 
 		flavor, err := g.lookupFlavor(ctx, request, pool.Machine.FlavorId)
 		if err != nil {
