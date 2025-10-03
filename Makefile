@@ -138,11 +138,7 @@ test-unit:
 # API automation test targets
 .PHONY: test-api
 test-api: test-api-setup
-	cd test/api/suites && ginkgo run --json-report=test-results.json --junit-report=junit.xml
-
-.PHONY: test-api-verbose
-test-api-verbose: test-api-setup
-	cd test/api/suites && ginkgo run -v --json-report=test-results.json --junit-report=junit.xml
+	cd test/api/suites && ginkgo run -v --show-node-events --json-report=test-results.json --junit-report=junit.xml
 
 .PHONY: test-api-focus
 test-api-focus: test-api-setup

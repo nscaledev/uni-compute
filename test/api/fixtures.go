@@ -198,7 +198,9 @@ func CreateClusterWithCleanup(client *APIClient, ctx context.Context, config *Te
 	if err != nil {
 		// Check if this is a quota allocation error (insufficient resources)
 		if strings.Contains(err.Error(), "insufficient resources") || strings.Contains(err.Error(), "failed to create quota allocation") {
-			Skip(fmt.Sprintf("Skipping test due to insufficient resources: %v", err))
+			skipMsg := fmt.Sprintf("Skipping test due to insufficient resources: %v", err)
+			GinkgoWriter.Printf("RESOURCE CONSTRAINT: %s\n", skipMsg)
+			Skip(skipMsg)
 		}
 
 		panic(err)

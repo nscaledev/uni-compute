@@ -19,11 +19,6 @@ on:
         - 'Error Handling and Edge Cases'
         - 'Concurrency and Performance'
         - 'Boundary Value Testing'
-      verbose:
-        description: 'Run with verbose output'
-        required: false
-        default: false
-        type: boolean
       parallel:
         description: 'Run tests in parallel'
         required: false
@@ -74,10 +69,6 @@ jobs:
     - name: Run API Tests - All (Manual)
       if: github.event_name == 'workflow_dispatch' && github.event.inputs.focus == 'All' && github.event.inputs.verbose == 'false' && github.event.inputs.parallel == 'false'
       run: make test-api
-    
-    - name: Run API Tests - All Verbose (Manual)
-      if: github.event_name == 'workflow_dispatch' && github.event.inputs.focus == 'All' && github.event.inputs.verbose == 'true' && github.event.inputs.parallel == 'false'
-      run: make test-api-verbose
     
     - name: Run API Tests - All Parallel (Manual)
       if: github.event_name == 'workflow_dispatch' && github.event.inputs.focus == 'All' && github.event.inputs.verbose == 'false' && github.event.inputs.parallel == 'true'
