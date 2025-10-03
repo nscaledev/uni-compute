@@ -76,6 +76,32 @@ func (e *Endpoints) DeleteCluster(orgID, projectID, clusterID string) string {
 		url.PathEscape(orgID), url.PathEscape(projectID), url.PathEscape(clusterID))
 }
 
+// Machine operation endpoints.
+func (e *Endpoints) StartMachine(orgID, projectID, clusterID, machineID string) string {
+	return fmt.Sprintf("/api/v1/organizations/%s/projects/%s/clusters/%s/machines/%s/start",
+		url.PathEscape(orgID), url.PathEscape(projectID), url.PathEscape(clusterID), url.PathEscape(machineID))
+}
+
+func (e *Endpoints) StopMachine(orgID, projectID, clusterID, machineID string) string {
+	return fmt.Sprintf("/api/v1/organizations/%s/projects/%s/clusters/%s/machines/%s/stop",
+		url.PathEscape(orgID), url.PathEscape(projectID), url.PathEscape(clusterID), url.PathEscape(machineID))
+}
+
+func (e *Endpoints) SoftRebootMachine(orgID, projectID, clusterID, machineID string) string {
+	return fmt.Sprintf("/api/v1/organizations/%s/projects/%s/clusters/%s/machines/%s/softreboot",
+		url.PathEscape(orgID), url.PathEscape(projectID), url.PathEscape(clusterID), url.PathEscape(machineID))
+}
+
+func (e *Endpoints) HardRebootMachine(orgID, projectID, clusterID, machineID string) string {
+	return fmt.Sprintf("/api/v1/organizations/%s/projects/%s/clusters/%s/machines/%s/hardreboot",
+		url.PathEscape(orgID), url.PathEscape(projectID), url.PathEscape(clusterID), url.PathEscape(machineID))
+}
+
+func (e *Endpoints) EvictMachines(orgID, projectID, clusterID string) string {
+	return fmt.Sprintf("/api/v1/organizations/%s/projects/%s/clusters/%s/evict",
+		url.PathEscape(orgID), url.PathEscape(projectID), url.PathEscape(clusterID))
+}
+
 // Health and metadata endpoints.
 func (e *Endpoints) HealthCheck() string {
 	return "/api/v1/health"

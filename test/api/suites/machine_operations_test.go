@@ -18,49 +18,136 @@ limitations under the License.
 package suites
 
 import (
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
+	"github.com/unikorn-cloud/compute/test/api"
 )
 
 var _ = Describe("Machine Operations", func() {
 	Context("When performing machine power operations", func() {
 		Describe("Given a valid machine exists", func() {
-			It("should successfully start a stopped machine", func() {
-				// Given: A machine in stopped state
-				// When: I request to start the machine
-				// Then: The machine should transition to starting state
-				// And: Eventually reach running state
+			var (
+				clusterID string
+				machineID string
+			)
+
+			BeforeEach(func() {
+				// Create a cluster with a single machine for power operation tests
+				_, cID := api.CreateClusterWithCleanup(client, ctx, config,
+					api.NewClusterPayload().
+						WithName("machine-power-ops-test").
+						WithRegionID(config.RegionID).
+						Build())
+
+				clusterID = cID
+
+				// Wait for machine to be available
+				machineID = api.WaitForMachinesAvailable(client, ctx, config, clusterID)
+
+				// Wait for machine to reach Running state
+				api.WaitForMachineStatus(client, ctx, config, clusterID, machineID, "Running")
+
+				GinkgoWriter.Printf("Using cluster %s with machine %s for power operations\n", clusterID, machineID)
 			})
 
 			It("should successfully stop a running machine", func() {
-				// Given: A machine in running state
-				// When: I request to stop the machine
-				// Then: The machine should transition to stopping state
-				// And: Eventually reach stopped state
+				GinkgoWriter.Printf("Stopping machine %s\n", machineID)
+				err := client.StopMachine(ctx, config.OrgID, config.ProjectID, clusterID, machineID)
+				Expect(err).NotTo(HaveOccurred())
+				GinkgoWriter.Printf("Stop request accepted for machine %s\n", machineID)
+
+				// Verify machine status transitions
+				Eventually(func() string {
+					cluster, getErr := client.GetCluster(ctx, config.OrgID, config.ProjectID, clusterID)
+					if getErr != nil {
+						GinkgoWriter.Printf("Error getting cluster: %v\n", getErr)
+						return "error"
+					}
+
+					status := api.GetMachineStatus(cluster, machineID)
+					GinkgoWriter.Printf("Machine %s current status: %s (waiting for Stopped)\n", machineID, status)
+
+					return status
+				}).WithTimeout(5 * time.Minute).WithPolling(10 * time.Second).Should(Equal("Stopped"))
 			})
 
-			It("should successfully reboot a running machine", func() {
-				// Given: A machine in running state
-				// When: I request to reboot the machine
-				// Then: The machine should restart
-				// And: Return to running state
-			})
-		})
+			It("should successfully start a stopped machine", func() {
+				// First stop the machine
+				GinkgoWriter.Printf("Stopping machine %s\n", machineID)
+				err := client.StopMachine(ctx, config.OrgID, config.ProjectID, clusterID, machineID)
+				Expect(err).NotTo(HaveOccurred())
 
-		Describe("Given invalid machine operations", func() {
-			It("should reject operations on non-existent machines", func() {
-				// Given: A machine ID that does not exist
-				// When: I attempt any power operation
-				// Then: The operation should be rejected
-				// And: A not found error should be returned
-			})
-		})
+				// Wait for machine to be stopped
+				Eventually(func() string {
+					cluster, getErr := client.GetCluster(ctx, config.OrgID, config.ProjectID, clusterID)
+					if getErr != nil {
+						return "error"
+					}
 
-		Describe("Given concurrent power operations on different machines", func() {
-			It("should handle concurrent power operations on different machines", func() {
-				// Given: A cluster with multiple machines
-				// When: I perform power operations on different machines simultaneously
-				// Then: All operations should complete successfully
-				// And: Machine states should be updated correctly
+					status := api.GetMachineStatus(cluster, machineID)
+					GinkgoWriter.Printf("Machine %s current status: %s (waiting for Stopped)\n", machineID, status)
+
+					return status
+				}).WithTimeout(5 * time.Minute).WithPolling(10 * time.Second).Should(Equal("Stopped"))
+
+				// Now start the machine
+				GinkgoWriter.Printf("Starting machine %s\n", machineID)
+				err = client.StartMachine(ctx, config.OrgID, config.ProjectID, clusterID, machineID)
+				Expect(err).NotTo(HaveOccurred())
+
+				// Verify machine returns to running state
+				Eventually(func() string {
+					cluster, getErr := client.GetCluster(ctx, config.OrgID, config.ProjectID, clusterID)
+					if getErr != nil {
+						return "error"
+					}
+
+					status := api.GetMachineStatus(cluster, machineID)
+					GinkgoWriter.Printf("Machine %s current status: %s (waiting for Running)\n", machineID, status)
+
+					return status
+				}).WithTimeout(5 * time.Minute).WithPolling(10 * time.Second).Should(Equal("Running"))
+			})
+
+			It("should successfully soft reboot a running machine", func() {
+				GinkgoWriter.Printf("Soft rebooting machine %s\n", machineID)
+				err := client.SoftRebootMachine(ctx, config.OrgID, config.ProjectID, clusterID, machineID)
+				Expect(err).NotTo(HaveOccurred())
+
+				// Verify machine eventually returns to active state after reboot
+				Eventually(func() string {
+					cluster, getErr := client.GetCluster(ctx, config.OrgID, config.ProjectID, clusterID)
+					if getErr != nil {
+						return "error"
+					}
+
+					status := api.GetMachineStatus(cluster, machineID)
+					GinkgoWriter.Printf("Machine %s current status: %s (waiting for Running after reboot)\n", machineID, status)
+
+					return status
+				}).WithTimeout(5 * time.Minute).WithPolling(10 * time.Second).Should(Equal("Running"))
+			})
+
+			It("should successfully hard reboot a running machine", func() {
+				GinkgoWriter.Printf("Hard rebooting machine %s\n", machineID)
+				err := client.HardRebootMachine(ctx, config.OrgID, config.ProjectID, clusterID, machineID)
+				Expect(err).NotTo(HaveOccurred())
+
+				// Verify machine eventually returns to active state after reboot
+				Eventually(func() string {
+					cluster, getErr := client.GetCluster(ctx, config.OrgID, config.ProjectID, clusterID)
+					if getErr != nil {
+						return "error"
+					}
+
+					status := api.GetMachineStatus(cluster, machineID)
+					GinkgoWriter.Printf("Machine %s current status: %s (waiting for Running after reboot)\n", machineID, status)
+
+					return status
+				}).WithTimeout(5 * time.Minute).WithPolling(10 * time.Second).Should(Equal("Running"))
 			})
 		})
 	})
@@ -68,19 +155,45 @@ var _ = Describe("Machine Operations", func() {
 	Context("When evicting machines from a cluster", func() {
 		Describe("Given valid eviction parameters", func() {
 			It("should successfully evict specified machines", func() {
-				// Given: A cluster with multiple machines
-				// When: I request to evict specific machines
-				// Then: The specified machines should be evicted
-				// And: Replacement machines should be provisioned
-			})
-		})
+				// Create a cluster with multiple machines (2 replicas)
+				_, clusterID := api.CreateClusterWithCleanup(client, ctx, config,
+					api.NewClusterPayload().
+						WithName("eviction-test").
+						WithRegionID(config.RegionID).
+						WithWorkloadPool("eviction-pool", config.FlavorID, config.ImageID, 2).
+						Build())
 
-		Describe("Given invalid eviction parameters", func() {
-			It("should reject eviction of all machines", func() {
-				// Given: A cluster with machines
-				// When: I attempt to evict all machines
-				// Then: The operation should be rejected
-				// And: At least one machine should remain available
+				// Wait for machines to be available and extract machine IDs
+				var machineIDs []string
+				Eventually(func() bool {
+					cluster, getErr := client.GetCluster(ctx, config.OrgID, config.ProjectID, clusterID)
+					if getErr != nil {
+						GinkgoWriter.Printf("Error getting cluster: %v\n", getErr)
+						return false
+					}
+
+					machineIDs = api.ExtractMachineIDsFromPool(cluster, "eviction-pool")
+					GinkgoWriter.Printf("Found %d machines in eviction-pool (waiting until they are provisioned)\n", len(machineIDs))
+
+					return len(machineIDs) >= 2
+				}).WithTimeout(config.TestTimeout).WithPolling(10*time.Second).Should(BeTrue(), "cluster should have at least 2 machines")
+
+				machineIDToEvict := machineIDs[0]
+				GinkgoWriter.Printf("Evicting machine %s from cluster %s\n", machineIDToEvict, clusterID)
+
+				// Evict one machine (this scales down from 2 to 1 replica)
+				err := client.EvictMachines(ctx, config.OrgID, config.ProjectID, clusterID, []string{machineIDToEvict})
+				Expect(err).NotTo(HaveOccurred())
+
+				// Verify the machine is evicted and pool scales down to 1 replica
+				Eventually(func() bool {
+					updatedCluster, getErr := client.GetCluster(ctx, config.OrgID, config.ProjectID, clusterID)
+					if getErr != nil {
+						return false
+					}
+
+					return api.VerifyMachineEvicted(updatedCluster, "eviction-pool", machineIDToEvict, 1)
+				}).WithTimeout(config.TestTimeout).WithPolling(10 * time.Second).Should(BeTrue())
 			})
 		})
 	})

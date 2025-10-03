@@ -380,3 +380,77 @@ func (c *APIClient) DeleteCluster(ctx context.Context, orgID, projectID, cluster
 
 	return nil
 }
+
+// StartMachine starts a stopped machine.
+func (c *APIClient) StartMachine(ctx context.Context, orgID, projectID, clusterID, machineID string) error {
+	path := c.endpoints.StartMachine(orgID, projectID, clusterID, machineID)
+
+	//nolint:bodyclose // response body is closed in doRequest
+	_, _, err := c.doRequest(ctx, http.MethodPost, path, nil, http.StatusAccepted)
+	if err != nil {
+		return fmt.Errorf("starting machine: %w", err)
+	}
+
+	return nil
+}
+
+// StopMachine stops a running machine.
+func (c *APIClient) StopMachine(ctx context.Context, orgID, projectID, clusterID, machineID string) error {
+	path := c.endpoints.StopMachine(orgID, projectID, clusterID, machineID)
+
+	//nolint:bodyclose // response body is closed in doRequest
+	_, _, err := c.doRequest(ctx, http.MethodPost, path, nil, http.StatusAccepted)
+	if err != nil {
+		return fmt.Errorf("stopping machine: %w", err)
+	}
+
+	return nil
+}
+
+// SoftRebootMachine performs a graceful reboot of a machine.
+func (c *APIClient) SoftRebootMachine(ctx context.Context, orgID, projectID, clusterID, machineID string) error {
+	path := c.endpoints.SoftRebootMachine(orgID, projectID, clusterID, machineID)
+
+	//nolint:bodyclose // response body is closed in doRequest
+	_, _, err := c.doRequest(ctx, http.MethodPost, path, nil, http.StatusAccepted)
+	if err != nil {
+		return fmt.Errorf("soft rebooting machine: %w", err)
+	}
+
+	return nil
+}
+
+// HardRebootMachine performs a hard reboot of a machine.
+func (c *APIClient) HardRebootMachine(ctx context.Context, orgID, projectID, clusterID, machineID string) error {
+	path := c.endpoints.HardRebootMachine(orgID, projectID, clusterID, machineID)
+
+	//nolint:bodyclose // response body is closed in doRequest
+	_, _, err := c.doRequest(ctx, http.MethodPost, path, nil, http.StatusAccepted)
+	if err != nil {
+		return fmt.Errorf("hard rebooting machine: %w", err)
+	}
+
+	return nil
+}
+
+// EvictMachines evicts specified machines from a cluster.
+func (c *APIClient) EvictMachines(ctx context.Context, orgID, projectID, clusterID string, machineIDs []string) error {
+	path := c.endpoints.EvictMachines(orgID, projectID, clusterID)
+
+	body := map[string]interface{}{
+		"machineIDs": machineIDs,
+	}
+
+	bodyBytes, err := json.Marshal(body)
+	if err != nil {
+		return fmt.Errorf("marshaling eviction request: %w", err)
+	}
+
+	//nolint:bodyclose // response body is closed in doRequest
+	_, _, err = c.doRequest(ctx, http.MethodPost, path, strings.NewReader(string(bodyBytes)), http.StatusAccepted)
+	if err != nil {
+		return fmt.Errorf("evicting machines: %w", err)
+	}
+
+	return nil
+}
