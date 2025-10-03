@@ -455,11 +455,13 @@ func ExtractMachineIDsFromPool(cluster map[string]interface{}, poolName string) 
 			}
 
 			GinkgoWriter.Printf("Found pool '%s' with %d machines\n", poolName, len(machineIDs))
+
 			return machineIDs
 		}
 	}
 
 	GinkgoWriter.Printf("Pool '%s' not found\n", poolName)
+
 	return []string{}
 }
 
@@ -476,7 +478,7 @@ func VerifyMachineEvicted(cluster map[string]interface{}, poolName, evictedMachi
 			machines := workloadPool["machines"].([]interface{}) //nolint:forcetypeassert // safe: API response structure
 
 			for _, m := range machines {
-				machine := m.(map[string]interface{})          //nolint:forcetypeassert // safe: API response structure
+				machine := m.(map[string]interface{})           //nolint:forcetypeassert // safe: API response structure
 				if machine["id"].(string) == evictedMachineID { //nolint:forcetypeassert // safe: API response structure
 					GinkgoWriter.Printf("Machine %s still present in pool %s (waiting for eviction)\n", evictedMachineID, poolName)
 					return false
@@ -493,5 +495,6 @@ func VerifyMachineEvicted(cluster map[string]interface{}, poolName, evictedMachi
 	}
 
 	GinkgoWriter.Printf("Pool %s not found in cluster status\n", poolName)
+
 	return false
 }
