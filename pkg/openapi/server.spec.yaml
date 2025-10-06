@@ -577,6 +577,7 @@ components:
       type: object
       required:
       - regionId
+      - workloadPools
       properties:
         regionId:
           description: The region to provision the cluster in.
