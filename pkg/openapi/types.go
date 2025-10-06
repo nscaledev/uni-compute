@@ -92,7 +92,7 @@ type ComputeClusterSpec struct {
 	RegionId string `json:"regionId"`
 
 	// WorkloadPools A list of Compute cluster workload pools.
-	WorkloadPools *ComputeClusterWorkloadPools `json:"workloadPools,omitempty"`
+	WorkloadPools ComputeClusterWorkloadPools `json:"workloadPools"`
 }
 
 // ComputeClusterStatus Compute cluster status.
