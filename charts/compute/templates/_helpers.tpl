@@ -5,6 +5,10 @@ Create the container images
 {{- .Values.clusterController.image | default (printf "%s/unikorn-compute-cluster-controller:%s" (include "unikorn.defaultRepositoryPath" .) (.Values.tag | default .Chart.Version)) }}
 {{- end }}
 
+{{- define "unikorn.networkConsumerImage" -}}
+{{- .Values.networkConsumer.image | default (printf "%s/unikorn-compute-network-consumer:%s" (include "unikorn.defaultRepositoryPath" .) (.Values.tag | default .Chart.Version)) }}
+{{- end }}
+
 {{- define "unikorn.computeServerImage" -}}
 {{- .Values.server.image | default (printf "%s/unikorn-compute-server:%s" (include "unikorn.defaultRepositoryPath" .) (.Values.tag | default .Chart.Version)) }}
 {{- end }}

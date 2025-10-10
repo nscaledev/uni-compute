@@ -24,6 +24,16 @@ clusterController:
       cpu: 100m
       memory: 100Mi
 
+# Network event consumer.
+networkConsumer:
+  # Allow override of the controller image.
+  image: ~
+  # Allows resource limits to be set.
+  resources:
+    limits:
+      cpu: 100m
+      memory: 100Mi
+
 # Monitor specific configuration.
 monitor:
   # Allows override of the global default image.
