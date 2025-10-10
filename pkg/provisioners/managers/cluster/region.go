@@ -116,7 +116,7 @@ func (p *Provisioner) deleteIdentity(ctx context.Context, client regionapi.Clien
 func (p *Provisioner) getNetwork(ctx context.Context, client regionapi.ClientWithResponsesInterface) (*regionapi.NetworkRead, error) {
 	log := log.FromContext(ctx)
 
-	networkID, ok := p.cluster.Annotations[coreconstants.PhysicalNetworkAnnotation]
+	networkID, ok := p.cluster.Labels[coreconstants.NetworkLabel]
 	if !ok {
 		//nolint: nilnil
 		return nil, nil
