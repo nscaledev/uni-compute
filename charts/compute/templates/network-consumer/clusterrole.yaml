@@ -1,0 +1,23 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ .Release.Name }}-network-consumer
+  labels:
+    {{- include "unikorn.labels" . | nindent 4 }}
+rules:
+# Orchestrate Unikorn resources (my job).
+- apiGroups:
+  - region.unikorn-cloud.org
+  resources:
+  - networks
+  verbs:
+  - list
+  - watch
+- apiGroups:
+  - compute.unikorn-cloud.org
+  resources:
+  - computeclusters
+  verbs:
+  - list
+  - watch
+  - delete

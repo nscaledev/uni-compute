@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-network-consumer
+  labels:
+    {{- include "unikorn.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-network-consumer
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-network-consumer
+    spec:
+      containers:
+      - name: {{ .Release.Name }}-network-consumer
+        image: {{ include "unikorn.networkConsumerImage" . }}
+        args:
+        {{- include "unikorn.core.flags" . | nindent 8 }}
+        ports:
+        - name: http
+          containerPort: 6080
+        - name: prometheus
+          containerPort: 8080
+        - name: pprof
+          containerPort: 6060
+        resources:
+          {{- .Values.networkConsumer.resources | toYaml | nindent 10 }}
+        securityContext:
+          readOnlyRootFilesystem: true
+      serviceAccountName: {{ .Release.Name }}-network-consumer
+      securityContext:
+        runAsNonRoot: true
