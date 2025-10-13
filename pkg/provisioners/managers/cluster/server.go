@@ -44,7 +44,7 @@ type serverSet map[string]*regionapi.ServerRead
 // add adds a server to the set and raises an error if one already exists.
 func (s serverSet) add(serverName string, server *regionapi.ServerRead) error {
 	if _, ok := s[serverName]; ok {
-		return fmt.Errorf("%w: server %s already exists in set", ErrConsistency, serverName)
+		return fmt.Errorf("%w: server %s already exists in set", errors.ErrConsistency, serverName)
 	}
 
 	s[serverName] = server
@@ -99,7 +99,7 @@ func generateSecurityGroup(pool *unikornv1.ComputeClusterWorkloadPoolSpec, secur
 
 	securityGroup, ok := securityGroups[pool.Name]
 	if !ok {
-		return nil, fmt.Errorf("%w: security group for server pool %s not found", ErrConsistency, pool.Name)
+		return nil, fmt.Errorf("%w: security group for server pool %s not found", errors.ErrConsistency, pool.Name)
 	}
 
 	result := &regionapi.ServerSecurityGroupList{

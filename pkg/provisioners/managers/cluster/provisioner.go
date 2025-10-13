@@ -154,7 +154,7 @@ func (p *Provisioner) provision(ctx context.Context) error {
 	// Likewise identity creation is provisioned asynchronously as it too takes a
 	// long time, especially if a physical network is being provisioned and that
 	// needs to go out and talk to switches.
-	client, err := p.getRegionClient(ctx, "provision")
+	client, err := p.getRegionClient(ctx)
 	if err != nil {
 		return err
 	}
@@ -209,7 +209,7 @@ func (p *Provisioner) Deprovision(ctx context.Context) error {
 	// An accepted status means the API has recoded the deletion event and
 	// we can delete the cluster, a not found means it's been deleted already
 	// and again can proceed.  The goal here is not to leak resources.
-	client, err := p.getRegionClient(ctx, "deprovision")
+	client, err := p.getRegionClient(ctx)
 	if err != nil {
 		return err
 	}
