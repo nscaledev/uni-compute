@@ -38,15 +38,15 @@ import (
 // getRegionClient returns an authenticated client.
 // TODO: the client should be cached for an appropriate period to avoid polluting the
 // caches in identity with new tokens during busy periods.
-func (p *Provisioner) getRegionClient(ctx context.Context, traceName string) (regionapi.ClientWithResponsesInterface, error) {
+func (p *Provisioner) getRegionClient(ctx context.Context) (regionapi.ClientWithResponsesInterface, error) {
 	cli, err := coreclient.FromContext(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	tokenIssuer := identityclient.NewTokenIssuer(cli, p.options.identityOptions, &p.options.clientOptions, constants.Application, constants.Version)
+	tokenIssuer := identityclient.NewTokenIssuer(cli, p.options.identityOptions, &p.options.clientOptions, constants.ServiceDescriptor())
 
-	token, err := tokenIssuer.Issue(ctx, traceName)
+	token, err := tokenIssuer.Issue(ctx)
 	if err != nil {
 		return nil, err
 	}

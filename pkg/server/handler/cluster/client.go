@@ -18,7 +18,6 @@ package cluster
 
 import (
 	"context"
-	goerrors "errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -34,6 +33,7 @@ import (
 	"github.com/unikorn-cloud/compute/pkg/server/handler/identity"
 	"github.com/unikorn-cloud/compute/pkg/server/handler/region"
 	"github.com/unikorn-cloud/core/pkg/constants"
+	coreerrors "github.com/unikorn-cloud/core/pkg/errors"
 	coreapi "github.com/unikorn-cloud/core/pkg/openapi"
 	"github.com/unikorn-cloud/core/pkg/server/conversion"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
@@ -51,10 +51,6 @@ import (
 	"k8s.io/utils/ptr"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
-)
-
-var (
-	ErrConsistency = goerrors.New("consistency error")
 )
 
 type Options struct {
@@ -186,7 +182,7 @@ func (c *Client) generateAllocations(ctx context.Context, organizationID string,
 
 		index := slices.IndexFunc(flavors, flavorByID)
 		if index < 0 {
-			return nil, fmt.Errorf("%w: flavorID does not exist", ErrConsistency)
+			return nil, fmt.Errorf("%w: flavorID does not exist", coreerrors.ErrConsistency)
 		}
 
 		flavor := flavors[index]

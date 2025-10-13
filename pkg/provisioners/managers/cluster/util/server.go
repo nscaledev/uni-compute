@@ -17,7 +17,6 @@ limitations under the License.
 package util
 
 import (
-	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -25,15 +24,12 @@ import (
 	unikornv1 "github.com/unikorn-cloud/compute/pkg/apis/unikorn/v1alpha1"
 	unikornv1core "github.com/unikorn-cloud/core/pkg/apis/unikorn/v1alpha1"
 	coreconstants "github.com/unikorn-cloud/core/pkg/constants"
+	"github.com/unikorn-cloud/core/pkg/errors"
 	coreapi "github.com/unikorn-cloud/core/pkg/openapi"
 	unikornv1region "github.com/unikorn-cloud/region/pkg/apis/unikorn/v1alpha1"
 	regionapi "github.com/unikorn-cloud/region/pkg/openapi"
 
 	corev1 "k8s.io/api/core/v1"
-)
-
-var (
-	ErrConsistency = errors.New("consistency error")
 )
 
 const (
@@ -53,7 +49,7 @@ func ClusterTagSelector(cluster *unikornv1.ComputeCluster) *coreapi.TagSelectorP
 // GetWorkloadPoolTag derives the pool from the API resource.
 func GetWorkloadPoolTag(tags *coreapi.TagList) (string, error) {
 	if tags == nil {
-		return "", fmt.Errorf("%w: workload pool tags missing", ErrConsistency)
+		return "", fmt.Errorf("%w: workload pool tags missing", errors.ErrConsistency)
 	}
 
 	t := *tags
@@ -64,7 +60,7 @@ func GetWorkloadPoolTag(tags *coreapi.TagList) (string, error) {
 
 	index := slices.IndexFunc(t, isWorkloadPoolTag)
 	if index < 0 {
-		return "", fmt.Errorf("%w: workload pool tag missing", ErrConsistency)
+		return "", fmt.Errorf("%w: workload pool tag missing", errors.ErrConsistency)
 	}
 
 	return t[index].Value, nil

@@ -35,6 +35,7 @@ import (
 	unikornv1 "github.com/unikorn-cloud/compute/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/compute/pkg/provisioners/managers/cluster/util"
 	unikornv1core "github.com/unikorn-cloud/core/pkg/apis/unikorn/v1alpha1"
+	"github.com/unikorn-cloud/core/pkg/errors"
 	coreapi "github.com/unikorn-cloud/core/pkg/openapi"
 	regionapi "github.com/unikorn-cloud/region/pkg/openapi"
 
@@ -49,7 +50,7 @@ type securityGroupSet map[string]*regionapi.SecurityGroupRead
 // add adds a security group to the set and raises an error if one already exists.
 func (s securityGroupSet) add(poolName string, securityGroup *regionapi.SecurityGroupRead) error {
 	if _, ok := s[poolName]; ok {
-		return fmt.Errorf("%w: security group for pool %s already exists", ErrConsistency, poolName)
+		return fmt.Errorf("%w: security group for pool %s already exists", errors.ErrConsistency, poolName)
 	}
 
 	s[poolName] = securityGroup
@@ -150,7 +151,7 @@ type securityGroupCreateSet map[string]*regionapi.SecurityGroupWrite
 // add adds a security group to the set and raises an error if one already exists.
 func (s securityGroupCreateSet) add(poolName string, securityGroup *regionapi.SecurityGroupWrite) error {
 	if _, ok := s[poolName]; ok {
-		return fmt.Errorf("%w: security group for pool %s already", ErrConsistency, poolName)
+		return fmt.Errorf("%w: security group for pool %s already", errors.ErrConsistency, poolName)
 	}
 
 	s[poolName] = securityGroup

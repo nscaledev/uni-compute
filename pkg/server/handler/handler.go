@@ -39,7 +39,7 @@ import (
 
 func regionClientGetter(issuer *identityclient.TokenIssuer, factory *regionclient.Client) region.ClientGetterFunc {
 	return func(ctx context.Context) (regionapi.ClientWithResponsesInterface, error) {
-		token, err := issuer.Issue(ctx, "kubernetes-api")
+		token, err := issuer.Issue(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -55,7 +55,7 @@ func regionClientGetter(issuer *identityclient.TokenIssuer, factory *regionclien
 
 func identityClientGetter(issuer *identityclient.TokenIssuer, factory *identityclient.Client) identity.ClientGetterFunc {
 	return func(ctx context.Context) (identityapi.ClientWithResponsesInterface, error) {
-		token, err := issuer.Issue(ctx, "kubernetes-api")
+		token, err := issuer.Issue(ctx)
 		if err != nil {
 			return nil, err
 		}
