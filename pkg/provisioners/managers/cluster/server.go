@@ -149,6 +149,16 @@ func (p *Provisioner) generateServer(openstackIdentityStatus *openstackIdentityS
 		},
 	}
 
+	if len(pool.AllowedAddressPairs) != 0 {
+		pairs := make(regionapi.ServerNetworkAllowedAddressPairList, len(pool.AllowedAddressPairs))
+
+		for i := range pool.AllowedAddressPairs {
+			pairs[i].Cidr = pool.AllowedAddressPairs[i].CIDR.String()
+		}
+
+		request.Spec.Networks[0].AllowedAddressPairs = &pairs
+	}
+
 	return request, nil
 }
 
