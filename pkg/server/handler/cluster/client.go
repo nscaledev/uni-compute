@@ -251,7 +251,7 @@ func (c *Client) createAllocation(ctx context.Context, resource *unikornv1.Compu
 }
 
 func (c *Client) updateAllocation(ctx context.Context, resource *unikornv1.ComputeCluster) error {
-	principal, err := principal.GetPrincipal(ctx)
+	principal, err := principal.FromResource(resource)
 	if err != nil {
 		return err
 	}
@@ -278,18 +278,18 @@ func (c *Client) updateAllocation(ctx context.Context, resource *unikornv1.Compu
 	return nil
 }
 
-func (c *Client) deleteAllocation(ctx context.Context, allocationID string) error {
+func (c *Client) deleteAllocation(ctx context.Context, resource *unikornv1.ComputeCluster) error {
 	client, err := c.identity.Client(ctx)
 	if err != nil {
 		return err
 	}
 
-	principal, err := principal.GetPrincipal(ctx)
+	principal, err := principal.FromResource(resource)
 	if err != nil {
 		return err
 	}
 
-	resp, err := client.DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDAllocationsAllocationIDWithResponse(ctx, principal.OrganizationID, principal.ProjectID, allocationID)
+	resp, err := client.DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDAllocationsAllocationIDWithResponse(ctx, principal.OrganizationID, principal.ProjectID, resource.Annotations[constants.AllocationAnnotation])
 	if err != nil {
 		return err
 	}
@@ -482,7 +482,7 @@ func (c *Client) Delete(ctx context.Context, organizationID, projectID, clusterI
 		return errors.OAuth2ServerError("failed to delete cluster").WithError(err)
 	}
 
-	if err := c.deleteAllocation(ctx, cluster.Annotations[constants.AllocationAnnotation]); err != nil {
+	if err := c.deleteAllocation(ctx, cluster); err != nil {
 		return errors.OAuth2ServerError("failed to delete quota allocation").WithError(err)
 	}
 
