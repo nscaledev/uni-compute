@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"os"
 	"path"
+
+	"github.com/unikorn-cloud/core/pkg/util"
 )
 
 var (
@@ -42,3 +44,15 @@ var (
 func VersionString() string {
 	return fmt.Sprintf("%s/%s (revision/%s)", Application, Version, Revision)
 }
+
+func ServiceDescriptor() util.ServiceDescriptor {
+	return util.ServiceDescriptor{
+		Name:     Application,
+		Version:  Version,
+		Revision: Revision,
+	}
+}
+
+const (
+	ServerDeletionHintAnnotation = "cluster.compute.unikorn-cloud.org/deletion-hint"
+)

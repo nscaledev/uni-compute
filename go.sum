@@ -193,12 +193,12 @@ github.com/stretchr/testify v1.10.0 h1:Xv5erBjTwe/5IxqUQTdXv5kgmIvbHo3QQyRwhJsOf
 github.com/stretchr/testify v1.10.0/go.mod h1:r2ic/lqez/lEtzL7wO/rwa5dbSLXVDPFyf8C91i36aY=
 github.com/ugorji/go/codec v1.2.12 h1:9LC83zGrHhuUA9l16C9AHXAqEV/2wBQ4nkvumAE65EE=
 github.com/ugorji/go/codec v1.2.12/go.mod h1:UNopzCgEMSXjBc6AOMqYvWC1ktqTAfzJZUZgYf6w6lg=
-github.com/unikorn-cloud/core v1.7.1-0.20250929135440-f20f4911a87f h1:X0LKiPLGfGK7bXM+JdPbEFg27PbK5XBwvRkLSd7I5H0=
-github.com/unikorn-cloud/core v1.7.1-0.20250929135440-f20f4911a87f/go.mod h1:KZLGw/EyZWjem4c80QF70KqpHIT7MAk7o6L4VAWsnGM=
-github.com/unikorn-cloud/identity v1.7.1-0.20250924144813-5629afb944f9 h1:G1ZIdurXxeJXMSzwn780EM2RoDi/2o0ZfDTSoac/98k=
-github.com/unikorn-cloud/identity v1.7.1-0.20250924144813-5629afb944f9/go.mod h1:9v0e908IVxZ6IXT62a6QuoNfnLZiu8b+K+IBYsaAW2I=
-github.com/unikorn-cloud/region v1.7.1-0.20250930125929-167fc780855f h1:fJVNyxfM77pJBloJ+8T/thCtbOQKi/EmTQ9IAJtIRp0=
-github.com/unikorn-cloud/region v1.7.1-0.20250930125929-167fc780855f/go.mod h1:rksgresMuHVJdpP6NsGM7L+jIEfU38l6G6yA6HMYBkU=
+github.com/unikorn-cloud/core v1.10.0-rc1 h1:osIdEzpZmdWYjE3jKdhwo/G6WNsT7RbPnWxY7UQiO2c=
+github.com/unikorn-cloud/core v1.10.0-rc1/go.mod h1:KZLGw/EyZWjem4c80QF70KqpHIT7MAk7o6L4VAWsnGM=
+github.com/unikorn-cloud/identity v1.10.0-rc1 h1:3UCO3VMYrulAGE7OLOHch7tS2CeNVtEQHiyh+FtFv4Y=
+github.com/unikorn-cloud/identity v1.10.0-rc1/go.mod h1:8rq/cuZHyRt+IuHZTXWAcIyge+0U4esy+l0NempiTJE=
+github.com/unikorn-cloud/region v1.10.0-rc1 h1:RzdsB94Ij3YlAPTJ8qajzYl/roiJq1m1y77ZXE/jBMA=
+github.com/unikorn-cloud/region v1.10.0-rc1/go.mod h1:DVt/uYs/YW686+Uu42+yWmErDpHjDj/GuaF4g1/82n0=
 github.com/vmware-labs/yaml-jsonpath v0.3.2 h1:/5QKeCBGdsInyDCyVNLbXyilb61MXGi9NP674f9Hobk=
 github.com/vmware-labs/yaml-jsonpath v0.3.2/go.mod h1:U6whw1z03QyqgWdgXxvVnQ90zN1BWz5V+51Ewf8k+rQ=
 github.com/x448/float16 v0.8.4 h1:qLwI1I70+NjRFUR3zs1JPUCgaCXSh3SW62uAKT1mSBM=
@@ -315,6 +315,8 @@ google.golang.org/protobuf v1.26.0-rc.1/go.mod h1:jlhhOSvTdKEhbULTjvd4ARK9grFBp0
 google.golang.org/protobuf v1.26.0/go.mod h1:9q0QmTI4eRPtz6boOQmLYwt+qCgq0jsYwAQnmE0givc=
 google.golang.org/protobuf v1.36.6 h1:z1NpPI8ku2WgiWnf+t9wTPsn6eP1L7ksHUlkfLvd9xY=
 google.golang.org/protobuf v1.36.6/go.mod h1:jduwjTPXsFjZGTmRluh+L6NjiWu7pchiJ2/5YcXBHnY=
+gopkg.in/alexcesaro/quotedprintable.v3 v3.0.0-20150716171945-2caba252f4dc h1:2gGKlE2+asNV9m7xrywl36YYNnBG5ZQ0r/BOOxqPpmk=
+gopkg.in/alexcesaro/quotedprintable.v3 v3.0.0-20150716171945-2caba252f4dc/go.mod h1:m7x9LTH6d71AHyAX77c9yqWCCa3UKHcVEj9y7hAtKDk=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
 gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
 gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c h1:Hei/4ADfdWqJk1ZMxUNpqntNwaWcugrBjAiHlqqRiVk=
@@ -322,6 +324,8 @@ gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c/go.mod h1:JHkPIbrfpd72SG/EV
 gopkg.in/evanphx/json-patch.v4 v4.12.0 h1:n6jtcsulIzXPJaxegRbvFNNrZDjbij7ny3gmSPG+6V4=
 gopkg.in/evanphx/json-patch.v4 v4.12.0/go.mod h1:p8EYWUEYMpynmqDbY58zCKCFZw8pRWMG4EsWvDvM72M=
 gopkg.in/fsnotify.v1 v1.4.7/go.mod h1:Tz8NjZHkW78fSQdbUxIjBTcgA1z1m8ZHf0WmKUhAMys=
+gopkg.in/gomail.v2 v2.0.0-20160411212932-81ebce5c23df h1:n7WqCuqOuCbNr617RXOY0AWRXxgwEyPp2z+p0+hgMuE=
+gopkg.in/gomail.v2 v2.0.0-20160411212932-81ebce5c23df/go.mod h1:LRQQ+SO6ZHR7tOkpBDuZnXENFzX8qRjMDMyPD6BRkCw=
 gopkg.in/inf.v0 v0.9.1 h1:73M5CoZyi3ZLMOyDlQh031Cx6N9NDJ2Vvfl76EDAgDc=
 gopkg.in/inf.v0 v0.9.1/go.mod h1:cWUDdTG/fYaXco+Dcufb5Vnc6Gp2YChqWtbxRZE0mXw=
 gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7 h1:uRGJdciOHaEIrze2W8Q3AKkepLTh2hOroT7a+7czfdQ=

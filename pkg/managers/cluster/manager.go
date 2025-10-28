@@ -19,6 +19,7 @@ package cluster
 import (
 	"context"
 	"slices"
+	"time"
 
 	unikornv1 "github.com/unikorn-cloud/compute/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/compute/pkg/constants"
@@ -27,8 +28,10 @@ import (
 	coreconstants "github.com/unikorn-cloud/core/pkg/constants"
 	coremanager "github.com/unikorn-cloud/core/pkg/manager"
 	"github.com/unikorn-cloud/core/pkg/manager/options"
+	"github.com/unikorn-cloud/core/pkg/util"
 	regionv1 "github.com/unikorn-cloud/region/pkg/apis/unikorn/v1alpha1"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -46,8 +49,8 @@ type Factory struct{}
 var _ coremanager.ControllerFactory = &Factory{}
 
 // Metadata returns the application, version and revision.
-func (*Factory) Metadata() (string, string, string) {
-	return constants.Application, constants.Version, constants.Revision
+func (*Factory) Metadata() util.ServiceDescriptor {
+	return constants.ServiceDescriptor()
 }
 
 // Options returns any options to be added to the CLI flags and passed to the reconciler.
@@ -126,4 +129,57 @@ func (*Factory) Schemes() []coreclient.SchemeAdder {
 		unikornv1.AddToScheme,
 		regionv1.AddToScheme,
 	}
+}
+
+func (*Factory) Upgrade(ctx context.Context, cli client.Client, options *options.Options) error {
+	// Caches need to start!
+	time.Sleep(5 * time.Second)
+
+	// v1.9.0 moved all clusters into the controller namespace.
+	// It also replaces the network annotation with a network label.
+	clusters := &unikornv1.ComputeClusterList{}
+
+	if err := cli.List(ctx, clusters); err != nil {
+		return err
+	}
+
+	clusters.Items = slices.DeleteFunc(clusters.Items, func(cluster unikornv1.ComputeCluster) bool {
+		return cluster.Namespace == options.Namespace
+	})
+
+	for i := range clusters.Items {
+		cluster := &clusters.Items[i]
+
+		// Update the labels and annotations to keep the validating admission policy happy for
+		// both the creation and the update before deletion.
+		cluster.Labels[coreconstants.NetworkLabel] = cluster.Annotations[coreconstants.PhysicalNetworkAnnotation]
+		delete(cluster.Annotations, coreconstants.PhysicalNetworkAnnotation)
+
+		// Migrate cluster to its new home.
+		newCluster := cluster.DeepCopy()
+
+		newCluster.ObjectMeta = metav1.ObjectMeta{
+			Namespace:   options.Namespace,
+			Name:        cluster.Name,
+			Labels:      cluster.Labels,
+			Annotations: cluster.Annotations,
+		}
+
+		if err := cli.Create(ctx, newCluster); err != nil {
+			return err
+		}
+
+		// Delete the cluster directly.
+		cluster.Finalizers = nil
+
+		if err := cli.Update(ctx, cluster); err != nil {
+			return err
+		}
+
+		if err := cli.Delete(ctx, cluster); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

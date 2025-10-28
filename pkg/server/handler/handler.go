@@ -24,7 +24,6 @@ import (
 
 	"github.com/unikorn-cloud/compute/pkg/openapi"
 	"github.com/unikorn-cloud/compute/pkg/server/handler/cluster"
-	"github.com/unikorn-cloud/compute/pkg/server/handler/identity"
 	"github.com/unikorn-cloud/compute/pkg/server/handler/region"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
 	"github.com/unikorn-cloud/core/pkg/server/util"
@@ -39,23 +38,7 @@ import (
 
 func regionClientGetter(issuer *identityclient.TokenIssuer, factory *regionclient.Client) region.ClientGetterFunc {
 	return func(ctx context.Context) (regionapi.ClientWithResponsesInterface, error) {
-		token, err := issuer.Issue(ctx, "kubernetes-api")
-		if err != nil {
-			return nil, err
-		}
-
-		client, err := factory.APIClient(ctx, token)
-		if err != nil {
-			return nil, err
-		}
-
-		return client, nil
-	}
-}
-
-func identityClientGetter(issuer *identityclient.TokenIssuer, factory *identityclient.Client) identity.ClientGetterFunc {
-	return func(ctx context.Context) (identityapi.ClientWithResponsesInterface, error) {
-		token, err := issuer.Issue(ctx, "kubernetes-api")
+		token, err := issuer.Issue(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -84,23 +67,40 @@ type Handler struct {
 	issuer *identityclient.TokenIssuer
 
 	// identity is a client to access the identity service.
-	identity *identity.Client
+	identity *identityclient.Client
 
 	// region is a client to access regions.
 	region *region.Client
 }
 
-func New(client client.Client, namespace string, options *Options, issuer *identityclient.TokenIssuer, identityFactory *identityclient.Client, regionFactory *regionclient.Client) (*Handler, error) {
+func New(client client.Client, namespace string, options *Options, issuer *identityclient.TokenIssuer, identity *identityclient.Client, regionFactory *regionclient.Client) (*Handler, error) {
 	h := &Handler{
 		client:    client,
 		namespace: namespace,
 		options:   options,
 		issuer:    issuer,
-		identity:  identity.New(identityClientGetter(issuer, identityFactory)),
+		identity:  identity,
 		region:    region.New(regionClientGetter(issuer, regionFactory)),
 	}
 
 	return h, nil
+}
+
+// getIdentityAPIClient gets a client to talk to the identity service, this must not
+// be cached as the token is only short lived.  Said problem goes away when we use
+// SPIFFE as a workload identity layer.
+func (h *Handler) getIdentityAPIClient(ctx context.Context) (identityapi.ClientWithResponsesInterface, error) {
+	token, err := h.issuer.Issue(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	client, err := h.identity.APIClient(ctx, token)
+	if err != nil {
+		return nil, err
+	}
+
+	return client, nil
 }
 
 /*
@@ -166,7 +166,7 @@ func (h *Handler) GetApiV1OrganizationsOrganizationIDRegionsRegionIDImages(w htt
 }
 
 func (h *Handler) clusterClient() *cluster.Client {
-	return cluster.NewClient(h.client, h.namespace, &h.options.Cluster, h.identity, h.region)
+	return cluster.NewClient(h.client, h.namespace, &h.options.Cluster, h.getIdentityAPIClient, h.region)
 }
 
 func (h *Handler) GetApiV1OrganizationsOrganizationIDClusters(w http.ResponseWriter, r *http.Request, organizationID openapi.OrganizationIDParameter, params openapi.GetApiV1OrganizationsOrganizationIDClustersParams) {

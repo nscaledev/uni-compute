@@ -19,7 +19,6 @@ package main
 import (
 	"context"
 	"errors"
-	"flag"
 	"net/http"
 	"os"
 	"os/signal"
@@ -39,9 +38,8 @@ import (
 // start is the entry point to server.
 func start() {
 	s := &server.Server{}
-	s.AddFlags(flag.CommandLine, pflag.CommandLine)
+	s.AddFlags(pflag.CommandLine)
 
-	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.Parse()
 
 	// Get logging going first, log sinks will expect JSON formatted output for everything.

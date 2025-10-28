@@ -129,7 +129,7 @@ func (p *Provisioner) getOpenstackIdentityStatus(ctx context.Context, client reg
 }
 
 // updateStatus updates the compute cluster status.
-func (p *Provisioner) updateStatus(ctx context.Context, serverSet serverPoolSet, options *openstackIdentityStatus) {
+func (p *Provisioner) updateStatus(ctx context.Context, serverSet serverSet, options *openstackIdentityStatus) {
 	log := log.FromContext(ctx)
 
 	// NOTE: the shared update function expects a list, but we use a map
@@ -154,7 +154,7 @@ func (p *Provisioner) provision(ctx context.Context) error {
 	// Likewise identity creation is provisioned asynchronously as it too takes a
 	// long time, especially if a physical network is being provisioned and that
 	// needs to go out and talk to switches.
-	client, err := p.getRegionClient(ctx, "provision")
+	client, err := p.getRegionClient(ctx)
 	if err != nil {
 		return err
 	}
@@ -169,7 +169,7 @@ func (p *Provisioner) provision(ctx context.Context) error {
 		return err
 	}
 
-	serverSet, err := p.newServerSet(ctx, servers)
+	serverSet, err := newServerSet(ctx, servers)
 	if err != nil {
 		return err
 	}
@@ -209,10 +209,23 @@ func (p *Provisioner) Deprovision(ctx context.Context) error {
 	// An accepted status means the API has recoded the deletion event and
 	// we can delete the cluster, a not found means it's been deleted already
 	// and again can proceed.  The goal here is not to leak resources.
-	client, err := p.getRegionClient(ctx, "deprovision")
+	client, err := p.getRegionClient(ctx)
 	if err != nil {
 		return err
 	}
+
+	// This actually shows you server deleting.
+	servers, err := p.listServers(ctx, client)
+	if err != nil {
+		return err
+	}
+
+	serverSet, err := newServerSet(ctx, servers)
+	if err != nil {
+		return err
+	}
+
+	defer p.updateStatus(ctx, serverSet, &openstackIdentityStatus{})
 
 	if err := p.deleteIdentity(ctx, client); err != nil {
 		return err

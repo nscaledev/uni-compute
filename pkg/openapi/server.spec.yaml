@@ -4,7 +4,7 @@ info:
   description: |-
     The Compute Service API provides services that allows provisioning and life cycle
     management of Compute clusters.
-  version: 1.7.0
+  version: 1.9.0
 paths:
   /api/v1/organizations/{organizationID}/regions:
     description: |-
@@ -570,7 +570,6 @@ components:
     computeClusterWorkloadPools:
       description: A list of Compute cluster workload pools.
       type: array
-      minItems: 1
       items:
         $ref: '#/components/schemas/computeClusterWorkloadPool'
     computeClusterSpec:
@@ -689,6 +688,7 @@ components:
       items:
         description: A machine ID.
         type: string
+        minItems: 1
     evictionWrite:
       description: A set of machines to evict from a cluster.
       type: object
