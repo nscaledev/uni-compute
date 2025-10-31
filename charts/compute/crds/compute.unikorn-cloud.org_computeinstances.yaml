@@ -1,0 +1,201 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.17.3
+  name: computeinstances.compute.unikorn-cloud.org
+spec:
+  group: compute.unikorn-cloud.org
+  names:
+    categories:
+    - unikorn
+    kind: ComputeInstance
+    listKind: ComputeInstanceList
+    plural: computeinstances
+    singular: computeinstance
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .metadata.labels['unikorn-cloud\.org/name']
+      name: display name
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Available")].reason
+      name: status
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: ComputeInstance is an object representing a Compute instance.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            properties:
+              diskSize:
+                anyOf:
+                - type: integer
+                - type: string
+                description: |-
+                  DiskSize is the persistent root disk size to deploy with.  This
+                  overrides the default ephemeral disk size defined in the flavor.
+                  This is irrelevant for baremetal machine flavors.
+                pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                x-kubernetes-int-or-string: true
+              flavorId:
+                description: Flavor is the regions service flavor to deploy with.
+                type: string
+              imageId:
+                description: Image is the region service image to deploy with.
+                type: string
+              networking:
+                description: Network is networking options.
+                properties:
+                  allowedSourceAddresses:
+                    description: |-
+                      AllowedSourceAddresses defines a set of network prefixes that are
+                      allowed to egress from the instance.  For use where the instance is
+                      being used as a router for NFV.
+                    items:
+                      pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9]?[0-9])\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9]?[0-9])\/(?:3[0-2]|[1-2]?[0-9])$
+                      type: string
+                    type: array
+                  publicIp:
+                    description: PublicIP specifies whether to create a public IP
+                      address.
+                    type: boolean
+                  securityGroupIDs:
+                    description: |-
+                      SecurityGroupIDs are a list of security group IDs to apply to
+                      the instance's network device.
+                    items:
+                      type: string
+                    type: array
+                type: object
+              pause:
+                description: Pause, if true, will inhibit reconciliation.
+                type: boolean
+              replicas:
+                description: Replicas is the initial pool size to deploy.
+                minimum: 0
+                type: integer
+              tags:
+                description: Tags are aribrary user data.
+                items:
+                  description: Tag is an arbirary key/value.
+                  properties:
+                    name:
+                      description: Name of the tag.
+                      type: string
+                    value:
+                      description: Value of the tag.
+                      type: string
+                  required:
+                  - name
+                  - value
+                  type: object
+                type: array
+              userData:
+                description: |-
+                  UserData is passed to cloud-init and may be a script, a multipart MIME archive etc.
+                  as permitted by the cloud-init specification.
+                format: byte
+                type: string
+            required:
+            - flavorId
+            - imageId
+            type: object
+          status:
+            properties:
+              conditions:
+                description: Conditions is a set of status conditions for the machine.
+                items:
+                  description: |-
+                    Condition is a generic condition type for use across all resource types.
+                    It's generic so that the underlying controller-manager functionality can
+                    be shared across all resources.
+                  properties:
+                    lastTransitionTime:
+                      description: Last time the condition transitioned from one status
+                        to another.
+                      format: date-time
+                      type: string
+                    message:
+                      description: Human-readable message indicating details about
+                        last transition.
+                      type: string
+                    reason:
+                      description: Unique, one-word, CamelCase reason for the condition's
+                        last transition.
+                      enum:
+                      - Provisioning
+                      - Provisioned
+                      - Cancelled
+                      - Errored
+                      - Deprovisioning
+                      - Deprovisioned
+                      - Unknown
+                      - Healthy
+                      - Degraded
+                      type: string
+                    status:
+                      description: |-
+                        Status is the status of the condition.
+                        Can be True, False, Unknown.
+                      type: string
+                    type:
+                      description: Type is the type of the condition.
+                      enum:
+                      - Available
+                      - Healthy
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+              privateIp:
+                description: PrivateIP is the private IP address.
+                type: string
+              publicIp:
+                description: PublicIP is the public IP address if requested.
+                type: string
+              status:
+                description: PowerState is the current status of the machine.
+                enum:
+                - Pending
+                - Running
+                - Stopping
+                - Stopped
+                type: string
+            required:
+            - status
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

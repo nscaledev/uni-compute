@@ -20,7 +20,6 @@ import (
 	"errors"
 
 	unikornv1core "github.com/unikorn-cloud/core/pkg/apis/unikorn/v1alpha1"
-	"github.com/unikorn-cloud/core/pkg/constants"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -57,24 +56,8 @@ func (c *ComputeCluster) StatusConditionWrite(t unikornv1core.ConditionType, sta
 // ResourceLabels generates a set of labels to uniquely identify the resource
 // if it were to be placed in a single global namespace.
 func (c *ComputeCluster) ResourceLabels() (labels.Set, error) {
-	organization, ok := c.Labels[constants.OrganizationLabel]
-	if !ok {
-		return nil, ErrMissingLabel
-	}
-
-	project, ok := c.Labels[constants.ProjectLabel]
-	if !ok {
-		return nil, ErrMissingLabel
-	}
-
-	labels := labels.Set{
-		constants.KindLabel:           constants.KindLabelValueComputeCluster,
-		constants.OrganizationLabel:   organization,
-		constants.ProjectLabel:        project,
-		constants.ComputeClusterLabel: c.Name,
-	}
-
-	return labels, nil
+	//nolint:nilnil
+	return nil, nil
 }
 
 func (c *ComputeCluster) GetWorkloadPoolStatus(name string) *WorkloadPoolStatus {
@@ -109,4 +92,29 @@ func (c *ComputeCluster) GetWorkloadPool(name string) (*ComputeClusterWorkloadPo
 // HasFirewallRules tells us if the pool as an firewall rules defined.
 func (p *ComputeClusterWorkloadPoolSpec) HasFirewallRules() bool {
 	return len(p.Firewall) > 0
+}
+
+// Paused implements the ReconcilePauser interface.
+func (c *ComputeInstance) Paused() bool {
+	return c.Spec.Pause
+}
+
+// StatusConditionRead scans the status conditions for an existing condition whose type
+// matches.
+func (c *ComputeInstance) StatusConditionRead(t unikornv1core.ConditionType) (*unikornv1core.Condition, error) {
+	return unikornv1core.GetCondition(c.Status.Conditions, t)
+}
+
+// StatusConditionWrite either adds or updates a condition in the cluster status.
+// If the condition, status and message match an existing condition the update is
+// ignored.
+func (c *ComputeInstance) StatusConditionWrite(t unikornv1core.ConditionType, status corev1.ConditionStatus, reason unikornv1core.ConditionReason, message string) {
+	unikornv1core.UpdateCondition(&c.Status.Conditions, t, status, reason, message)
+}
+
+// ResourceLabels generates a set of labels to uniquely identify the resource
+// if it were to be placed in a single global namespace.
+func (c *ComputeInstance) ResourceLabels() (labels.Set, error) {
+	//nolint:nilnil
+	return nil, nil
 }

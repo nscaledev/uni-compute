@@ -10,6 +10,7 @@ rules:
   - compute.unikorn-cloud.org
   resources:
   - computeclusters
+  - computeinstances
   verbs:
   - create
   - get

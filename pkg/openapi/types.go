@@ -41,6 +41,12 @@ type AllowedAddressPair struct {
 // AllowedAddressPairList A list of allowed address pairs.
 type AllowedAddressPairList = []AllowedAddressPair
 
+// AllowedSourceAddresses A list of network prefixes that are allowed to egress from the server.
+// By default, only packets from the server's network interface's IP address
+// are allowed to enter the network.  Use of this option allows the server
+// to act as a router without SNAT rules.
+type AllowedSourceAddresses = []string
+
 // ComputeClusterMachineStatus Compute cluster machine status.
 type ComputeClusterMachineStatus struct {
 	// FlavorID Machine flavorID.
@@ -206,6 +212,115 @@ type ImageSelector struct {
 	Version string `json:"version"`
 }
 
+// InstanceCreate A compute instance creation request.
+type InstanceCreate struct {
+	// Metadata Metadata required for all API resource reads and writes.
+	Metadata externalRef0.ResourceWriteMetadata `json:"metadata"`
+
+	// Spec A compute instance.
+	Spec InstanceCreateSpec `json:"spec"`
+}
+
+// InstanceCreateSpec defines model for instanceCreateSpec.
+type InstanceCreateSpec struct {
+	// FlavorId The flavor CPU/RAM of a compute instance.
+	FlavorId string `json:"flavorId"`
+
+	// ImageId The image of a compute instance.
+	ImageId string `json:"imageId"`
+
+	// NetworkId The network ID to attach the compute instance to.
+	NetworkId string `json:"networkId"`
+
+	// Networking A compute instance's network  configuration.
+	Networking *InstanceNetworking `json:"networking,omitempty"`
+
+	// OrganizationId The organization to provision the resource in.
+	OrganizationId string `json:"organizationId"`
+
+	// ProjectId The project to provision the resource in.
+	ProjectId string `json:"projectId"`
+
+	// UserData Contains base64-encoded configuration information or scripts to use upon launch.
+	// The format of the data is governed by the cloud-init standard, and may be a script,
+	// a MIME multipart archive, etc.
+	UserData *[]byte `json:"userData,omitempty"`
+}
+
+// InstanceNetworking A compute instance's network  configuration.
+type InstanceNetworking struct {
+	// AllowedSourceAddresses A list of network prefixes that are allowed to egress from the server.
+	// By default, only packets from the server's network interface's IP address
+	// are allowed to enter the network.  Use of this option allows the server
+	// to act as a router without SNAT rules.
+	AllowedSourceAddresses *AllowedSourceAddresses `json:"allowedSourceAddresses,omitempty"`
+
+	// PublicIP Whether or not to provision a public IP.
+	PublicIP *bool `json:"publicIP,omitempty"`
+
+	// SecurityGroups A list of security group IDs.
+	SecurityGroups *SecurityGroupIDList `json:"securityGroups,omitempty"`
+}
+
+// InstanceRead A compute instance.
+type InstanceRead struct {
+	// Metadata Metadata required by project scoped resource reads.
+	Metadata externalRef0.ProjectScopedResourceReadMetadata `json:"metadata"`
+
+	// Spec A compute instance.
+	Spec InstanceSpec `json:"spec"`
+
+	// Status Read only status information about a compute instance.
+	Status InstanceStatus `json:"status"`
+}
+
+// InstanceSpec A compute instance.
+type InstanceSpec struct {
+	// FlavorId The flavor CPU/RAM of a compute instance.
+	FlavorId string `json:"flavorId"`
+
+	// ImageId The image of a compute instance.
+	ImageId string `json:"imageId"`
+
+	// Networking A compute instance's network  configuration.
+	Networking *InstanceNetworking `json:"networking,omitempty"`
+
+	// UserData Contains base64-encoded configuration information or scripts to use upon launch.
+	// The format of the data is governed by the cloud-init standard, and may be a script,
+	// a MIME multipart archive, etc.
+	UserData *[]byte `json:"userData,omitempty"`
+}
+
+// InstanceStatus Read only status information about a compute instance.
+type InstanceStatus struct {
+	// NetworkId The network a security group belongs to.
+	NetworkId string `json:"networkId"`
+
+	// PowerState The lifecycle phase of an instance.
+	PowerState *externalRef1.InstanceLifecyclePhase `json:"powerState,omitempty"`
+
+	// PrivateIP The private IP address of the server.
+	PrivateIP *string `json:"privateIP,omitempty"`
+
+	// PublicIP The public IP address of the server.
+	PublicIP *string `json:"publicIP,omitempty"`
+
+	// RegionId The region a security group belongs to.
+	RegionId string `json:"regionId"`
+}
+
+// InstanceUpdate A compute instance update request.
+type InstanceUpdate struct {
+	// Metadata Metadata required for all API resource reads and writes.
+	Metadata externalRef0.ResourceWriteMetadata `json:"metadata"`
+
+	// Spec A compute instance.
+	Spec InstanceSpec `json:"spec"`
+}
+
+// InstancesRead A list of compute instances.
+type InstancesRead = []InstanceRead
+
 // KubernetesNameParameter A Kubernetes name. Must be a valid DNS containing only lower case characters, numbers or hyphens, start and end with a character or number, and be at most 63 characters in length.
 type KubernetesNameParameter = string
 
@@ -245,6 +360,9 @@ type PublicIPAllocation struct {
 	Enabled bool `json:"enabled"`
 }
 
+// SecurityGroupIDList A list of security group IDs.
+type SecurityGroupIDList = []string
+
 // Volume A volume.  This is currently only valid for VM based flavors.
 type Volume struct {
 	// Size Disk size in GiB.
@@ -254,20 +372,38 @@ type Volume struct {
 // ClusterIDParameter A Kubernetes name. Must be a valid DNS containing only lower case characters, numbers or hyphens, start and end with a character or number, and be at most 63 characters in length.
 type ClusterIDParameter = KubernetesNameParameter
 
+// HardRebootParameter defines model for hardRebootParameter.
+type HardRebootParameter = bool
+
+// InstanceIDParameter A Kubernetes name. Must be a valid DNS containing only lower case characters, numbers or hyphens, start and end with a character or number, and be at most 63 characters in length.
+type InstanceIDParameter = KubernetesNameParameter
+
 // LengthParameter defines model for lengthParameter.
 type LengthParameter = int
 
 // MachineIDParameter A Kubernetes name. Must be a valid DNS containing only lower case characters, numbers or hyphens, start and end with a character or number, and be at most 63 characters in length.
 type MachineIDParameter = KubernetesNameParameter
 
+// NetworkIDQueryParameter defines model for networkIDQueryParameter.
+type NetworkIDQueryParameter = []string
+
 // OrganizationIDParameter A Kubernetes name. Must be a valid DNS containing only lower case characters, numbers or hyphens, start and end with a character or number, and be at most 63 characters in length.
 type OrganizationIDParameter = KubernetesNameParameter
+
+// OrganizationIDQueryParameter defines model for organizationIDQueryParameter.
+type OrganizationIDQueryParameter = []string
 
 // ProjectIDParameter A Kubernetes name. Must be a valid DNS containing only lower case characters, numbers or hyphens, start and end with a character or number, and be at most 63 characters in length.
 type ProjectIDParameter = KubernetesNameParameter
 
+// ProjectIDQueryParameter defines model for projectIDQueryParameter.
+type ProjectIDQueryParameter = []string
+
 // RegionIDParameter A Kubernetes name. Must be a valid DNS containing only lower case characters, numbers or hyphens, start and end with a character or number, and be at most 63 characters in length.
 type RegionIDParameter = KubernetesNameParameter
+
+// RegionIDQueryParameter defines model for regionIDQueryParameter.
+type RegionIDQueryParameter = []string
 
 // ComputeClusterDetailResponse Compute cluster read.
 type ComputeClusterDetailResponse = ComputeClusterRead
@@ -278,11 +414,23 @@ type ComputeClusterResponse = ComputeClusterRead
 // ComputeClustersResponse A list of Compute clusters.
 type ComputeClustersResponse = ComputeClusters
 
+// InstanceResponse A compute instance.
+type InstanceResponse = InstanceRead
+
+// InstancesResponse A list of compute instances.
+type InstancesResponse = InstancesRead
+
 // CreateComputeClusterRequest Compute cluster create or update.
 type CreateComputeClusterRequest = ComputeClusterWrite
 
 // EvictionRequest A set of machines to evict from a cluster.
 type EvictionRequest = EvictionWrite
+
+// InstanceCreateRequest A compute instance creation request.
+type InstanceCreateRequest = InstanceCreate
+
+// InstanceUpdateRequest A compute instance update request.
+type InstanceUpdateRequest = InstanceUpdate
 
 // GetApiV1OrganizationsOrganizationIDClustersParams defines parameters for GetApiV1OrganizationsOrganizationIDClusters.
 type GetApiV1OrganizationsOrganizationIDClustersParams struct {
@@ -297,6 +445,37 @@ type GetApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachin
 	Length *LengthParameter `form:"length,omitempty" json:"length,omitempty"`
 }
 
+// GetApiV2InstancesParams defines parameters for GetApiV2Instances.
+type GetApiV2InstancesParams struct {
+	// Tag A set of tags to match against resources in the form "name=value",
+	// thus when encoded you get "?tag=foo%3Dcat&bar%3Ddog".
+	Tag *externalRef0.TagSelectorParameter `form:"tag,omitempty" json:"tag,omitempty"`
+
+	// OrganizationID Allows resources to be filtered by organization.
+	OrganizationID *OrganizationIDQueryParameter `form:"organizationID,omitempty" json:"organizationID,omitempty"`
+
+	// ProjectID Allows resources to be filtered by project.
+	ProjectID *ProjectIDQueryParameter `form:"projectID,omitempty" json:"projectID,omitempty"`
+
+	// RegionID Allows resources to be filtered by region.
+	RegionID *RegionIDQueryParameter `form:"regionID,omitempty" json:"regionID,omitempty"`
+
+	// NetworkID Allows resources to be filtered by network.
+	NetworkID *NetworkIDQueryParameter `form:"networkID,omitempty" json:"networkID,omitempty"`
+}
+
+// GetApiV2InstancesInstanceIDConsoleoutputParams defines parameters for GetApiV2InstancesInstanceIDConsoleoutput.
+type GetApiV2InstancesInstanceIDConsoleoutputParams struct {
+	// Length The requested output length.
+	Length *LengthParameter `form:"length,omitempty" json:"length,omitempty"`
+}
+
+// PostApiV2InstancesInstanceIDRebootParams defines parameters for PostApiV2InstancesInstanceIDReboot.
+type PostApiV2InstancesInstanceIDRebootParams struct {
+	// Hard Whether the reboot is hard.
+	Hard *HardRebootParameter `form:"hard,omitempty" json:"hard,omitempty"`
+}
+
 // PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersJSONRequestBody defines body for PostApiV1OrganizationsOrganizationIDProjectsProjectIDClusters for application/json ContentType.
 type PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersJSONRequestBody = ComputeClusterWrite
 
@@ -305,6 +484,12 @@ type PutApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDJSONRe
 
 // PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDEvictJSONRequestBody defines body for PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDEvict for application/json ContentType.
 type PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDEvictJSONRequestBody = EvictionWrite
+
+// PostApiV2InstancesJSONRequestBody defines body for PostApiV2Instances for application/json ContentType.
+type PostApiV2InstancesJSONRequestBody = InstanceCreate
+
+// PutApiV2InstancesInstanceIDJSONRequestBody defines body for PutApiV2InstancesInstanceID for application/json ContentType.
+type PutApiV2InstancesInstanceIDJSONRequestBody = InstanceUpdate
 
 // AsComputeImage0 returns the union data inside the ComputeImage as a ComputeImage0
 func (t ComputeImage) AsComputeImage0() (ComputeImage0, error) {

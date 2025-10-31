@@ -20,17 +20,11 @@ import (
 	"context"
 	"net/http"
 	"slices"
-	"time"
 
 	unikornv1 "github.com/unikorn-cloud/compute/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/compute/pkg/provisioners/managers/cluster/util"
 	coreapiutils "github.com/unikorn-cloud/core/pkg/util/api"
-	"github.com/unikorn-cloud/core/pkg/util/cache"
 	regionapi "github.com/unikorn-cloud/region/pkg/openapi"
-)
-
-const (
-	defaultCacheSize = 4096
 )
 
 // ClientGetterFunc allows us to lazily instantiate a client only when needed to
@@ -39,49 +33,28 @@ type ClientGetterFunc func(context.Context) (regionapi.ClientWithResponsesInterf
 
 // Client provides a caching layer for retrieval of region assets, and lazy population.
 type Client struct {
-	clientGetter  ClientGetterFunc
-	client        regionapi.ClientWithResponsesInterface
-	clientTimeout time.Time
-	regionCache   *cache.LRUExpireCache[string, []regionapi.RegionRead]
-	flavorCache   *cache.LRUExpireCache[string, []regionapi.Flavor]
-	imageCache    *cache.LRUExpireCache[string, []regionapi.Image]
+	clientGetter ClientGetterFunc
 }
 
 // New returns a new client.
 func New(clientGetter ClientGetterFunc) *Client {
 	return &Client{
 		clientGetter: clientGetter,
-		regionCache:  cache.NewLRUExpireCache[string, []regionapi.RegionRead](defaultCacheSize),
-		flavorCache:  cache.NewLRUExpireCache[string, []regionapi.Flavor](defaultCacheSize),
-		imageCache:   cache.NewLRUExpireCache[string, []regionapi.Image](defaultCacheSize),
 	}
 }
 
 // Client returns a client.
 func (c *Client) Client(ctx context.Context) (regionapi.ClientWithResponsesInterface, error) {
-	if time.Now().Before(c.clientTimeout) {
-		return c.client, nil
-	}
-
 	client, err := c.clientGetter(ctx)
 	if err != nil {
 		return nil, err
 	}
-
-	// TODO: the timeout should be driven by the token expiry, so we need to expose
-	// that eventually.
-	c.client = client
-	c.clientTimeout = time.Now().Add(10 * time.Minute)
 
 	return client, nil
 }
 
 // List lists all regions.
 func (c *Client) List(ctx context.Context, organizationID string) ([]regionapi.RegionRead, error) {
-	if regions, ok := c.regionCache.Get(organizationID); ok {
-		return regions, nil
-	}
-
 	client, err := c.Client(ctx)
 	if err != nil {
 		return nil, err
@@ -104,19 +77,11 @@ func (c *Client) List(ctx context.Context, organizationID string) ([]regionapi.R
 
 	filtered := slices.DeleteFunc(regions, filter)
 
-	c.regionCache.Add(organizationID, filtered, time.Hour)
-
 	return filtered, nil
 }
 
 // Flavors returns all compute compatible flavors.
 func (c *Client) Flavors(ctx context.Context, organizationID, regionID string) ([]regionapi.Flavor, error) {
-	cacheKey := organizationID + ":" + regionID
-
-	if flavors, ok := c.flavorCache.Get(cacheKey); ok {
-		return flavors, nil
-	}
-
 	client, err := c.Client(ctx)
 	if err != nil {
 		return nil, err
@@ -133,20 +98,12 @@ func (c *Client) Flavors(ctx context.Context, organizationID, regionID string) (
 
 	flavors := *resp.JSON200
 
-	c.flavorCache.Add(cacheKey, flavors, time.Hour)
-
 	// TODO: filtering.
 	return flavors, nil
 }
 
 // Images returns all compute compatible images.
 func (c *Client) Images(ctx context.Context, organizationID, regionID string) ([]regionapi.Image, error) {
-	cacheKey := organizationID + ":" + regionID
-
-	if images, ok := c.imageCache.Get(cacheKey); ok {
-		return images, nil
-	}
-
 	client, err := c.Client(ctx)
 	if err != nil {
 		return nil, err
@@ -167,8 +124,6 @@ func (c *Client) Images(ctx context.Context, organizationID, regionID string) ([
 		// Delete images that declare any software versions - if it doesn't exist, assume general purpose.
 		return image.Spec.SoftwareVersions != nil && len(*image.Spec.SoftwareVersions) > 0
 	})
-
-	c.imageCache.Add(cacheKey, filtered, time.Hour)
 
 	return filtered, nil
 }
