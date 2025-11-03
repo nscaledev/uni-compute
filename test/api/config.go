@@ -25,6 +25,7 @@ import (
 
 type TestConfig struct {
 	BaseURL            string
+	IdentityBaseURL    string
 	AuthToken          string
 	RequestTimeout     time.Duration
 	TestTimeout        time.Duration
@@ -45,6 +46,7 @@ type TestConfig struct {
 func LoadTestConfig() *TestConfig {
 	config := &TestConfig{
 		BaseURL:            "REQUIRED: Set API_BASE_URL in the .env file",
+		IdentityBaseURL:    "REQUIRED: Set IDENTITY_BASE_URL in the .env file",
 		RequestTimeout:     30 * time.Second,
 		TestTimeout:        20 * time.Minute, // 20 minutes is the default timeout for the tests for now, as thats what I had it in SOS
 		OrgID:              "REQUIRED: Set TEST_ORG_ID in the .env file",
@@ -66,6 +68,7 @@ func LoadTestConfig() *TestConfig {
 func loadConfigFromEnv(config *TestConfig, envVars map[string]string) {
 	// String values
 	setStringValue(&config.BaseURL, getEnvValue(envVars, "API_BASE_URL"))
+	setStringValue(&config.IdentityBaseURL, getEnvValue(envVars, "IDENTITY_BASE_URL"))
 	setStringValue(&config.AuthToken, getEnvValue(envVars, "API_AUTH_TOKEN"))
 	setStringValue(&config.OrgID, getEnvValue(envVars, "TEST_ORG_ID"))
 	setStringValue(&config.ProjectID, getEnvValue(envVars, "TEST_PROJECT_ID"))

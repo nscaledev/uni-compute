@@ -143,7 +143,7 @@ test-api: test-api-setup
 
 .PHONY: test-api-focus
 test-api-focus: test-api-setup
-	cd test/api/suites && ginkgo run --focus="$(FOCUS)" --json-report=test-results.json --junit-report=junit.xml
+	cd test/api/suites && ginkgo run -v --focus="$(FOCUS)" --json-report=test-results.json --junit-report=junit.xml
 
 .PHONY: test-api-suite
 test-api-suite: test-api-setup

@@ -36,10 +36,8 @@ var _ = Describe("Core Cluster Management", func() {
 						Build())
 
 				Expect(cluster).To(HaveKey("metadata"))
-				metadata, ok := cluster["metadata"].(map[string]interface{})
-				Expect(ok).To(BeTrue())
-				spec, ok := cluster["spec"].(map[string]interface{})
-				Expect(ok).To(BeTrue())
+				metadata := cluster["metadata"].(map[string]interface{}) //nolint:forcetypeassert // safe: API response structure
+				spec := cluster["spec"].(map[string]interface{})         //nolint:forcetypeassert // safe: API response structure
 				Expect(metadata).To(HaveKey("id"))
 				Expect(metadata["id"]).NotTo(BeEmpty())
 				Expect(metadata["id"]).To(Equal(clusterID))
@@ -141,10 +139,8 @@ var _ = Describe("Core Cluster Management", func() {
 				Expect(retrievedCluster).To(HaveKey("spec"))
 				Expect(retrievedCluster).To(HaveKey("status"))
 
-				metadata, ok := retrievedCluster["metadata"].(map[string]interface{})
-				Expect(ok).To(BeTrue())
-				spec, ok := retrievedCluster["spec"].(map[string]interface{})
-				Expect(ok).To(BeTrue())
+				metadata := retrievedCluster["metadata"].(map[string]interface{}) //nolint:forcetypeassert // safe: API response structure
+				spec := retrievedCluster["spec"].(map[string]interface{})         //nolint:forcetypeassert // safe: API response structure
 
 				Expect(metadata["id"]).To(Equal(clusterID))
 				Expect(metadata["name"]).To(Equal("get-cluster-test"))
@@ -153,8 +149,7 @@ var _ = Describe("Core Cluster Management", func() {
 				Expect(spec["regionId"]).To(Equal(config.RegionID))
 				Expect(spec).To(HaveKey("workloadPools"))
 
-				workloadPools, ok := spec["workloadPools"].([]interface{})
-				Expect(ok).To(BeTrue())
+				workloadPools := spec["workloadPools"].([]interface{}) //nolint:forcetypeassert // safe: API response structure
 				Expect(workloadPools).ToNot(BeEmpty())
 			})
 		})
@@ -211,8 +206,7 @@ var _ = Describe("Core Cluster Management", func() {
 						Build())
 
 				Expect(cluster).To(HaveKey("metadata"))
-				metadata, ok := cluster["metadata"].(map[string]interface{})
-				Expect(ok).To(BeTrue())
+				metadata := cluster["metadata"].(map[string]interface{}) //nolint:forcetypeassert // safe: API response structure
 				Expect(metadata["id"]).To(Equal(clusterID))
 
 				err := client.DeleteCluster(ctx, config.OrgID, config.ProjectID, clusterID)

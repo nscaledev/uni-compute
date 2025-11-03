@@ -468,3 +468,74 @@ func (c *APIClient) EvictMachines(ctx context.Context, orgID, projectID, cluster
 
 	return nil
 }
+
+// QuotaInfo represents quota information for a resource.
+type QuotaInfo struct {
+	Kind        string `json:"kind"`
+	DisplayName string `json:"displayName"`
+	Description string `json:"description"`
+	Quantity    int    `json:"quantity"`
+	Used        int    `json:"used"`
+	Committed   int    `json:"committed"`
+	Reserved    int    `json:"reserved"`
+	Default     int    `json:"default"`
+	Free        int    `json:"free"`
+}
+
+// QuotaResponse represents the quota API response structure.
+type QuotaResponse struct {
+	Quotas []QuotaInfo `json:"quotas"`
+}
+
+// CheckClusterQuota checks if there is sufficient cluster quota available.
+func (c *APIClient) CheckClusterQuota(ctx context.Context, orgID string) error {
+	// Build the quota URL using the identity base URL
+	quotaURL := fmt.Sprintf("%s/api/v1/organizations/%s/quotas",
+		strings.TrimSuffix(c.config.IdentityBaseURL, "/"), orgID)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, quotaURL, nil)
+	if err != nil {
+		return fmt.Errorf("creating quota request: %w", err)
+	}
+
+	// Add auth token
+	if c.authToken != "" {
+		req.Header.Set("Authorization", "Bearer "+c.authToken)
+	}
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return fmt.Errorf("checking quota: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("quota check failed with status %d: %s", resp.StatusCode, string(bodyBytes))
+	}
+
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("reading quota response: %w", err)
+	}
+
+	var response QuotaResponse
+	if err := json.Unmarshal(bodyBytes, &response); err != nil {
+		return fmt.Errorf("parsing quota response: %w", err)
+	}
+
+	// Find the clusters quota
+	for _, quota := range response.Quotas {
+		if quota.Kind == "clusters" {
+			if quota.Free <= 0 {
+				return fmt.Errorf("insufficient cluster quota: free=%d, used=%d, quantity=%d (need at least 1 free cluster)", quota.Free, quota.Used, quota.Quantity)
+			}
+			// Quota is sufficient
+			ginkgo.GinkgoWriter.Printf("Cluster quota check passed: free=%d, used=%d, quantity=%d\n", quota.Free, quota.Used, quota.Quantity)
+
+			return nil
+		}
+	}
+
+	return fmt.Errorf("clusters quota not found in response")
+}

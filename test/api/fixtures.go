@@ -194,6 +194,15 @@ func CreateClusterWithCleanup(client *APIClient, ctx context.Context, config *Te
 		}
 	})
 
+	// Check cluster quota before attempting creation
+	GinkgoWriter.Printf("Checking cluster quota for organization %s\n", config.OrgID)
+
+	if err := client.CheckClusterQuota(ctx, config.OrgID); err != nil {
+		skipMsg := fmt.Sprintf("Skipping test due to insufficient cluster quota: %v", err)
+		GinkgoWriter.Printf("QUOTA CONSTRAINT: %s\n", skipMsg)
+		Skip(skipMsg)
+	}
+
 	cluster, err := client.CreateCluster(ctx, config.OrgID, config.ProjectID, payload)
 	if err != nil {
 		// Check if this is a quota allocation error (insufficient resources)
