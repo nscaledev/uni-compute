@@ -11,14 +11,8 @@ on:
         - 'All'
         - 'Core Cluster Management'
         - 'Discovery and Metadata'
-        - 'State Management'
         - 'Security and Authentication'
-        - 'Scaling and Resource Management'
         - 'Machine Operations'
-        - 'Infrastructure and Limits'
-        - 'Error Handling and Edge Cases'
-        - 'Concurrency and Performance'
-        - 'Boundary Value Testing'
       parallel:
         description: 'Run tests in parallel'
         required: false
@@ -45,6 +39,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       API_BASE_URL: ${{ secrets.API_BASE_URL }}
+      IDENTITY_BASE_URL: ${{ secrets.IDENTITY_BASE_URL }}
       API_AUTH_TOKEN: ${{ secrets.API_AUTH_TOKEN }}
       TEST_ORG_ID: ${{ secrets.TEST_ORG_ID }}
       TEST_PROJECT_ID: ${{ secrets.TEST_PROJECT_ID }}
@@ -67,11 +62,11 @@ jobs:
       run: make touch
     
     - name: Run API Tests - All (Manual)
-      if: github.event_name == 'workflow_dispatch' && github.event.inputs.focus == 'All' && github.event.inputs.verbose == 'false' && github.event.inputs.parallel == 'false'
+      if: github.event_name == 'workflow_dispatch' && github.event.inputs.focus == 'All' && github.event.inputs.parallel == 'false'
       run: make test-api
-    
+
     - name: Run API Tests - All Parallel (Manual)
-      if: github.event_name == 'workflow_dispatch' && github.event.inputs.focus == 'All' && github.event.inputs.verbose == 'false' && github.event.inputs.parallel == 'true'
+      if: github.event_name == 'workflow_dispatch' && github.event.inputs.focus == 'All' && github.event.inputs.parallel == 'true'
       run: make test-api-parallel
     
     - name: Run API Tests - Focused (Manual)
