@@ -18,13 +18,10 @@ package api
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
-	"github.com/joho/godotenv"
+	"github.com/spf13/viper"
 )
 
 type TestConfig struct {
@@ -46,33 +43,51 @@ type TestConfig struct {
 	LogResponses       bool
 }
 
-// LoadTestConfig loads configuration from environment variables and .env files.
+// LoadTestConfig loads configuration from environment variables and .env files using viper.
 // Returns an error if required configuration values are missing.
 func LoadTestConfig() (*TestConfig, error) {
-	loadEnvFile()
+	v := viper.New()
 
-	requestTimeout := getDurationWithDefault("REQUEST_TIMEOUT", 30*time.Second)
-	testTimeout := getDurationWithDefault("TEST_TIMEOUT", 20*time.Minute)
-	config := &TestConfig{
-		BaseURL:            os.Getenv("API_BASE_URL"),
-		IdentityBaseURL:    os.Getenv("IDENTITY_BASE_URL"),
-		AuthToken:          os.Getenv("API_AUTH_TOKEN"),
-		RequestTimeout:     requestTimeout,
-		TestTimeout:        testTimeout,
-		OrgID:              os.Getenv("TEST_ORG_ID"),
-		ProjectID:          os.Getenv("TEST_PROJECT_ID"),
-		SecondaryProjectID: os.Getenv("TEST_SECONDARY_PROJECT_ID"),
-		RegionID:           os.Getenv("TEST_REGION_ID"),
-		SecondaryRegionID:  os.Getenv("TEST_SECONDARY_REGION_ID"),
-		FlavorID:           os.Getenv("TEST_FLAVOR_ID"),
-		ImageID:            os.Getenv("TEST_IMAGE_ID"),
-		SkipIntegration:    getBoolWithDefault("SKIP_INTEGRATION", false),
-		DebugLogging:       getBoolWithDefault("DEBUG_LOGGING", false),
-		LogRequests:        getBoolWithDefault("LOG_REQUESTS", false),
-		LogResponses:       getBoolWithDefault("LOG_RESPONSES", false),
+	// Set up config file search paths for .env files
+	v.SetConfigName(".env")
+	v.SetConfigType("env")
+	v.AddConfigPath("../../../test")
+	// Set default values
+	v.SetDefault("REQUEST_TIMEOUT", "30s")
+	v.SetDefault("TEST_TIMEOUT", "20m")
+	v.SetDefault("SKIP_INTEGRATION", false)
+	v.SetDefault("DEBUG_LOGGING", false)
+	v.SetDefault("LOG_REQUESTS", false)
+	v.SetDefault("LOG_RESPONSES", false)
+
+	if err := v.ReadInConfig(); err != nil {
+		// Only warn if it's not a "file not found" error
+		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
+			fmt.Printf("Warning: error reading config file: %v\n", err)
+		}
 	}
 
-	// Validate required fields
+	v.AutomaticEnv()
+
+	config := &TestConfig{
+		BaseURL:            v.GetString("API_BASE_URL"),
+		IdentityBaseURL:    v.GetString("IDENTITY_BASE_URL"),
+		AuthToken:          v.GetString("API_AUTH_TOKEN"),
+		RequestTimeout:     getDurationFromViper(v, "REQUEST_TIMEOUT", 30*time.Second),
+		TestTimeout:        getDurationFromViper(v, "TEST_TIMEOUT", 20*time.Minute),
+		OrgID:              v.GetString("TEST_ORG_ID"),
+		ProjectID:          v.GetString("TEST_PROJECT_ID"),
+		SecondaryProjectID: v.GetString("TEST_SECONDARY_PROJECT_ID"),
+		RegionID:           v.GetString("TEST_REGION_ID"),
+		SecondaryRegionID:  v.GetString("TEST_SECONDARY_REGION_ID"),
+		FlavorID:           v.GetString("TEST_FLAVOR_ID"),
+		ImageID:            v.GetString("TEST_IMAGE_ID"),
+		SkipIntegration:    v.GetBool("SKIP_INTEGRATION"),
+		DebugLogging:       v.GetBool("DEBUG_LOGGING"),
+		LogRequests:        v.GetBool("LOG_REQUESTS"),
+		LogResponses:       v.GetBool("LOG_RESPONSES"),
+	}
+
 	if err := validateRequiredFields(config); err != nil {
 		return nil, err
 	}
@@ -80,62 +95,18 @@ func LoadTestConfig() (*TestConfig, error) {
 	return config, nil
 }
 
-// getDurationWithDefault gets a duration from environment variable or returns default.
-func getDurationWithDefault(key string, defaultValue time.Duration) time.Duration {
-	value := os.Getenv(key)
-	if value == "" {
-		return defaultValue
-	}
-
-	duration, err := time.ParseDuration(value)
-	if err != nil {
-		return defaultValue
-	}
-
-	return duration
-}
-
-// getBoolWithDefault gets a boolean from environment variable or returns default.
-func getBoolWithDefault(key string, defaultValue bool) bool {
-	value := os.Getenv(key)
-	if value == "" {
-		return defaultValue
-	}
-
-	boolValue, err := strconv.ParseBool(value)
-	if err != nil {
-		return defaultValue
-	}
-
-	return boolValue
-}
-
-func loadEnvFile() {
-
-	envPaths := []string{
-		"../../../test/.env", // From test/api/suites directory
-	}
-
-	var envPath string
-	for _, path := range envPaths {
-		if _, err := os.Stat(path); err == nil {
-			absPath, err := filepath.Abs(path)
-			if err == nil {
-				envPath = absPath
-				break
-			}
+func getDurationFromViper(v *viper.Viper, key string, defaultValue time.Duration) time.Duration {
+	duration := v.GetDuration(key)
+	if duration < time.Millisecond {
+		seconds := v.GetInt(key)
+		if seconds > 0 {
+			return time.Duration(seconds) * time.Second
 		}
 	}
-
-	if envPath == "" {
-		// .env file not found - this is OK in CI/CD where env vars are set directly
-		return
+	if duration > 0 {
+		return duration
 	}
-
-	// Load .env file
-	if err := godotenv.Load(envPath); err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: failed to load .env file from %s: %v\n", envPath, err)
-	}
+	return defaultValue
 }
 
 // validateRequiredFields checks that all required configuration values are set.
