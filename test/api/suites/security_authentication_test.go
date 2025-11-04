@@ -28,22 +28,24 @@ var _ = Describe("Security and Authentication", func() {
 	Context("When accessing API with different authentication states", func() {
 		Describe("Given invalid authentication", func() {
 			It("should reject requests with invalid tokens", func() {
-				invalidClient := api.NewAPIClient(config.BaseURL)
+				invalidClient, err := api.NewAPIClient(config.BaseURL)
+				Expect(err).NotTo(HaveOccurred())
 				invalidClient.SetAuthToken("invalid-malformed-token-12345")
 
-				_, err := invalidClient.ListRegions(ctx, config.OrgID)
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("401"))
+				_, listErr := invalidClient.ListRegions(ctx, config.OrgID)
+				Expect(listErr).To(HaveOccurred())
+				Expect(listErr.Error()).To(ContainSubstring("401"))
 			})
 
 			It("should reject requests with missing authentication", func() {
-				unauthClient := api.NewAPIClient(config.BaseURL)
+				unauthClient, err := api.NewAPIClient(config.BaseURL)
+				Expect(err).NotTo(HaveOccurred())
 				unauthClient.SetAuthToken("")
 
-				_, err := unauthClient.ListRegions(ctx, config.OrgID)
-				Expect(err).To(HaveOccurred())
+				_, listErr := unauthClient.ListRegions(ctx, config.OrgID)
+				Expect(listErr).To(HaveOccurred())
 				// TODO: API returns 400 but should return 401 for missing auth
-				Expect(err.Error()).To(Or(
+				Expect(listErr.Error()).To(Or(
 					ContainSubstring("400"),
 					ContainSubstring("401"),
 				))

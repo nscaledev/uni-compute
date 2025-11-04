@@ -34,7 +34,9 @@ var (
 )
 
 var _ = BeforeEach(func() {
-	config = api.LoadTestConfig()
+	var err error
+	config, err = api.LoadTestConfig()
+	Expect(err).NotTo(HaveOccurred(), "Failed to load test configuration")
 	client = api.NewAPIClientWithConfig(config)
 	ctx = context.Background()
 })

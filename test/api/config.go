@@ -17,10 +17,14 @@ limitations under the License.
 package api
 
 import (
-	"bufio"
+	"fmt"
 	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
+
+	"github.com/joho/godotenv"
 )
 
 type TestConfig struct {
@@ -42,102 +46,123 @@ type TestConfig struct {
 	LogResponses       bool
 }
 
-// all of the errors that show below should only show locally, not in the CI/CD pipeline since we will add secrets.
-func LoadTestConfig() *TestConfig {
+// LoadTestConfig loads configuration from environment variables and .env files.
+// Returns an error if required configuration values are missing.
+func LoadTestConfig() (*TestConfig, error) {
+	loadEnvFile()
+
+	requestTimeout := getDurationWithDefault("REQUEST_TIMEOUT", 30*time.Second)
+	testTimeout := getDurationWithDefault("TEST_TIMEOUT", 20*time.Minute)
 	config := &TestConfig{
-		BaseURL:            "REQUIRED: Set API_BASE_URL in the .env file",
-		IdentityBaseURL:    "REQUIRED: Set IDENTITY_BASE_URL in the .env file",
-		RequestTimeout:     30 * time.Second,
-		TestTimeout:        20 * time.Minute, // 20 minutes is the default timeout for the tests for now, as thats what I had it in SOS
-		OrgID:              "REQUIRED: Set TEST_ORG_ID in the .env file",
-		ProjectID:          "REQUIRED: Set TEST_PROJECT_ID in the .env file",
-		SecondaryProjectID: "REQUIRED: Set TEST_SECONDARY_PROJECT_ID in the .env file",
-		RegionID:           "REQUIRED: Set TEST_REGION_ID in the .env file",
-		SecondaryRegionID:  "REQUIRED: Set TEST_SECONDARY_REGION_ID in the .env file",
-		FlavorID:           "REQUIRED: Set TEST_FLAVOR_ID in the .env file",
-		ImageID:            "REQUIRED: Set TEST_IMAGE_ID in the .env file",
+		BaseURL:            os.Getenv("API_BASE_URL"),
+		IdentityBaseURL:    os.Getenv("IDENTITY_BASE_URL"),
+		AuthToken:          os.Getenv("API_AUTH_TOKEN"),
+		RequestTimeout:     requestTimeout,
+		TestTimeout:        testTimeout,
+		OrgID:              os.Getenv("TEST_ORG_ID"),
+		ProjectID:          os.Getenv("TEST_PROJECT_ID"),
+		SecondaryProjectID: os.Getenv("TEST_SECONDARY_PROJECT_ID"),
+		RegionID:           os.Getenv("TEST_REGION_ID"),
+		SecondaryRegionID:  os.Getenv("TEST_SECONDARY_REGION_ID"),
+		FlavorID:           os.Getenv("TEST_FLAVOR_ID"),
+		ImageID:            os.Getenv("TEST_IMAGE_ID"),
+		SkipIntegration:    getBoolWithDefault("SKIP_INTEGRATION", false),
+		DebugLogging:       getBoolWithDefault("DEBUG_LOGGING", false),
+		LogRequests:        getBoolWithDefault("LOG_REQUESTS", false),
+		LogResponses:       getBoolWithDefault("LOG_RESPONSES", false),
 	}
 
-	envVars := loadEnvFile()
-	loadConfigFromEnv(config, envVars)
+	// Validate required fields
+	if err := validateRequiredFields(config); err != nil {
+		return nil, err
+	}
 
-	return config
+	return config, nil
 }
 
-// loadConfigFromEnv loads configuration values from environment variables.
-func loadConfigFromEnv(config *TestConfig, envVars map[string]string) {
-	// String values
-	setStringValue(&config.BaseURL, getEnvValue(envVars, "API_BASE_URL"))
-	setStringValue(&config.IdentityBaseURL, getEnvValue(envVars, "IDENTITY_BASE_URL"))
-	setStringValue(&config.AuthToken, getEnvValue(envVars, "API_AUTH_TOKEN"))
-	setStringValue(&config.OrgID, getEnvValue(envVars, "TEST_ORG_ID"))
-	setStringValue(&config.ProjectID, getEnvValue(envVars, "TEST_PROJECT_ID"))
-	setStringValue(&config.SecondaryProjectID, getEnvValue(envVars, "TEST_SECONDARY_PROJECT_ID"))
-	setStringValue(&config.RegionID, getEnvValue(envVars, "TEST_REGION_ID"))
-	setStringValue(&config.SecondaryRegionID, getEnvValue(envVars, "TEST_SECONDARY_REGION_ID"))
-	setStringValue(&config.FlavorID, getEnvValue(envVars, "TEST_FLAVOR_ID"))
-	setStringValue(&config.ImageID, getEnvValue(envVars, "TEST_IMAGE_ID"))
-}
-
-// setStringValue sets a string value if the env value is not empty.
-func setStringValue(target *string, value string) {
-	if value != "" {
-		*target = value
-	}
-}
-
-func loadEnvFile() map[string]string {
-	envVars := make(map[string]string)
-
-	// Try multiple paths to find the .env file
-	//TODO: this is a hack to get the tests to run, I need to fix this before I merge this PR
-	envPaths := []string{
-		"test/.env",          // From project root
-		"../.env",            // From test/api directory
-		"../../../test/.env", // From test/api/suites directory
-		".env",               // Current directory
+// getDurationWithDefault gets a duration from environment variable or returns default.
+func getDurationWithDefault(key string, defaultValue time.Duration) time.Duration {
+	value := os.Getenv(key)
+	if value == "" {
+		return defaultValue
 	}
 
-	var (
-		file *os.File
-		err  error
-	)
-
-	for _, envPath := range envPaths {
-		file, err = os.Open(envPath)
-		if err == nil {
-			break
-		}
-	}
-
+	duration, err := time.ParseDuration(value)
 	if err != nil {
-		return envVars
+		return defaultValue
 	}
 
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-
-		parts := strings.SplitN(line, "=", 2)
-		if len(parts) == 2 {
-			key := strings.TrimSpace(parts[0])
-			value := strings.TrimSpace(parts[1])
-			envVars[key] = value
-		}
-	}
-
-	return envVars
+	return duration
 }
 
-func getEnvValue(envVars map[string]string, key string) string {
-	if val := os.Getenv(key); val != "" {
-		return val
+// getBoolWithDefault gets a boolean from environment variable or returns default.
+func getBoolWithDefault(key string, defaultValue bool) bool {
+	value := os.Getenv(key)
+	if value == "" {
+		return defaultValue
 	}
 
-	return envVars[key]
+	boolValue, err := strconv.ParseBool(value)
+	if err != nil {
+		return defaultValue
+	}
+
+	return boolValue
+}
+
+func loadEnvFile() {
+
+	envPaths := []string{
+		"../../../test/.env", // From test/api/suites directory
+	}
+
+	var envPath string
+	for _, path := range envPaths {
+		if _, err := os.Stat(path); err == nil {
+			absPath, err := filepath.Abs(path)
+			if err == nil {
+				envPath = absPath
+				break
+			}
+		}
+	}
+
+	if envPath == "" {
+		// .env file not found - this is OK in CI/CD where env vars are set directly
+		return
+	}
+
+	// Load .env file
+	if err := godotenv.Load(envPath); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to load .env file from %s: %v\n", envPath, err)
+	}
+}
+
+// validateRequiredFields checks that all required configuration values are set.
+func validateRequiredFields(config *TestConfig) error {
+	var missing []string
+
+	required := map[string]string{
+		"API_BASE_URL":              config.BaseURL,
+		"IDENTITY_BASE_URL":         config.IdentityBaseURL,
+		"TEST_ORG_ID":               config.OrgID,
+		"TEST_PROJECT_ID":           config.ProjectID,
+		"TEST_SECONDARY_PROJECT_ID": config.SecondaryProjectID,
+		"TEST_REGION_ID":            config.RegionID,
+		"TEST_SECONDARY_REGION_ID":  config.SecondaryRegionID,
+		"TEST_FLAVOR_ID":            config.FlavorID,
+		"TEST_IMAGE_ID":             config.ImageID,
+	}
+
+	for envVar, value := range required {
+		if value == "" {
+			missing = append(missing, envVar)
+		}
+	}
+
+	if len(missing) > 0 {
+		return fmt.Errorf("missing required configuration: %s. Please set these environment variables or add them to a .env file, or the gh secrets", strings.Join(missing, ", "))
+	}
+
+	return nil
 }

@@ -39,13 +39,16 @@ type APIClient struct {
 	endpoints *Endpoints
 }
 
-func NewAPIClient(baseURL string) *APIClient {
-	config := LoadTestConfig()
+func NewAPIClient(baseURL string) (*APIClient, error) {
+	config, err := LoadTestConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load test configuration: %w", err)
+	}
 	if baseURL == "" {
 		baseURL = config.BaseURL
 	}
 
-	return newAPIClientWithConfig(config, baseURL)
+	return newAPIClientWithConfig(config, baseURL), nil
 }
 
 func NewAPIClientWithConfig(config *TestConfig) *APIClient {

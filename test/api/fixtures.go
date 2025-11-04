@@ -35,7 +35,8 @@ type ClusterPayloadBuilder struct {
 
 // NewClusterPayload creates a new cluster payload builder with defaults from config.
 func NewClusterPayload() *ClusterPayloadBuilder {
-	config := LoadTestConfig()
+	config, err := LoadTestConfig()
+	Expect(err).NotTo(HaveOccurred(), "Failed to load test configuration")
 	timestamp := time.Now().Format("20060102-150405")
 	uniqueName := fmt.Sprintf("testautomationcreate-%s", timestamp)
 
