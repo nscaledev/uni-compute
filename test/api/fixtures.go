@@ -103,11 +103,9 @@ func (b *ClusterPayloadBuilder) WithProjectID(projectID string) *ClusterPayloadB
 	return b
 }
 
-// WithRegionID sets the region ID (pass empty string to keep current).
+// WithRegionID sets the region ID.
 func (b *ClusterPayloadBuilder) WithRegionID(regionID string) *ClusterPayloadBuilder {
-	if regionID != "" {
-		b.cluster.Spec.RegionId = regionID
-	}
+	b.cluster.Spec.RegionId = regionID
 
 	return b
 }
