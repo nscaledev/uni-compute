@@ -33,26 +33,23 @@ var _ = Describe("Core Cluster Management", func() {
 				cluster, clusterID := api.CreateClusterWithCleanup(client, ctx, config,
 					api.NewClusterPayload().
 						WithRegionID(config.RegionID).
-						Build())
+						BuildTyped())
 
-				Expect(cluster).To(HaveKey("metadata"))
-				metadata := cluster["metadata"].(map[string]interface{}) //nolint:forcetypeassert // safe: API response structure
-				spec := cluster["spec"].(map[string]interface{})         //nolint:forcetypeassert // safe: API response structure
-				Expect(metadata).To(HaveKey("id"))
-				Expect(metadata["id"]).NotTo(BeEmpty())
-				Expect(metadata["id"]).To(Equal(clusterID))
-				Expect(metadata["projectId"]).To(Equal(config.ProjectID))
-				Expect(metadata["organizationId"]).To(Equal(config.OrgID))
-				Expect(spec["regionId"]).To(Equal(config.RegionID))
+				Expect(cluster.Metadata.Id).NotTo(BeEmpty())
+				Expect(cluster.Metadata.Id).To(Equal(clusterID))
+				Expect(cluster.Metadata.ProjectId).To(Equal(config.ProjectID))
+				Expect(cluster.Metadata.OrganizationId).To(Equal(config.OrgID))
+				Expect(cluster.Spec.RegionId).To(Equal(config.RegionID))
 			})
 		})
 
 		Describe("Given invalid cluster configuration", func() {
 			It("should reject cluster creation with missing required fields", func() {
+				// Use typed struct with empty regionID to test missing required field validation
 				_, err := client.CreateCluster(ctx, config.OrgID, config.ProjectID,
 					api.NewClusterPayload().
 						WithRegionID(""). // Empty regionID to test missing required field
-						Build())
+						BuildTyped())
 
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("400"))
@@ -64,7 +61,7 @@ var _ = Describe("Core Cluster Management", func() {
 					api.NewClusterPayload().
 						WithRegionID(config.RegionID).
 						WithFlavorID("invalid-flavor-id").
-						Build())
+						BuildTyped())
 
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("500"))
@@ -76,7 +73,7 @@ var _ = Describe("Core Cluster Management", func() {
 					api.NewClusterPayload().
 						WithRegionID(config.RegionID).
 						WithImageID("invalid-image-id").
-						Build())
+						BuildTyped())
 
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("500"))
@@ -87,7 +84,7 @@ var _ = Describe("Core Cluster Management", func() {
 				_, err := client.CreateCluster(ctx, config.OrgID, config.ProjectID,
 					api.NewClusterPayload().
 						WithRegionID("invalid-region-id").
-						Build())
+						BuildTyped())
 
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("500"))
@@ -131,26 +128,18 @@ var _ = Describe("Core Cluster Management", func() {
 					api.NewClusterPayload().
 						WithName("get-cluster-test").
 						WithRegionID(config.RegionID).
-						Build())
+						BuildTyped())
 
 				retrievedCluster, err := client.GetCluster(ctx, config.OrgID, config.ProjectID, clusterID)
 				Expect(err).NotTo(HaveOccurred())
-				Expect(retrievedCluster).To(HaveKey("metadata"))
-				Expect(retrievedCluster).To(HaveKey("spec"))
-				Expect(retrievedCluster).To(HaveKey("status"))
 
-				metadata := retrievedCluster["metadata"].(map[string]interface{}) //nolint:forcetypeassert // safe: API response structure
-				spec := retrievedCluster["spec"].(map[string]interface{})         //nolint:forcetypeassert // safe: API response structure
-
-				Expect(metadata["id"]).To(Equal(clusterID))
-				Expect(metadata["name"]).To(Equal("get-cluster-test"))
-				Expect(metadata["projectId"]).To(Equal(config.ProjectID))
-				Expect(metadata["organizationId"]).To(Equal(config.OrgID))
-				Expect(spec["regionId"]).To(Equal(config.RegionID))
-				Expect(spec).To(HaveKey("workloadPools"))
-
-				workloadPools := spec["workloadPools"].([]interface{}) //nolint:forcetypeassert // safe: API response structure
-				Expect(workloadPools).ToNot(BeEmpty())
+				Expect(retrievedCluster.Metadata.Id).To(Equal(clusterID))
+				Expect(retrievedCluster.Metadata.Name).To(Equal("get-cluster-test"))
+				Expect(retrievedCluster.Metadata.ProjectId).To(Equal(config.ProjectID))
+				Expect(retrievedCluster.Metadata.OrganizationId).To(Equal(config.OrgID))
+				Expect(retrievedCluster.Spec.RegionId).To(Equal(config.RegionID))
+				Expect(retrievedCluster.Spec.WorkloadPools).ToNot(BeEmpty())
+				Expect(retrievedCluster.Status).NotTo(BeNil())
 			})
 		})
 
@@ -187,7 +176,7 @@ var _ = Describe("Core Cluster Management", func() {
 				invalidPayload := api.NewClusterPayload().
 					WithName("immutable-test").
 					WithRegionID(config.SecondaryRegionID).
-					Build()
+					BuildTyped()
 
 				err := client.UpdateCluster(ctx, config.OrgID, config.ProjectID, fixture.ClusterID, invalidPayload)
 				Expect(err).To(HaveOccurred())
@@ -203,11 +192,9 @@ var _ = Describe("Core Cluster Management", func() {
 					api.NewClusterPayload().
 						WithName("delete-cluster-test").
 						WithRegionID(config.RegionID).
-						Build())
+						BuildTyped())
 
-				Expect(cluster).To(HaveKey("metadata"))
-				metadata := cluster["metadata"].(map[string]interface{}) //nolint:forcetypeassert // safe: API response structure
-				Expect(metadata["id"]).To(Equal(clusterID))
+				Expect(cluster.Metadata.Id).To(Equal(clusterID))
 
 				err := client.DeleteCluster(ctx, config.OrgID, config.ProjectID, clusterID)
 				Expect(err).NotTo(HaveOccurred())
@@ -229,9 +216,9 @@ var _ = Describe("Core Cluster Management", func() {
 					api.NewClusterPayload().
 						WithName("repeated-delete-test").
 						WithRegionID(config.RegionID).
-						Build())
+						BuildTyped())
 
-				Expect(cluster).To(HaveKey("metadata"))
+				Expect(cluster.Metadata).NotTo(BeNil())
 
 				err := client.DeleteCluster(ctx, config.OrgID, config.ProjectID, clusterID)
 				Expect(err).NotTo(HaveOccurred())

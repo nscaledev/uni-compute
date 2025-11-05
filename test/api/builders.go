@@ -17,16 +17,14 @@ limitations under the License.
 package api
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"fmt"
+
+	"k8s.io/apimachinery/pkg/util/rand"
 )
 
 func generateRandomName(prefix string) string {
-	bytes := make([]byte, 4) // 8 hex characters
-	_, _ = rand.Read(bytes)
-
-	return fmt.Sprintf("%s-%s", prefix, hex.EncodeToString(bytes))
+	randomStr := rand.String(8)
+	return fmt.Sprintf("%s-%s", prefix, randomStr)
 }
 
 func GenerateTestID() string {

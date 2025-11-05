@@ -17,6 +17,7 @@ limitations under the License.
 package api
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -62,7 +63,7 @@ func LoadTestConfig() (*TestConfig, error) {
 
 	if err := v.ReadInConfig(); err != nil {
 		// Only warn if it's not a "file not found" error
-		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
+		if !errors.As(err, &errConfigFileNotFound) {
 			fmt.Printf("Warning: error reading config file: %v\n", err)
 		}
 	}
@@ -103,9 +104,11 @@ func getDurationFromViper(v *viper.Viper, key string, defaultValue time.Duration
 			return time.Duration(seconds) * time.Second
 		}
 	}
+
 	if duration > 0 {
 		return duration
 	}
+
 	return defaultValue
 }
 
@@ -132,8 +135,18 @@ func validateRequiredFields(config *TestConfig) error {
 	}
 
 	if len(missing) > 0 {
-		return fmt.Errorf("missing required configuration: %s. Please set these environment variables or add them to a .env file, or the gh secrets", strings.Join(missing, ", "))
+		return &configError{missing: strings.Join(missing, ", ")}
 	}
 
 	return nil
+}
+
+var errConfigFileNotFound = viper.ConfigFileNotFoundError{}
+
+type configError struct {
+	missing string
+}
+
+func (e *configError) Error() string {
+	return fmt.Sprintf("missing required configuration: %s. Please set these environment variables or add them to a .env file, or the gh secrets", e.missing)
 }

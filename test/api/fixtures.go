@@ -19,17 +19,21 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
+	"github.com/unikorn-cloud/compute/pkg/openapi"
+	coreapi "github.com/unikorn-cloud/core/pkg/openapi"
 )
 
-// ClusterPayloadBuilder builds cluster payloads for testing.
+// ClusterPayloadBuilder builds cluster payloads for testing using type-safe OpenAPI structs.
 type ClusterPayloadBuilder struct {
-	payload map[string]interface{}
+	cluster openapi.ComputeClusterWrite
 	config  *TestConfig
 }
 
@@ -37,36 +41,41 @@ type ClusterPayloadBuilder struct {
 func NewClusterPayload() *ClusterPayloadBuilder {
 	config, err := LoadTestConfig()
 	Expect(err).NotTo(HaveOccurred(), "Failed to load test configuration")
+
 	timestamp := time.Now().Format("20060102-150405")
 	uniqueName := fmt.Sprintf("testautomationcreate-%s", timestamp)
 
 	return &ClusterPayloadBuilder{
 		config: config,
-		payload: map[string]interface{}{
-			"metadata": map[string]interface{}{
-				"name":        uniqueName,
-				"description": "",
+		cluster: openapi.ComputeClusterWrite{
+			Metadata: coreapi.ResourceWriteMetadata{
+				Name:        uniqueName,
+				Description: ptr(""),
 			},
-			"spec": map[string]interface{}{
-				"regionId": config.RegionID,
-				"workloadPools": []map[string]interface{}{
+			Spec: openapi.ComputeClusterSpec{
+				RegionId: config.RegionID,
+				WorkloadPools: []openapi.ComputeClusterWorkloadPool{
 					{
-						"name": "test-pool",
-						"machine": map[string]interface{}{
-							"replicas": 1,
-							"flavorId": config.FlavorID,
-							"disk":     map[string]interface{}{"size": 30},
-							"firewall": []map[string]interface{}{
+						Name: "test-pool",
+						Machine: openapi.MachinePool{
+							Replicas: 1,
+							FlavorId: config.FlavorID,
+							Disk: &openapi.Volume{
+								Size: 30,
+							},
+							Firewall: &openapi.FirewallRules{
 								{
-									"direction": "ingress",
-									"protocol":  "tcp",
-									"port":      22,
-									"prefixes":  []string{"0.0.0.0/0"},
+									Direction: openapi.Ingress,
+									Protocol:  openapi.Tcp,
+									Port:      22,
+									Prefixes:  []string{"0.0.0.0/0"},
 								},
 							},
-							"publicIPAllocation": map[string]interface{}{"enabled": true},
-							"image": map[string]interface{}{
-								"id": config.ImageID,
+							PublicIPAllocation: &openapi.PublicIPAllocation{
+								Enabled: true,
+							},
+							Image: openapi.ComputeImage{
+								Id: &config.ImageID,
 							},
 						},
 					},
@@ -78,17 +87,13 @@ func NewClusterPayload() *ClusterPayloadBuilder {
 
 // WithName sets the cluster name.
 func (b *ClusterPayloadBuilder) WithName(name string) *ClusterPayloadBuilder {
-	metadata := b.payload["metadata"].(map[string]interface{}) //nolint:forcetypeassert // safe: we control payload structure
-	metadata["name"] = name
-
+	b.cluster.Metadata.Name = name
 	return b
 }
 
 // WithDescription sets the cluster description.
 func (b *ClusterPayloadBuilder) WithDescription(desc string) *ClusterPayloadBuilder {
-	metadata := b.payload["metadata"].(map[string]interface{}) //nolint:forcetypeassert // safe: we control payload structure
-	metadata["description"] = desc
-
+	b.cluster.Metadata.Description = ptr(desc)
 	return b
 }
 
@@ -98,13 +103,10 @@ func (b *ClusterPayloadBuilder) WithProjectID(projectID string) *ClusterPayloadB
 	return b
 }
 
-// WithRegionID sets the region ID (pass empty string to omit).
+// WithRegionID sets the region ID (pass empty string to keep current).
 func (b *ClusterPayloadBuilder) WithRegionID(regionID string) *ClusterPayloadBuilder {
-	spec := b.payload["spec"].(map[string]interface{}) //nolint:forcetypeassert // safe: we control payload structure
-	if regionID == "" {
-		delete(spec, "regionId")
-	} else {
-		spec["regionId"] = regionID
+	if regionID != "" {
+		b.cluster.Spec.RegionId = regionID
 	}
 
 	return b
@@ -112,12 +114,8 @@ func (b *ClusterPayloadBuilder) WithRegionID(regionID string) *ClusterPayloadBui
 
 // WithFlavorID sets the flavor ID for all workload pools.
 func (b *ClusterPayloadBuilder) WithFlavorID(flavorID string) *ClusterPayloadBuilder {
-	spec := b.payload["spec"].(map[string]interface{})        //nolint:forcetypeassert // safe: we control payload structure
-	pools := spec["workloadPools"].([]map[string]interface{}) //nolint:forcetypeassert // safe: we control payload structure
-
-	for _, pool := range pools {
-		machine := pool["machine"].(map[string]interface{}) //nolint:forcetypeassert // safe: we control payload structure
-		machine["flavorId"] = flavorID
+	for i := range b.cluster.Spec.WorkloadPools {
+		b.cluster.Spec.WorkloadPools[i].Machine.FlavorId = flavorID
 	}
 
 	return b
@@ -125,13 +123,8 @@ func (b *ClusterPayloadBuilder) WithFlavorID(flavorID string) *ClusterPayloadBui
 
 // WithImageID sets the image ID for all workload pools.
 func (b *ClusterPayloadBuilder) WithImageID(imageID string) *ClusterPayloadBuilder {
-	spec := b.payload["spec"].(map[string]interface{})        //nolint:forcetypeassert // safe: we control payload structure
-	pools := spec["workloadPools"].([]map[string]interface{}) //nolint:forcetypeassert // safe: we control payload structure
-
-	for _, pool := range pools {
-		machine := pool["machine"].(map[string]interface{}) //nolint:forcetypeassert // safe: we control payload structure
-		image := machine["image"].(map[string]interface{})  //nolint:forcetypeassert // safe: we control payload structure
-		image["id"] = imageID
+	for i := range b.cluster.Spec.WorkloadPools {
+		b.cluster.Spec.WorkloadPools[i].Machine.Image.Id = &imageID
 	}
 
 	return b
@@ -139,43 +132,56 @@ func (b *ClusterPayloadBuilder) WithImageID(imageID string) *ClusterPayloadBuild
 
 // WithWorkloadPool adds a workload pool configuration.
 func (b *ClusterPayloadBuilder) WithWorkloadPool(name, flavorID, imageID string, replicas int) *ClusterPayloadBuilder {
-	spec := b.payload["spec"].(map[string]interface{})        //nolint:forcetypeassert // safe: we control payload structure
-	pools := spec["workloadPools"].([]map[string]interface{}) //nolint:forcetypeassert // safe: we control payload structure
-
-	pool := map[string]interface{}{
-		"name": name,
-		"machine": map[string]interface{}{
-			"replicas": replicas,
-			"flavorId": flavorID,
-			"disk":     map[string]interface{}{"size": 30},
-			"firewall": []map[string]interface{}{
+	pool := openapi.ComputeClusterWorkloadPool{
+		Name: name,
+		Machine: openapi.MachinePool{
+			Replicas: replicas,
+			FlavorId: flavorID,
+			Disk: &openapi.Volume{
+				Size: 30,
+			},
+			Firewall: &openapi.FirewallRules{
 				{
-					"direction": "ingress",
-					"protocol":  "tcp",
-					"port":      22,
-					"prefixes":  []string{"0.0.0.0/0"},
+					Direction: openapi.Ingress,
+					Protocol:  openapi.Tcp,
+					Port:      22,
+					Prefixes:  []string{"0.0.0.0/0"},
 				},
 			},
-			"publicIPAllocation": map[string]interface{}{"enabled": true},
-			"image": map[string]interface{}{
-				"id": imageID,
+			PublicIPAllocation: &openapi.PublicIPAllocation{
+				Enabled: true,
+			},
+			Image: openapi.ComputeImage{
+				Id: &imageID,
 			},
 		},
 	}
 
-	pools = append(pools, pool)
-	spec["workloadPools"] = pools
+	b.cluster.Spec.WorkloadPools = append(b.cluster.Spec.WorkloadPools, pool)
 
 	return b
 }
 
-// Build returns the completed cluster payload.
+// Build returns the cluster as a map for JSON marshaling (required for API client).
 func (b *ClusterPayloadBuilder) Build() map[string]interface{} {
-	return b.payload
+	jsonBytes, err := json.Marshal(b.cluster)
+	Expect(err).NotTo(HaveOccurred(), "Failed to marshal cluster to JSON")
+
+	var result map[string]interface{}
+	err = json.Unmarshal(jsonBytes, &result)
+	Expect(err).NotTo(HaveOccurred(), "Failed to unmarshal cluster JSON to map")
+
+	return result
+}
+
+// BuildTyped returns the typed cluster struct directly.
+func (b *ClusterPayloadBuilder) BuildTyped() openapi.ComputeClusterWrite {
+	return b.cluster
 }
 
 // CreateClusterWithCleanup creates a cluster, waits for provisioning, and schedules automatic cleanup.
-func CreateClusterWithCleanup(client *APIClient, ctx context.Context, config *TestConfig, payload map[string]interface{}) (map[string]interface{}, string) {
+// Accepts a typed struct for type safety (or use BuildTyped() from the builder).
+func CreateClusterWithCleanup(client *APIClient, ctx context.Context, config *TestConfig, payload openapi.ComputeClusterWrite) (openapi.ComputeClusterRead, string) {
 	var clusterID string
 
 	// Schedule cleanup FIRST - ensures cleanup runs even if creation/provisioning fails
@@ -216,8 +222,7 @@ func CreateClusterWithCleanup(client *APIClient, ctx context.Context, config *Te
 		panic(err)
 	}
 
-	metadata := cluster["metadata"].(map[string]interface{}) //nolint:forcetypeassert // safe: API response structure
-	clusterID = metadata["id"].(string)                      //nolint:forcetypeassert // safe: API response structure
+	clusterID = cluster.Metadata.Id
 
 	GinkgoWriter.Printf("Created cluster with ID: %s\n", clusterID)
 	// Wait for cluster to be provisioned
@@ -227,8 +232,7 @@ func CreateClusterWithCleanup(client *APIClient, ctx context.Context, config *Te
 			return "error"
 		}
 
-		metadata := updatedCluster["metadata"].(map[string]interface{}) //nolint:forcetypeassert // safe: API response structure
-		provisioningStatus := metadata["provisioningStatus"].(string)   //nolint:forcetypeassert // safe: API response structure
+		provisioningStatus := string(updatedCluster.Metadata.ProvisioningStatus)
 
 		if provisioningStatus == "error" {
 			Fail(fmt.Sprintf("Cluster %s entered error state during provisioning", clusterID))
@@ -248,7 +252,7 @@ type MultiProjectClusterFixture struct {
 
 // ClusterInfo holds cluster metadata and project information.
 type ClusterInfo struct {
-	Cluster   map[string]interface{}
+	Cluster   openapi.ComputeClusterRead
 	ClusterID string
 	ProjectID string
 }
@@ -275,7 +279,7 @@ func CreateMultiProjectClusterFixture(client *APIClient, ctx context.Context, co
 
 // createClusterInProject creates a cluster in a specific project with cleanup.
 // Now uses CreateClusterWithCleanup to ensure consistent behavior with proper provisioning wait.
-func createClusterInProject(client *APIClient, ctx context.Context, config *TestConfig, projectID string, index int) (map[string]interface{}, string) {
+func createClusterInProject(client *APIClient, ctx context.Context, config *TestConfig, projectID string, index int) (openapi.ComputeClusterRead, string) {
 	// Create a temporary config with the target project ID
 	tempConfig := *config
 	tempConfig.ProjectID = projectID
@@ -285,13 +289,13 @@ func createClusterInProject(client *APIClient, ctx context.Context, config *Test
 		NewClusterPayload().
 			WithName(fmt.Sprintf("org-list-test-project%d", index)).
 			WithRegionID(config.RegionID).
-			Build())
+			BuildTyped())
 
 	return cluster, clusterID
 }
 
 // VerifyClusterPresence verifies that clusters are present in the list.
-func VerifyClusterPresence(clusters []map[string]interface{}, expectedClusterIDs []string) {
+func VerifyClusterPresence(clusters []openapi.ComputeClusterRead, expectedClusterIDs []string) {
 	clusterIDs := extractClusterIDs(clusters)
 	for _, expectedID := range expectedClusterIDs {
 		Expect(clusterIDs).To(ContainElement(expectedID), "Expected cluster ID %s to be present in the list", expectedID)
@@ -299,39 +303,36 @@ func VerifyClusterPresence(clusters []map[string]interface{}, expectedClusterIDs
 }
 
 // VerifyProjectPresence verifies that projects are present in the cluster list.
-func VerifyProjectPresence(clusters []map[string]interface{}, expectedProjectIDs []string) {
+func VerifyProjectPresence(clusters []openapi.ComputeClusterRead, expectedProjectIDs []string) {
 	projectIDs := extractProjectIDs(clusters)
 	for _, expectedProjectID := range expectedProjectIDs {
 		Expect(projectIDs).To(ContainElement(expectedProjectID), "Expected project ID %s to be present in the list", expectedProjectID)
 	}
 }
 
-// extractFieldFromMetadata extracts a specific field from cluster metadata.
-// Generic helper to reduce duplication across extractClusterIDs and extractProjectIDs.
-func extractFieldFromMetadata(clusters []map[string]interface{}, fieldName string) []string {
-	values := make([]string, len(clusters))
-
+// extractClusterIDs extracts cluster IDs from a list of typed clusters.
+func extractClusterIDs(clusters []openapi.ComputeClusterRead) []string {
+	ids := make([]string, len(clusters))
 	for i, cluster := range clusters {
-		metadata := cluster["metadata"].(map[string]interface{}) //nolint:forcetypeassert // safe: API response structure
-		values[i] = metadata[fieldName].(string)                 //nolint:forcetypeassert // safe: API response structure
+		ids[i] = cluster.Metadata.Id
 	}
 
-	return values
+	return ids
 }
 
-// extractClusterIDs extracts cluster IDs from a list of cluster maps.
-func extractClusterIDs(clusters []map[string]interface{}) []string {
-	return extractFieldFromMetadata(clusters, "id")
-}
+// extractProjectIDs extracts project IDs from a list of typed clusters.
+func extractProjectIDs(clusters []openapi.ComputeClusterRead) []string {
+	ids := make([]string, len(clusters))
+	for i, cluster := range clusters {
+		ids[i] = cluster.Metadata.ProjectId
+	}
 
-// extractProjectIDs extracts project IDs from a list of cluster maps.
-func extractProjectIDs(clusters []map[string]interface{}) []string {
-	return extractFieldFromMetadata(clusters, "projectId")
+	return ids
 }
 
 // ClusterUpdateFixture represents a cluster setup for update testing.
 type ClusterUpdateFixture struct {
-	Cluster          map[string]interface{}
+	Cluster          openapi.ComputeClusterRead
 	ClusterID        string
 	OriginalReplicas int
 }
@@ -342,14 +343,10 @@ func CreateClusterUpdateFixture(client *APIClient, ctx context.Context, config *
 		NewClusterPayload().
 			WithName(clusterName).
 			WithRegionID(config.RegionID).
-			Build())
+			BuildTyped())
 
 	// Extract original replicas count.
-	spec := cluster["spec"].(map[string]interface{})         //nolint:forcetypeassert // safe: API response structure
-	workloadPools := spec["workloadPools"].([]interface{})   //nolint:forcetypeassert // safe: API response structure
-	firstPool := workloadPools[0].(map[string]interface{})   //nolint:forcetypeassert // safe: API response structure
-	machine := firstPool["machine"].(map[string]interface{}) //nolint:forcetypeassert // safe: API response structure
-	originalReplicas := int(machine["replicas"].(float64))   //nolint:forcetypeassert // safe: API response structure
+	originalReplicas := cluster.Spec.WorkloadPools[0].Machine.Replicas
 
 	return &ClusterUpdateFixture{
 		Cluster:          cluster,
@@ -359,39 +356,36 @@ func CreateClusterUpdateFixture(client *APIClient, ctx context.Context, config *
 }
 
 // CreateUpdatePayload creates a cluster update payload with modified workload pools.
-func (f *ClusterUpdateFixture) CreateUpdatePayload(config *TestConfig, newReplicas int) map[string]interface{} {
+// Returns typed struct for type safety.
+func (f *ClusterUpdateFixture) CreateUpdatePayload(config *TestConfig, newReplicas int) openapi.ComputeClusterWrite {
 	return NewClusterPayload().
 		WithName("update-test").
 		WithRegionID(config.RegionID).
 		WithWorkloadPool("test-pool", config.FlavorID, config.ImageID, newReplicas).
-		Build()
+		BuildTyped()
 }
 
 // VerifyWorkloadPoolUpdate verifies that a cluster's workload pools were updated correctly.
-func VerifyWorkloadPoolUpdate(cluster map[string]interface{}, expectedMinPools int) {
-	Expect(cluster).To(HaveKey("spec"))
-	spec := cluster["spec"].(map[string]interface{}) //nolint:forcetypeassert // safe: API response structure
-	Expect(spec).To(HaveKey("workloadPools"))
-
-	workloadPools := spec["workloadPools"].([]interface{}) //nolint:forcetypeassert // safe: API response structure
-	Expect(len(workloadPools)).To(BeNumerically(">=", expectedMinPools))
+func VerifyWorkloadPoolUpdate(cluster openapi.ComputeClusterRead, expectedMinPools int) {
+	Expect(len(cluster.Spec.WorkloadPools)).To(BeNumerically(">=", expectedMinPools))
 }
 
 // GetMachineStatus retrieves the current status of a machine by ID from a cluster.
 // Searches all workload pools for the machine.
-func GetMachineStatus(cluster map[string]interface{}, machineID string) string {
-	status := cluster["status"].(map[string]interface{}) //nolint:forcetypeassert // safe: API response structure
-	workloadPools := status["workloadPools"].([]interface{})
+func GetMachineStatus(cluster openapi.ComputeClusterRead, machineID string) string {
+	if cluster.Status == nil || cluster.Status.WorkloadPools == nil {
+		return "not-found"
+	}
 
 	// Search all pools for the machine
-	for _, pool := range workloadPools {
-		workloadPool := pool.(map[string]interface{})        //nolint:forcetypeassert // safe: API response structure
-		machines := workloadPool["machines"].([]interface{}) //nolint:forcetypeassert // safe: API response structure
+	for _, pool := range *cluster.Status.WorkloadPools {
+		if pool.Machines == nil {
+			continue
+		}
 
-		for _, m := range machines {
-			machine := m.(map[string]interface{})    //nolint:forcetypeassert // safe: API response structure
-			if machine["id"].(string) == machineID { //nolint:forcetypeassert // safe: API response structure
-				return machine["status"].(string) //nolint:forcetypeassert // safe: API response structure
+		for _, machine := range *pool.Machines {
+			if machine.Id == machineID {
+				return string(machine.Status)
 			}
 		}
 	}
@@ -400,14 +394,17 @@ func GetMachineStatus(cluster map[string]interface{}, machineID string) string {
 }
 
 // ExtractMachineID extracts the first machine ID from a cluster's first workload pool.
-func ExtractMachineID(cluster map[string]interface{}) string {
-	status := cluster["status"].(map[string]interface{})     //nolint:forcetypeassert // safe: API response structure
-	workloadPools := status["workloadPools"].([]interface{}) //nolint:forcetypeassert // safe: API response structure
-	firstPool := workloadPools[0].(map[string]interface{})   //nolint:forcetypeassert // safe: API response structure
-	machines := firstPool["machines"].([]interface{})        //nolint:forcetypeassert // safe: API response structure
-	firstMachine := machines[0].(map[string]interface{})     //nolint:forcetypeassert // safe: API response structure
+func ExtractMachineID(cluster openapi.ComputeClusterRead) string {
+	if cluster.Status == nil || cluster.Status.WorkloadPools == nil || len(*cluster.Status.WorkloadPools) == 0 {
+		return ""
+	}
 
-	return firstMachine["id"].(string) //nolint:forcetypeassert // safe: API response structure
+	firstPool := (*cluster.Status.WorkloadPools)[0]
+	if firstPool.Machines == nil || len(*firstPool.Machines) == 0 {
+		return ""
+	}
+
+	return (*firstPool.Machines)[0].Id
 }
 
 // WaitForMachineStatus waits for a specific machine to reach the expected status.
@@ -437,14 +434,17 @@ func WaitForMachinesAvailable(client *APIClient, ctx context.Context, config *Te
 			return false
 		}
 
-		// Navigate through the nested structure using safe access
-		status := cluster["status"].(map[string]interface{})     //nolint:forcetypeassert // safe: API response structure
-		workloadPools := status["workloadPools"].([]interface{}) //nolint:forcetypeassert // safe: API response structure
-		firstPool := workloadPools[0].(map[string]interface{})   //nolint:forcetypeassert // safe: API response structure
-		machines := firstPool["machines"].([]interface{})        //nolint:forcetypeassert // safe: API response structure
-		firstMachine := machines[0].(map[string]interface{})     //nolint:forcetypeassert // safe: API response structure
-		mID := firstMachine["id"].(string)                       //nolint:forcetypeassert // safe: API response structure
+		// Check if we have machines available
+		if cluster.Status == nil || cluster.Status.WorkloadPools == nil || len(*cluster.Status.WorkloadPools) == 0 {
+			return false
+		}
 
+		firstPool := (*cluster.Status.WorkloadPools)[0]
+		if firstPool.Machines == nil || len(*firstPool.Machines) == 0 {
+			return false
+		}
+
+		mID := (*firstPool.Machines)[0].Id
 		if mID == "" {
 			return false
 		}
@@ -458,25 +458,25 @@ func WaitForMachinesAvailable(client *APIClient, ctx context.Context, config *Te
 }
 
 // ExtractMachineIDsFromPool extracts machine IDs from a specific workload pool by name.
-func ExtractMachineIDsFromPool(cluster map[string]interface{}, poolName string) []string {
-	status := cluster["status"].(map[string]interface{}) //nolint:forcetypeassert // safe: API response structure
-	workloadPools := status["workloadPools"].([]interface{})
+func ExtractMachineIDsFromPool(cluster openapi.ComputeClusterRead, poolName string) []string {
+	if cluster.Status == nil || cluster.Status.WorkloadPools == nil {
+		return []string{}
+	}
 
-	GinkgoWriter.Printf("Searching for pool '%s' in %d total pools\n", poolName, len(workloadPools))
+	GinkgoWriter.Printf("Searching for pool '%s' in %d total pools\n", poolName, len(*cluster.Status.WorkloadPools))
 
-	for _, pool := range workloadPools {
-		workloadPool := pool.(map[string]interface{}) //nolint:forcetypeassert // safe: API response structure
-		name := workloadPool["name"].(string)         //nolint:forcetypeassert // safe: API response structure
+	for _, pool := range *cluster.Status.WorkloadPools {
+		GinkgoWriter.Printf("Checking pool '%s'\n", pool.Name)
 
-		GinkgoWriter.Printf("Checking pool '%s'\n", name)
+		if pool.Name == poolName {
+			if pool.Machines == nil {
+				GinkgoWriter.Printf("Found pool '%s' with 0 machines\n", poolName)
+				return []string{}
+			}
 
-		if name == poolName {
-			machines := workloadPool["machines"].([]interface{}) //nolint:forcetypeassert // safe: API response structure
-			machineIDs := make([]string, 0, len(machines))
-
-			for _, m := range machines {
-				machine := m.(map[string]interface{})                   //nolint:forcetypeassert // safe: API response structure
-				machineIDs = append(machineIDs, machine["id"].(string)) //nolint:forcetypeassert // safe: API response structure
+			machineIDs := make([]string, 0, len(*pool.Machines))
+			for _, machine := range *pool.Machines {
+				machineIDs = append(machineIDs, machine.Id)
 			}
 
 			GinkgoWriter.Printf("Found pool '%s' with %d machines\n", poolName, len(machineIDs))
@@ -491,27 +491,30 @@ func ExtractMachineIDsFromPool(cluster map[string]interface{}, poolName string) 
 }
 
 // VerifyMachineEvicted checks that a machine ID is not present in a specific pool and the pool has the expected replica count.
-func VerifyMachineEvicted(cluster map[string]interface{}, poolName, evictedMachineID string, expectedReplicas int) bool {
-	status := cluster["status"].(map[string]interface{}) //nolint:forcetypeassert // safe: API response structure
-	workloadPools := status["workloadPools"].([]interface{})
+func VerifyMachineEvicted(cluster openapi.ComputeClusterRead, poolName, evictedMachineID string, expectedReplicas int) bool {
+	if cluster.Status == nil || cluster.Status.WorkloadPools == nil {
+		GinkgoWriter.Printf("Cluster status or workload pools not available\n")
+		return false
+	}
 
-	for _, pool := range workloadPools {
-		workloadPool := pool.(map[string]interface{}) //nolint:forcetypeassert // safe: API response structure
-		name := workloadPool["name"].(string)         //nolint:forcetypeassert // safe: API response structure
+	for _, pool := range *cluster.Status.WorkloadPools {
+		if pool.Name == poolName {
+			if pool.Machines == nil {
+				GinkgoWriter.Printf("Pool %s has no machines (waiting for %d after eviction)\n", poolName, expectedReplicas)
+				return expectedReplicas == 0
+			}
 
-		if name == poolName {
-			machines := workloadPool["machines"].([]interface{}) //nolint:forcetypeassert // safe: API response structure
-
-			for _, m := range machines {
-				machine := m.(map[string]interface{})           //nolint:forcetypeassert // safe: API response structure
-				if machine["id"].(string) == evictedMachineID { //nolint:forcetypeassert // safe: API response structure
+			// Check if evicted machine is still present
+			for _, machine := range *pool.Machines {
+				if machine.Id == evictedMachineID {
 					GinkgoWriter.Printf("Machine %s still present in pool %s (waiting for eviction)\n", evictedMachineID, poolName)
 					return false
 				}
 			}
 
-			if len(machines) != expectedReplicas {
-				GinkgoWriter.Printf("Pool %s has %d machines (waiting for %d after eviction)\n", poolName, len(machines), expectedReplicas)
+			// Check replica count
+			if len(*pool.Machines) != expectedReplicas {
+				GinkgoWriter.Printf("Pool %s has %d machines (waiting for %d after eviction)\n", poolName, len(*pool.Machines), expectedReplicas)
 				return false
 			}
 
@@ -522,4 +525,9 @@ func VerifyMachineEvicted(cluster map[string]interface{}, poolName, evictedMachi
 	GinkgoWriter.Printf("Pool %s not found in cluster status\n", poolName)
 
 	return false
+}
+
+// ptr is a helper function to get a pointer to a value.
+func ptr[T any](v T) *T {
+	return &v
 }

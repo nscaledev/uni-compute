@@ -62,7 +62,7 @@ var _ = Describe("Security and Authentication", func() {
 						api.NewClusterPayload().
 							WithName(payload).
 							WithDescription(payload).
-							Build())
+							BuildTyped())
 
 					Expect(err).To(HaveOccurred())
 					Expect(err.Error()).To(Or(
@@ -82,7 +82,7 @@ var _ = Describe("Security and Authentication", func() {
 					_, err := client.CreateCluster(ctx, config.OrgID, config.ProjectID,
 						api.NewClusterPayload().
 							WithName(payload).
-							Build())
+							BuildTyped())
 
 					Expect(err).To(HaveOccurred())
 					Expect(err.Error()).To(Or(
@@ -104,7 +104,7 @@ var _ = Describe("Security and Authentication", func() {
 					_, err := client.CreateCluster(ctx, config.OrgID, config.ProjectID,
 						api.NewClusterPayload().
 							WithName(unicodeName).
-							Build())
+							BuildTyped())
 
 					Expect(err).To(HaveOccurred())
 					Expect(err.Error()).To(Or(
@@ -124,7 +124,7 @@ var _ = Describe("Security and Authentication", func() {
 					_, err := client.CreateCluster(ctx, config.OrgID, config.ProjectID,
 						api.NewClusterPayload().
 							WithName(payload).
-							Build())
+							BuildTyped())
 
 					Expect(err).To(HaveOccurred())
 					Expect(err.Error()).To(Or(

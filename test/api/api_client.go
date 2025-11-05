@@ -29,6 +29,8 @@ import (
 	"time"
 
 	"github.com/onsi/ginkgo/v2"
+
+	"github.com/unikorn-cloud/compute/pkg/openapi"
 )
 
 type APIClient struct {
@@ -44,6 +46,7 @@ func NewAPIClient(baseURL string) (*APIClient, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to load test configuration: %w", err)
 	}
+
 	if baseURL == "" {
 		baseURL = config.BaseURL
 	}
@@ -194,7 +197,7 @@ type ResponseHandlerConfig struct {
 	AllowNotFound  bool
 }
 
-// listResource is a generic helper for list operations.
+// listResource is a generic helper for list operations (for non-typed resources).
 func (c *APIClient) listResource(ctx context.Context, path string, config ResponseHandlerConfig) ([]map[string]interface{}, error) {
 	//nolint:bodyclose // response body is closed in doRequest
 	resp, respBody, err := c.doRequest(ctx, http.MethodGet, path, nil, 0)
@@ -203,6 +206,49 @@ func (c *APIClient) listResource(ctx context.Context, path string, config Respon
 	}
 
 	return c.handleResourceListResponse(resp, respBody, config)
+}
+
+// listClusters is a typed helper for listing clusters.
+func (c *APIClient) listClusters(ctx context.Context, path string, config ResponseHandlerConfig) ([]openapi.ComputeClusterRead, error) {
+	//nolint:bodyclose // response body is closed in doRequest
+	resp, respBody, err := c.doRequest(ctx, http.MethodGet, path, nil, 0)
+	if err != nil {
+		return nil, fmt.Errorf("listing %s: %w", config.ResourceType, err)
+	}
+
+	return c.handleClusterListResponse(resp, respBody, config)
+}
+
+// handleClusterListResponse handles typed cluster list responses.
+func (c *APIClient) handleClusterListResponse(resp *http.Response, respBody []byte, config ResponseHandlerConfig) ([]openapi.ComputeClusterRead, error) {
+	switch resp.StatusCode {
+	case http.StatusOK:
+		var clusters []openapi.ComputeClusterRead
+		if err := json.Unmarshal(respBody, &clusters); err != nil {
+			return nil, fmt.Errorf("unmarshaling %s response: %w", config.ResourceType, err)
+		}
+
+		return clusters, nil
+	case http.StatusNotFound:
+		if config.AllowNotFound {
+			// Return empty list with error for test scenarios
+			return []openapi.ComputeClusterRead{}, fmt.Errorf("%s '%s' not found (status: %d)", config.ResourceIDType, config.ResourceID, resp.StatusCode)
+		}
+
+		return nil, fmt.Errorf("%s '%s' not found (status: %d)", config.ResourceIDType, config.ResourceID, resp.StatusCode)
+	case http.StatusForbidden:
+		if config.AllowForbidden {
+			// Return empty list with error for test scenarios
+			return []openapi.ComputeClusterRead{}, fmt.Errorf("%s '%s' access denied (status: %d)", config.ResourceIDType, config.ResourceID, resp.StatusCode)
+		}
+
+		return nil, fmt.Errorf("%s '%s' access denied (status: %d)", config.ResourceIDType, config.ResourceID, resp.StatusCode)
+	case http.StatusInternalServerError:
+		// Server error - always return empty list and error for test scenarios
+		return []openapi.ComputeClusterRead{}, fmt.Errorf("server error reading %s for %s '%s' (status: %d): %s", config.ResourceType, config.ResourceIDType, config.ResourceID, resp.StatusCode, string(respBody))
+	default:
+		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
 }
 
 // handleResourceListResponse handles common response patterns for resource listing endpoints.
@@ -277,32 +323,33 @@ func (c *APIClient) ListImages(ctx context.Context, orgID, regionID string) ([]m
 }
 
 // CreateCluster creates a new compute cluster.
-func (c *APIClient) CreateCluster(ctx context.Context, orgID, projectID string, body map[string]interface{}) (map[string]interface{}, error) {
+// Accepts a typed struct for type safety, then converts to JSON for the request.
+func (c *APIClient) CreateCluster(ctx context.Context, orgID, projectID string, body openapi.ComputeClusterWrite) (openapi.ComputeClusterRead, error) {
 	path := c.endpoints.CreateCluster(orgID, projectID)
 
 	bodyBytes, err := json.Marshal(body)
 	if err != nil {
-		return nil, fmt.Errorf("marshaling cluster body: %w", err)
+		return openapi.ComputeClusterRead{}, fmt.Errorf("marshaling cluster body: %w", err)
 	}
 
 	//nolint:bodyclose // response body is closed in doRequest
 	resp, respBody, err := c.doRequest(ctx, http.MethodPost, path, strings.NewReader(string(bodyBytes)), 0)
 	if err != nil {
-		return nil, fmt.Errorf("creating cluster: %w", err)
+		return openapi.ComputeClusterRead{}, fmt.Errorf("creating cluster: %w", err)
 	}
 
 	// Check for quota allocation errors (500 with specific message)
 	if resp.StatusCode == http.StatusInternalServerError && strings.Contains(string(respBody), "failed to create quota allocation") {
-		return nil, fmt.Errorf("insufficient resources: failed to create quota allocation - environment may not have enough capacity (trace ID: %s)", extractTraceID(resp.Header.Get("Traceparent")))
+		return openapi.ComputeClusterRead{}, fmt.Errorf("insufficient resources: failed to create quota allocation - environment may not have enough capacity (trace ID: %s)", extractTraceID(resp.Header.Get("Traceparent")))
 	}
 
 	if resp.StatusCode != http.StatusAccepted {
-		return nil, fmt.Errorf("unexpected status code: expected %d, got %d, body: %s", http.StatusAccepted, resp.StatusCode, string(respBody))
+		return openapi.ComputeClusterRead{}, fmt.Errorf("unexpected status code: expected %d, got %d, body: %s", http.StatusAccepted, resp.StatusCode, string(respBody))
 	}
 
-	var cluster map[string]interface{}
+	var cluster openapi.ComputeClusterRead
 	if err := json.Unmarshal(respBody, &cluster); err != nil {
-		return nil, fmt.Errorf("unmarshaling cluster response: %w", err)
+		return openapi.ComputeClusterRead{}, fmt.Errorf("unmarshaling cluster response: %w", err)
 	}
 
 	return cluster, nil
@@ -310,34 +357,34 @@ func (c *APIClient) CreateCluster(ctx context.Context, orgID, projectID string, 
 
 // GetCluster retrieves a specific cluster.
 // Im using this to poll with eventually to wait for the cluster to be provisioned.
-func (c *APIClient) GetCluster(ctx context.Context, orgID, projectID, clusterID string) (map[string]interface{}, error) {
+func (c *APIClient) GetCluster(ctx context.Context, orgID, projectID, clusterID string) (openapi.ComputeClusterRead, error) {
 	path := c.endpoints.GetCluster(orgID, projectID, clusterID)
 
 	//nolint:bodyclose // response body is closed in doRequest
 	resp, respBody, err := c.doRequest(ctx, http.MethodGet, path, nil, 0)
 	if err != nil {
-		return nil, fmt.Errorf("getting cluster: %w", err)
+		return openapi.ComputeClusterRead{}, fmt.Errorf("getting cluster: %w", err)
 	}
 
 	switch resp.StatusCode {
 	case http.StatusOK:
-		var cluster map[string]interface{}
+		var cluster openapi.ComputeClusterRead
 		if err := json.Unmarshal(respBody, &cluster); err != nil {
-			return nil, fmt.Errorf("unmarshaling cluster response: %w", err)
+			return openapi.ComputeClusterRead{}, fmt.Errorf("unmarshaling cluster response: %w", err)
 		}
 
 		return cluster, nil
 	case http.StatusNotFound:
-		return nil, fmt.Errorf("cluster '%s' not found (status: %d)", clusterID, resp.StatusCode)
+		return openapi.ComputeClusterRead{}, fmt.Errorf("cluster '%s' not found (status: %d)", clusterID, resp.StatusCode)
 	case http.StatusForbidden:
-		return nil, fmt.Errorf("cluster '%s' access denied (status: %d)", clusterID, resp.StatusCode)
+		return openapi.ComputeClusterRead{}, fmt.Errorf("cluster '%s' access denied (status: %d)", clusterID, resp.StatusCode)
 	default:
-		return nil, fmt.Errorf("unexpected status code: %d, body: %s", resp.StatusCode, string(respBody))
+		return openapi.ComputeClusterRead{}, fmt.Errorf("unexpected status code: %d, body: %s", resp.StatusCode, string(respBody))
 	}
 }
 
 // ListClusters lists all clusters for a project.
-func (c *APIClient) ListClusters(ctx context.Context, orgID, projectID string) ([]map[string]interface{}, error) {
+func (c *APIClient) ListClusters(ctx context.Context, orgID, projectID string) ([]openapi.ComputeClusterRead, error) {
 	path := c.endpoints.ListClusters(orgID, projectID)
 	config := ResponseHandlerConfig{
 		ResourceType:   "clusters",
@@ -347,11 +394,11 @@ func (c *APIClient) ListClusters(ctx context.Context, orgID, projectID string) (
 		AllowNotFound:  true,
 	}
 
-	return c.listResource(ctx, path, config)
+	return c.listClusters(ctx, path, config)
 }
 
 // ListOrganizationClusters lists all clusters for an organization across all projects.
-func (c *APIClient) ListOrganizationClusters(ctx context.Context, orgID string) ([]map[string]interface{}, error) {
+func (c *APIClient) ListOrganizationClusters(ctx context.Context, orgID string) ([]openapi.ComputeClusterRead, error) {
 	path := c.endpoints.ListOrganizationClusters(orgID)
 	config := ResponseHandlerConfig{
 		ResourceType:   "clusters",
@@ -361,10 +408,12 @@ func (c *APIClient) ListOrganizationClusters(ctx context.Context, orgID string) 
 		AllowNotFound:  true,
 	}
 
-	return c.listResource(ctx, path, config)
+	return c.listClusters(ctx, path, config)
 }
 
-func (c *APIClient) UpdateCluster(ctx context.Context, orgID, projectID, clusterID string, body map[string]interface{}) error {
+// UpdateCluster updates an existing cluster.
+// Accepts a typed struct for type safety, then converts to JSON for the request.
+func (c *APIClient) UpdateCluster(ctx context.Context, orgID, projectID, clusterID string, body openapi.ComputeClusterWrite) error {
 	path := c.endpoints.UpdateCluster(orgID, projectID, clusterID)
 
 	jsonBody, err := json.Marshal(body)
@@ -451,11 +500,12 @@ func (c *APIClient) HardRebootMachine(ctx context.Context, orgID, projectID, clu
 }
 
 // EvictMachines evicts specified machines from a cluster.
+// Uses typed struct for type safety, then converts to JSON for the request.
 func (c *APIClient) EvictMachines(ctx context.Context, orgID, projectID, clusterID string, machineIDs []string) error {
 	path := c.endpoints.EvictMachines(orgID, projectID, clusterID)
 
-	body := map[string]interface{}{
-		"machineIDs": machineIDs,
+	body := openapi.EvictionWrite{
+		MachineIDs: machineIDs,
 	}
 
 	bodyBytes, err := json.Marshal(body)

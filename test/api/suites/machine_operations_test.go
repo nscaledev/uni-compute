@@ -40,7 +40,7 @@ var _ = Describe("Machine Operations", func() {
 					api.NewClusterPayload().
 						WithName("machine-power-ops-test").
 						WithRegionID(config.RegionID).
-						Build())
+						BuildTyped())
 
 				clusterID = cID
 
@@ -161,7 +161,7 @@ var _ = Describe("Machine Operations", func() {
 						WithName("eviction-test").
 						WithRegionID(config.RegionID).
 						WithWorkloadPool("eviction-pool", config.FlavorID, config.ImageID, 2).
-						Build())
+						BuildTyped())
 
 				// Wait for machines to be available and extract machine IDs
 				var machineIDs []string
