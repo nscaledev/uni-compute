@@ -36,22 +36,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func regionClientGetter(issuer *identityclient.TokenIssuer, factory *regionclient.Client) region.ClientGetterFunc {
-	return func(ctx context.Context) (regionapi.ClientWithResponsesInterface, error) {
-		token, err := issuer.Issue(ctx)
-		if err != nil {
-			return nil, err
-		}
-
-		client, err := factory.APIClient(ctx, token)
-		if err != nil {
-			return nil, err
-		}
-
-		return client, nil
-	}
-}
-
 type Handler struct {
 	// client gives cached access to Compute.
 	client client.Client
@@ -70,17 +54,17 @@ type Handler struct {
 	identity *identityclient.Client
 
 	// region is a client to access regions.
-	region *region.Client
+	region *regionclient.Client
 }
 
-func New(client client.Client, namespace string, options *Options, issuer *identityclient.TokenIssuer, identity *identityclient.Client, regionFactory *regionclient.Client) (*Handler, error) {
+func New(client client.Client, namespace string, options *Options, issuer *identityclient.TokenIssuer, identity *identityclient.Client, region *regionclient.Client) (*Handler, error) {
 	h := &Handler{
 		client:    client,
 		namespace: namespace,
 		options:   options,
 		issuer:    issuer,
 		identity:  identity,
-		region:    region.New(regionClientGetter(issuer, regionFactory)),
+		region:    region,
 	}
 
 	return h, nil
@@ -103,6 +87,20 @@ func (h *Handler) getIdentityAPIClient(ctx context.Context) (identityapi.ClientW
 	return client, nil
 }
 
+func (h *Handler) getRegionAPIClient(ctx context.Context) (regionapi.ClientWithResponsesInterface, error) {
+	token, err := h.issuer.Issue(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	client, err := h.region.APIClient(ctx, token)
+	if err != nil {
+		return nil, err
+	}
+
+	return client, nil
+}
+
 /*
 func (h *Handler) setCacheable(w http.ResponseWriter) {
 	w.Header().Add("Cache-Control", fmt.Sprintf("max-age=%d", h.options.CacheMaxAge/time.Second))
@@ -114,6 +112,10 @@ func (h *Handler) setUncacheable(w http.ResponseWriter) {
 	w.Header().Add("Cache-Control", "no-cache")
 }
 
+func (h *Handler) regionClient() *region.Client {
+	return region.New(h.getRegionAPIClient)
+}
+
 func (h *Handler) GetApiV1OrganizationsOrganizationIDRegions(w http.ResponseWriter, r *http.Request, organizationID openapi.OrganizationIDParameter) {
 	ctx := r.Context()
 
@@ -122,7 +124,7 @@ func (h *Handler) GetApiV1OrganizationsOrganizationIDRegions(w http.ResponseWrit
 		return
 	}
 
-	result, err := h.region.List(ctx, organizationID)
+	result, err := h.regionClient().List(ctx, organizationID)
 	if err != nil {
 		errors.HandleError(w, r, errors.OAuth2ServerError("unable to read regions").WithError(err))
 		return
@@ -139,7 +141,7 @@ func (h *Handler) GetApiV1OrganizationsOrganizationIDRegionsRegionIDFlavors(w ht
 		return
 	}
 
-	result, err := h.region.Flavors(ctx, organizationID, regionID)
+	result, err := h.regionClient().Flavors(ctx, organizationID, regionID)
 	if err != nil {
 		errors.HandleError(w, r, errors.OAuth2ServerError("unable to read flavors").WithError(err))
 		return
@@ -156,7 +158,7 @@ func (h *Handler) GetApiV1OrganizationsOrganizationIDRegionsRegionIDImages(w htt
 		return
 	}
 
-	result, err := h.region.Images(ctx, organizationID, regionID)
+	result, err := h.regionClient().Images(ctx, organizationID, regionID)
 	if err != nil {
 		errors.HandleError(w, r, errors.OAuth2ServerError("unable to read images").WithError(err))
 		return
@@ -166,7 +168,7 @@ func (h *Handler) GetApiV1OrganizationsOrganizationIDRegionsRegionIDImages(w htt
 }
 
 func (h *Handler) clusterClient() *cluster.Client {
-	return cluster.NewClient(h.client, h.namespace, &h.options.Cluster, h.getIdentityAPIClient, h.region)
+	return cluster.NewClient(h.client, h.namespace, &h.options.Cluster, h.getIdentityAPIClient, h.getRegionAPIClient)
 }
 
 func (h *Handler) GetApiV1OrganizationsOrganizationIDClusters(w http.ResponseWriter, r *http.Request, organizationID openapi.OrganizationIDParameter, params openapi.GetApiV1OrganizationsOrganizationIDClustersParams) {

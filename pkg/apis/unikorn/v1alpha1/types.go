@@ -186,3 +186,64 @@ type MachineStatus struct {
 	// Conditions is a set of status conditions for the machine.
 	Conditions []unikornv1core.Condition `json:"conditions,omitempty"`
 }
+
+// ComputeInstanceList is a typed list of instances.
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type ComputeInstanceList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []ComputeInstance `json:"items"`
+}
+
+// ComputeInstance is an object representing a Compute instance.
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:resource:scope=Namespaced,categories=unikorn
+// +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="display name",type="string",JSONPath=".metadata.labels['unikorn-cloud\\.org/name']"
+// +kubebuilder:printcolumn:name="status",type="string",JSONPath=".status.conditions[?(@.type==\"Available\")].reason"
+// +kubebuilder:printcolumn:name="age",type="date",JSONPath=".metadata.creationTimestamp"
+type ComputeInstance struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec              ComputeInstanceSpec   `json:"spec"`
+	Status            ComputeInstanceStatus `json:"status,omitempty"`
+}
+
+type ComputeInstanceSpec struct {
+	unikornv1core.MachineGeneric `json:",inline"`
+	// Pause, if true, will inhibit reconciliation.
+	Pause bool `json:"pause,omitempty"`
+	// Tags are aribrary user data.
+	Tags unikornv1core.TagList `json:"tags,omitempty"`
+	// Network is networking options.
+	Networking *ComputeInstanceNetworking `json:"networking,omitempty"`
+	// UserData is passed to cloud-init and may be a script, a multipart MIME archive etc.
+	// as permitted by the cloud-init specification.
+	UserData []byte `json:"userData,omitempty"`
+}
+
+type ComputeInstanceNetworking struct {
+	// PublicIP specifies whether to create a public IP address.
+	PublicIP bool `json:"publicIp,omitempty"`
+	// SecurityGroupIDs are a list of security group IDs to apply to
+	// the instance's network device.
+	SecurityGroupIDs []string `json:"securityGroupIDs,omitempty"`
+	// AllowedSourceAddresses defines a set of network prefixes that are
+	// allowed to egress from the instance.  For use where the instance is
+	// being used as a router for NFV.
+	AllowedSourceAddresses []unikornv1core.IPv4Prefix `json:"allowedSourceAddresses,omitempty"`
+}
+
+type ComputeInstanceStatus struct {
+	// PrivateIP is the private IP address.
+	// TODO: should be IPv4Address.
+	PrivateIP *string `json:"privateIp,omitempty"`
+	// PublicIP is the public IP address if requested.
+	// TODO: should be IPv4Address.
+	PublicIP *string `json:"publicIp,omitempty"`
+	// PowerState is the current status of the machine.
+	PowerState unikornv1region.InstanceLifecyclePhase `json:"status"`
+	// Conditions is a set of status conditions for the machine.
+	Conditions []unikornv1core.Condition `json:"conditions,omitempty"`
+}

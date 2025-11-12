@@ -6,8 +6,6 @@ github.com/apapsch/go-jsonmerge/v2 v2.0.0/go.mod h1:lvDnEdqiQrp0O42VQGgmlKpxL1AP
 github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=
 github.com/beorn7/perks v1.0.1/go.mod h1:G2ZrVWU2WbWT9wwq4/hrbKbnv/1ERSJQ0ibhJ6rlkpw=
 github.com/bmatcuk/doublestar v1.1.1/go.mod h1:UD6OnuiIn0yFxxA2le/rnRU1G4RaI4UvFv1sNto9p6w=
-github.com/brunoga/deep v1.2.4 h1:Aj9E9oUbE+ccbyh35VC/NHlzzjfIVU69BXu2mt2LmL8=
-github.com/brunoga/deep v1.2.4/go.mod h1:GDV6dnXqn80ezsLSZ5Wlv1PdKAWAO4L5PnKYtv2dgaI=
 github.com/cenkalti/backoff/v4 v4.3.0 h1:MyRJ/UdXutAwSAT+s3wNd7MfTIcy71VQueUuFK343L8=
 github.com/cenkalti/backoff/v4 v4.3.0/go.mod h1:Y3VNntkOUPxTVeUxJ/G5vcM//AlwfmyYozVcomhLiZE=
 github.com/cespare/xxhash/v2 v2.3.0 h1:UL815xU9SqsFlibzuggzjXhog7bL6oX9BbNZnL2UFvs=
@@ -196,10 +194,10 @@ github.com/ugorji/go/codec v1.2.12 h1:9LC83zGrHhuUA9l16C9AHXAqEV/2wBQ4nkvumAE65E
 github.com/ugorji/go/codec v1.2.12/go.mod h1:UNopzCgEMSXjBc6AOMqYvWC1ktqTAfzJZUZgYf6w6lg=
 github.com/unikorn-cloud/core v1.10.0 h1:PWMuYE2uV5ePP714XttqZuNE5nLVxV+j/JhP6FhpiNo=
 github.com/unikorn-cloud/core v1.10.0/go.mod h1:KZLGw/EyZWjem4c80QF70KqpHIT7MAk7o6L4VAWsnGM=
-github.com/unikorn-cloud/identity v1.10.0 h1:s8pI+Wg1qFsLyPSwrTsQvwtBBEvqfrqfQfsHBJnqLcE=
-github.com/unikorn-cloud/identity v1.10.0/go.mod h1:9Jh65LmJVh8TgrlHFNQ5TPVvpAUhtt5589gjHX9fmP4=
-github.com/unikorn-cloud/region v1.10.0 h1:UXwFyD2E9OcH7OvjwK91RgUAGqX3MPHttrGtoHtmz8c=
-github.com/unikorn-cloud/region v1.10.0/go.mod h1:p5z68FvOSTORgdeVDmgHjk7WOixGry1X2szqkSNAcEQ=
+github.com/unikorn-cloud/identity v1.10.1-0.20251111091857-cb29a4648362 h1:be51+AXsmGYXFo6k6vb47aAS16JKFvbypw5IMSo9m6M=
+github.com/unikorn-cloud/identity v1.10.1-0.20251111091857-cb29a4648362/go.mod h1:9J7n5xmBRrY1Te6zzT6FkvtJp7baIUg9RF/GwG9ueqY=
+github.com/unikorn-cloud/region v1.10.1-0.20251111123930-c4ae00401572 h1:xXMT/3toCEAm3gYhLDvipR3JLRJ11Mh0HC0MUhBDsyM=
+github.com/unikorn-cloud/region v1.10.1-0.20251111123930-c4ae00401572/go.mod h1:g33D+qRQi7PxBTu9TgP+uKIDQvWx0msj1JO1RqlsIQY=
 github.com/vmware-labs/yaml-jsonpath v0.3.2 h1:/5QKeCBGdsInyDCyVNLbXyilb61MXGi9NP674f9Hobk=
 github.com/vmware-labs/yaml-jsonpath v0.3.2/go.mod h1:U6whw1z03QyqgWdgXxvVnQ90zN1BWz5V+51Ewf8k+rQ=
 github.com/x448/float16 v0.8.4 h1:qLwI1I70+NjRFUR3zs1JPUCgaCXSh3SW62uAKT1mSBM=

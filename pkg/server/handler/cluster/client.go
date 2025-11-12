@@ -81,11 +81,11 @@ type Client struct {
 	identity identityclient.APIClientGetter
 
 	// region is a client to access regions.
-	region *region.Client
+	region region.ClientGetterFunc
 }
 
 // NewClient returns a new client with required parameters.
-func NewClient(client client.Client, namespace string, options *Options, identity identityclient.APIClientGetter, region *region.Client) *Client {
+func NewClient(client client.Client, namespace string, options *Options, identity identityclient.APIClientGetter, region region.ClientGetterFunc) *Client {
 	return &Client{
 		client:    client,
 		namespace: namespace,
@@ -128,7 +128,7 @@ func (c *Client) List(ctx context.Context, organizationID string, params openapi
 		return strings.Compare(a.Name, b.Name)
 	})
 
-	return newGenerator(c.client, c.options, c.region, "", organizationID, "", nil).convertList(result), nil
+	return newGenerator(c.client, c.options, region.New(c.region), "", organizationID, "", nil).convertList(result), nil
 }
 
 func (c *Client) Get(ctx context.Context, organizationID, projectID, clusterID string) (*openapi.ComputeClusterRead, error) {
@@ -137,7 +137,7 @@ func (c *Client) Get(ctx context.Context, organizationID, projectID, clusterID s
 		return nil, err
 	}
 
-	return newGenerator(c.client, c.options, c.region, "", organizationID, "", nil).convert(result), nil
+	return newGenerator(c.client, c.options, region.New(c.region), "", organizationID, "", nil).convert(result), nil
 }
 
 // get returns the cluster.
@@ -160,7 +160,7 @@ func (c *Client) get(ctx context.Context, organizationID, projectID, clusterID s
 }
 
 func (c *Client) generateAllocations(ctx context.Context, organizationID string, resource *unikornv1.ComputeCluster) (identityapi.ResourceAllocationList, error) {
-	flavors, err := c.region.Flavors(ctx, organizationID, resource.Spec.RegionID)
+	flavors, err := region.New(c.region).Flavors(ctx, organizationID, resource.Spec.RegionID)
 	if err != nil {
 		return nil, err
 	}
@@ -231,7 +231,7 @@ func (c *Client) createIdentity(ctx context.Context, organizationID, projectID, 
 		},
 	}
 
-	client, err := c.region.Client(ctx)
+	client, err := region.New(c.region).Client(ctx)
 	if err != nil {
 		return nil, errors.OAuth2ServerError("unable to create region client").WithError(err)
 	}
@@ -274,7 +274,7 @@ func (c *Client) createNetworkOpenstack(ctx context.Context, organizationID, pro
 		},
 	}
 
-	client, err := c.region.Client(ctx)
+	client, err := region.New(c.region).Client(ctx)
 	if err != nil {
 		return nil, errors.OAuth2ServerError("unable to create region client").WithError(err)
 	}
@@ -349,7 +349,7 @@ func metadataMutator(required, current metav1.Object) error {
 
 // Create creates the implicit cluster indentified by the JTW claims.
 func (c *Client) Create(ctx context.Context, organizationID, projectID string, request *openapi.ComputeClusterWrite) (*openapi.ComputeClusterRead, error) {
-	cluster, err := newGenerator(c.client, c.options, c.region, c.namespace, organizationID, projectID, nil).generate(ctx, request)
+	cluster, err := newGenerator(c.client, c.options, region.New(c.region), c.namespace, organizationID, projectID, nil).generate(ctx, request)
 	if err != nil {
 		return nil, err
 	}
@@ -377,7 +377,7 @@ func (c *Client) Create(ctx context.Context, organizationID, projectID string, r
 		return nil, errors.OAuth2ServerError("failed to create cluster").WithError(err)
 	}
 
-	return newGenerator(c.client, c.options, c.region, "", organizationID, "", nil).convert(cluster), nil
+	return newGenerator(c.client, c.options, region.New(c.region), "", organizationID, "", nil).convert(cluster), nil
 }
 
 // Delete deletes the implicit cluster indentified by the JTW claims.
@@ -413,7 +413,7 @@ func (c *Client) Update(ctx context.Context, organizationID, projectID, clusterI
 		return errors.OAuth2InvalidRequest("compute cluster is being deleted")
 	}
 
-	required, err := newGenerator(c.client, c.options, c.region, c.namespace, organizationID, projectID, current).generate(ctx, request)
+	required, err := newGenerator(c.client, c.options, region.New(c.region), c.namespace, organizationID, projectID, current).generate(ctx, request)
 	if err != nil {
 		return err
 	}
@@ -470,7 +470,7 @@ func (c *Client) Evict(ctx context.Context, organizationID, projectID, clusterID
 	}
 
 	// Lookup the servers and ensure they all exist...
-	servers, err := c.region.Servers(ctx, organizationID, cluster)
+	servers, err := region.New(c.region).Servers(ctx, organizationID, cluster)
 	if err != nil {
 		return errors.OAuth2ServerError("failed to list servers").WithError(err)
 	}
@@ -533,7 +533,7 @@ func (c *Client) HardRebootMachine(ctx context.Context, organizationID, projectI
 		return errors.OAuth2InvalidRequest("compute cluster is being deleted")
 	}
 
-	if err := c.region.HardRebootServer(ctx, organizationID, projectID, cluster.Annotations[constants.IdentityAnnotation], machineID); err != nil {
+	if err := region.New(c.region).HardRebootServer(ctx, organizationID, projectID, cluster.Annotations[constants.IdentityAnnotation], machineID); err != nil {
 		return errors.OAuth2ServerError("failed to hard reboot machine").WithError(err)
 	}
 
@@ -550,7 +550,7 @@ func (c *Client) SoftRebootMachine(ctx context.Context, organizationID, projectI
 		return errors.OAuth2InvalidRequest("compute cluster is being deleted")
 	}
 
-	if err := c.region.SoftRebootServer(ctx, organizationID, projectID, cluster.Annotations[constants.IdentityAnnotation], machineID); err != nil {
+	if err := region.New(c.region).SoftRebootServer(ctx, organizationID, projectID, cluster.Annotations[constants.IdentityAnnotation], machineID); err != nil {
 		return errors.OAuth2ServerError("failed to soft reboot machine").WithError(err)
 	}
 
@@ -567,7 +567,7 @@ func (c *Client) StartMachine(ctx context.Context, organizationID, projectID, cl
 		return errors.OAuth2InvalidRequest("compute cluster is being deleted")
 	}
 
-	if err := c.region.StartServer(ctx, organizationID, projectID, cluster.Annotations[constants.IdentityAnnotation], machineID); err != nil {
+	if err := region.New(c.region).StartServer(ctx, organizationID, projectID, cluster.Annotations[constants.IdentityAnnotation], machineID); err != nil {
 		return errors.OAuth2ServerError("failed to start machine").WithError(err)
 	}
 
@@ -584,7 +584,7 @@ func (c *Client) StopMachine(ctx context.Context, organizationID, projectID, clu
 		return errors.OAuth2InvalidRequest("compute cluster is being deleted")
 	}
 
-	if err := c.region.StopServer(ctx, organizationID, projectID, cluster.Annotations[constants.IdentityAnnotation], machineID); err != nil {
+	if err := region.New(c.region).StopServer(ctx, organizationID, projectID, cluster.Annotations[constants.IdentityAnnotation], machineID); err != nil {
 		return errors.OAuth2ServerError("failed to stop machine").WithError(err)
 	}
 
@@ -601,7 +601,7 @@ func (c *Client) CreateConsoleSession(ctx context.Context, organizationID, proje
 		return nil, errors.OAuth2InvalidRequest("compute cluster is being deleted")
 	}
 
-	resp, err := c.region.CreateConsoleSession(ctx, organizationID, projectID, cluster.Annotations[constants.IdentityAnnotation], machineID)
+	resp, err := region.New(c.region).CreateConsoleSession(ctx, organizationID, projectID, cluster.Annotations[constants.IdentityAnnotation], machineID)
 	if err != nil {
 		// REVIEW_ME: Is there a way to check if the underlying error is a 404 not found?
 		return nil, errors.OAuth2ServerError("failed to create console session").WithError(err)
@@ -624,7 +624,7 @@ func (c *Client) GetConsoleOutput(ctx context.Context, organizationID, projectID
 		Length: params.Length,
 	}
 
-	resp, err := c.region.GetConsoleOutput(ctx, organizationID, projectID, cluster.Annotations[constants.IdentityAnnotation], machineID, p)
+	resp, err := region.New(c.region).GetConsoleOutput(ctx, organizationID, projectID, cluster.Annotations[constants.IdentityAnnotation], machineID, p)
 	if err != nil {
 		// REVIEW_ME: Is there a way to check if the underlying error is a 404 not found?
 		return nil, errors.OAuth2ServerError("failed to get console output").WithError(err)
