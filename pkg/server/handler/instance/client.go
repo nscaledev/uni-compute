@@ -129,12 +129,12 @@ func convertUserData(in []byte) *[]byte {
 	return &in
 }
 
-func convertPowerState(in regionv1.InstanceLifecyclePhase) *regionapi.InstanceLifecyclePhase {
-	if in == "" {
+func convertPowerState(in *regionv1.InstanceLifecyclePhase) *regionapi.InstanceLifecyclePhase {
+	if in == nil || *in == "" {
 		return nil
 	}
 
-	switch in {
+	switch *in {
 	case regionv1.InstanceLifecyclePhasePending:
 		return ptr.To(regionapi.Pending)
 	case regionv1.InstanceLifecyclePhaseRunning:

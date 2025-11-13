@@ -243,7 +243,7 @@ type ComputeInstanceStatus struct {
 	// TODO: should be IPv4Address.
 	PublicIP *string `json:"publicIp,omitempty"`
 	// PowerState is the current status of the machine.
-	PowerState unikornv1region.InstanceLifecyclePhase `json:"status"`
+	PowerState *unikornv1region.InstanceLifecyclePhase `json:"status,omitempty"`
 	// Conditions is a set of status conditions for the machine.
 	Conditions []unikornv1core.Condition `json:"conditions,omitempty"`
 }
