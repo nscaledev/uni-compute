@@ -1,6 +1,10 @@
 {{/*
 Create the container images
 */}}
+{{- define "unikorn.computeInstanceControllerImage" -}}
+{{- .Values.instanceController.image | default (printf "%s/unikorn-compute-instance-controller:%s" (include "unikorn.defaultRepositoryPath" .) (.Values.tag | default .Chart.Version)) }}
+{{- end }}
+
 {{- define "unikorn.computeClusterControllerImage" -}}
 {{- .Values.clusterController.image | default (printf "%s/unikorn-compute-cluster-controller:%s" (include "unikorn.defaultRepositoryPath" .) (.Values.tag | default .Chart.Version)) }}
 {{- end }}

@@ -1,0 +1,49 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ .Release.Name }}-instance-controller
+  labels:
+    {{- include "unikorn.labels" . | nindent 4 }}
+rules:
+# Manage compute instances (my job).
+- apiGroups:
+  - compute.unikorn-cloud.org
+  resources:
+  - computeinstances
+  verbs:
+  - list
+  - watch
+  - update
+  - create
+  - delete
+- apiGroups:
+  - compute.unikorn-cloud.org
+  resources:
+  - computeinstances/status
+  verbs:
+  - update
+- apiGroups:
+  - region.unikorn-cloud.org
+  resources:
+  - servers
+  verbs:
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - list
+  - watch
+# ArgoCD integration (access to API secret).
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - list
+  - watch
+  - create
+  - patch
+  - delete

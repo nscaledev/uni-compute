@@ -189,8 +189,6 @@ spec:
                 - Stopping
                 - Stopped
                 type: string
-            required:
-            - status
             type: object
         required:
         - spec

@@ -23,6 +23,7 @@ package v1alpha1
 
 import (
 	unikornv1alpha1 "github.com/unikorn-cloud/core/pkg/apis/unikorn/v1alpha1"
+	apisunikornv1alpha1 "github.com/unikorn-cloud/region/pkg/apis/unikorn/v1alpha1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -354,6 +355,11 @@ func (in *ComputeInstanceStatus) DeepCopyInto(out *ComputeInstanceStatus) {
 	if in.PublicIP != nil {
 		in, out := &in.PublicIP, &out.PublicIP
 		*out = new(string)
+		**out = **in
+	}
+	if in.PowerState != nil {
+		in, out := &in.PowerState, &out.PowerState
+		*out = new(apisunikornv1alpha1.InstanceLifecyclePhase)
 		**out = **in
 	}
 	if in.Conditions != nil {
