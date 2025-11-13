@@ -30,6 +30,7 @@ import (
 	"github.com/unikorn-cloud/core/pkg/messaging/kubernetes"
 	"github.com/unikorn-cloud/core/pkg/options"
 	regionv1 "github.com/unikorn-cloud/region/pkg/apis/unikorn/v1alpha1"
+	regionconstants "github.com/unikorn-cloud/region/pkg/constants"
 
 	cr "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -57,7 +58,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	consumer := consumer.NewCascadingDelete(cli, &computev1.ComputeClusterList{}, consumer.WithNamespace(options.Namespace), consumer.WithResourceLabel(coreconstants.NetworkLabel))
+	deleteInstanceConsumer := consumer.NewCascadingDelete(cli, &computev1.ComputeInstanceList{}, consumer.WithNamespace(options.Namespace), consumer.WithResourceLabel(regionconstants.NetworkLabel))
+	deleteClusterConsumer := consumer.NewCascadingDelete(cli, &computev1.ComputeClusterList{}, consumer.WithNamespace(options.Namespace), consumer.WithResourceLabel(coreconstants.NetworkLabel))
 
 	scheme, err := client.NewScheme(regionv1.AddToScheme)
 	if err != nil {
@@ -65,7 +67,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := kubernetes.New(cr.GetConfigOrDie(), scheme, &regionv1.Network{}, consumer).Run(ctx); err != nil {
+	if err := kubernetes.New(cr.GetConfigOrDie(), scheme, &regionv1.Network{}).Run(ctx, deleteInstanceConsumer, deleteClusterConsumer); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
