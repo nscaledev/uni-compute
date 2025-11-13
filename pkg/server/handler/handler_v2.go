@@ -93,6 +93,16 @@ func (h *Handler) DeleteApiV2InstancesInstanceID(w http.ResponseWriter, r *http.
 	w.WriteHeader(http.StatusAccepted)
 }
 
+func (h *Handler) GetApiV2InstancesInstanceIDSshkey(w http.ResponseWriter, r *http.Request, instanceID openapi.InstanceIDParameter) {
+	result, err := h.instanceClient().SSHKey(r.Context(), instanceID)
+	if err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	util.WriteJSONResponse(w, r, http.StatusOK, result)
+}
+
 func (h *Handler) PostApiV2InstancesInstanceIDStart(w http.ResponseWriter, r *http.Request, instanceID openapi.InstanceIDParameter) {
 	if err := h.instanceClient().Start(r.Context(), instanceID); err != nil {
 		errors.HandleError(w, r, err)

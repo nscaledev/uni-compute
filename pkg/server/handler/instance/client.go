@@ -26,11 +26,11 @@ import (
 	"slices"
 
 	computev1 "github.com/unikorn-cloud/compute/pkg/apis/unikorn/v1alpha1"
+	"github.com/unikorn-cloud/compute/pkg/constants"
 	computeapi "github.com/unikorn-cloud/compute/pkg/openapi"
 	"github.com/unikorn-cloud/compute/pkg/server/handler/util"
 	corev1 "github.com/unikorn-cloud/core/pkg/apis/unikorn/v1alpha1"
 	coreconstants "github.com/unikorn-cloud/core/pkg/constants"
-	"github.com/unikorn-cloud/core/pkg/manager"
 	coreapi "github.com/unikorn-cloud/core/pkg/openapi"
 	"github.com/unikorn-cloud/core/pkg/server/conversion"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
@@ -511,11 +511,6 @@ func (c *Client) Delete(ctx context.Context, instanceID string) error {
 }
 
 func (c *Client) serverID(ctx context.Context, region regionapi.ClientWithResponsesInterface, instance *computev1.ComputeInstance) (string, error) {
-	reference, err := manager.GenerateResourceReference(c.client, instance)
-	if err != nil {
-		return "", errors.OAuth2ServerError("unable to generate instance reference").WithError(err)
-	}
-
 	// Constrain the search domain.
 	params := &regionapi.GetApiV2ServersParams{
 		OrganizationID: &computeapi.OrganizationIDQueryParameter{
@@ -531,7 +526,7 @@ func (c *Client) serverID(ctx context.Context, region regionapi.ClientWithRespon
 			instance.Labels[regionconstants.NetworkLabel],
 		},
 		Tag: &coreapi.TagSelectorParameter{
-			reference,
+			constants.InstanceLabel + "=" + instance.Name,
 		},
 	}
 
@@ -551,6 +546,34 @@ func (c *Client) serverID(ctx context.Context, region regionapi.ClientWithRespon
 	}
 
 	return servers[0].Metadata.Id, nil
+}
+
+func (c *Client) SSHKey(ctx context.Context, instanceID string) (*regionapi.SshKey, error) {
+	resource, err := c.GetRaw(ctx, instanceID)
+	if err != nil {
+		return nil, err
+	}
+
+	region, err := c.region(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	serverID, err := c.serverID(ctx, region, resource)
+	if err != nil {
+		return nil, err
+	}
+
+	response, err := region.GetApiV2ServersServerIDSshkeyWithResponse(ctx, serverID)
+	if err != nil {
+		return nil, errors.OAuth2ServerError("unable to fetch SSH key for instance").WithError(err)
+	}
+
+	if response.StatusCode() != http.StatusOK {
+		return nil, errors.OAuth2ServerError("unable to fetch SSH key for instance - incorrect status code")
+	}
+
+	return response.JSON200, nil
 }
 
 func (c *Client) Start(ctx context.Context, instanceID string) error {
