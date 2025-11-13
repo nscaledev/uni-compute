@@ -167,10 +167,19 @@ func (p *Provisioner) Provision(ctx context.Context) error {
 			},
 		}
 
-		_, err := p.createServer(ctx, region, request)
+		temp, err := p.createServer(ctx, region, request)
 		if err != nil {
 			return err
 		}
+
+		server = temp
+	}
+
+	p.instance.Status.PrivateIP = server.Status.PrivateIP
+	p.instance.Status.PublicIP = server.Status.PublicIP
+
+	if server.Metadata.ProvisioningStatus != coreapi.ResourceProvisioningStatusProvisioned {
+		return provisioners.ErrYield
 	}
 
 	return nil
