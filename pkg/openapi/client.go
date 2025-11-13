@@ -170,6 +170,9 @@ type ClientInterface interface {
 	// PostApiV2InstancesInstanceIDReboot request
 	PostApiV2InstancesInstanceIDReboot(ctx context.Context, instanceID InstanceIDParameter, params *PostApiV2InstancesInstanceIDRebootParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetApiV2InstancesInstanceIDSshkey request
+	GetApiV2InstancesInstanceIDSshkey(ctx context.Context, instanceID InstanceIDParameter, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// PostApiV2InstancesInstanceIDStart request
 	PostApiV2InstancesInstanceIDStart(ctx context.Context, instanceID InstanceIDParameter, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -503,6 +506,18 @@ func (c *Client) GetApiV2InstancesInstanceIDConsolesession(ctx context.Context, 
 
 func (c *Client) PostApiV2InstancesInstanceIDReboot(ctx context.Context, instanceID InstanceIDParameter, params *PostApiV2InstancesInstanceIDRebootParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPostApiV2InstancesInstanceIDRebootRequest(c.Server, instanceID, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetApiV2InstancesInstanceIDSshkey(ctx context.Context, instanceID InstanceIDParameter, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetApiV2InstancesInstanceIDSshkeyRequest(c.Server, instanceID)
 	if err != nil {
 		return nil, err
 	}
@@ -1747,6 +1762,40 @@ func NewPostApiV2InstancesInstanceIDRebootRequest(server string, instanceID Inst
 	return req, nil
 }
 
+// NewGetApiV2InstancesInstanceIDSshkeyRequest generates requests for GetApiV2InstancesInstanceIDSshkey
+func NewGetApiV2InstancesInstanceIDSshkeyRequest(server string, instanceID InstanceIDParameter) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "instanceID", runtime.ParamLocationPath, instanceID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v2/instances/%s/sshkey", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewPostApiV2InstancesInstanceIDStartRequest generates requests for PostApiV2InstancesInstanceIDStart
 func NewPostApiV2InstancesInstanceIDStartRequest(server string, instanceID InstanceIDParameter) (*http.Request, error) {
 	var err error
@@ -1936,6 +1985,9 @@ type ClientWithResponsesInterface interface {
 
 	// PostApiV2InstancesInstanceIDRebootWithResponse request
 	PostApiV2InstancesInstanceIDRebootWithResponse(ctx context.Context, instanceID InstanceIDParameter, params *PostApiV2InstancesInstanceIDRebootParams, reqEditors ...RequestEditorFn) (*PostApiV2InstancesInstanceIDRebootResponse, error)
+
+	// GetApiV2InstancesInstanceIDSshkeyWithResponse request
+	GetApiV2InstancesInstanceIDSshkeyWithResponse(ctx context.Context, instanceID InstanceIDParameter, reqEditors ...RequestEditorFn) (*GetApiV2InstancesInstanceIDSshkeyResponse, error)
 
 	// PostApiV2InstancesInstanceIDStartWithResponse request
 	PostApiV2InstancesInstanceIDStartWithResponse(ctx context.Context, instanceID InstanceIDParameter, reqEditors ...RequestEditorFn) (*PostApiV2InstancesInstanceIDStartResponse, error)
@@ -2545,6 +2597,32 @@ func (r PostApiV2InstancesInstanceIDRebootResponse) StatusCode() int {
 	return 0
 }
 
+type GetApiV2InstancesInstanceIDSshkeyResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef1.SshKeyResponse
+	JSON400      *externalRef0.BadRequestResponse
+	JSON401      *externalRef0.UnauthorizedResponse
+	JSON403      *externalRef0.ForbiddenResponse
+	JSON500      *externalRef0.InternalServerErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetApiV2InstancesInstanceIDSshkeyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetApiV2InstancesInstanceIDSshkeyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type PostApiV2InstancesInstanceIDStartResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -2842,6 +2920,15 @@ func (c *ClientWithResponses) PostApiV2InstancesInstanceIDRebootWithResponse(ctx
 		return nil, err
 	}
 	return ParsePostApiV2InstancesInstanceIDRebootResponse(rsp)
+}
+
+// GetApiV2InstancesInstanceIDSshkeyWithResponse request returning *GetApiV2InstancesInstanceIDSshkeyResponse
+func (c *ClientWithResponses) GetApiV2InstancesInstanceIDSshkeyWithResponse(ctx context.Context, instanceID InstanceIDParameter, reqEditors ...RequestEditorFn) (*GetApiV2InstancesInstanceIDSshkeyResponse, error) {
+	rsp, err := c.GetApiV2InstancesInstanceIDSshkey(ctx, instanceID, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetApiV2InstancesInstanceIDSshkeyResponse(rsp)
 }
 
 // PostApiV2InstancesInstanceIDStartWithResponse request returning *PostApiV2InstancesInstanceIDStartResponse
@@ -4112,6 +4199,60 @@ func ParsePostApiV2InstancesInstanceIDRebootResponse(rsp *http.Response) (*PostA
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.InternalServerErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetApiV2InstancesInstanceIDSshkeyResponse parses an HTTP response from a GetApiV2InstancesInstanceIDSshkeyWithResponse call
+func ParseGetApiV2InstancesInstanceIDSshkeyResponse(rsp *http.Response) (*GetApiV2InstancesInstanceIDSshkeyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetApiV2InstancesInstanceIDSshkeyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef1.SshKeyResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest externalRef0.BadRequestResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest externalRef0.UnauthorizedResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest externalRef0.ForbiddenResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.InternalServerErrorResponse

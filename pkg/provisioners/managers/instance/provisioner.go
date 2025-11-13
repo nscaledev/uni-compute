@@ -18,16 +18,24 @@ package instance
 
 import (
 	"context"
+	"reflect"
 
 	"github.com/spf13/pflag"
 
 	unikornv1 "github.com/unikorn-cloud/compute/pkg/apis/unikorn/v1alpha1"
+	"github.com/unikorn-cloud/compute/pkg/constants"
 	unikornv1core "github.com/unikorn-cloud/core/pkg/apis/unikorn/v1alpha1"
 	coreclient "github.com/unikorn-cloud/core/pkg/client"
+	coreconstants "github.com/unikorn-cloud/core/pkg/constants"
 	"github.com/unikorn-cloud/core/pkg/manager"
+	coreapi "github.com/unikorn-cloud/core/pkg/openapi"
 	"github.com/unikorn-cloud/core/pkg/provisioners"
 	identityclient "github.com/unikorn-cloud/identity/pkg/client"
 	regionclient "github.com/unikorn-cloud/region/pkg/client"
+	regionconstants "github.com/unikorn-cloud/region/pkg/constants"
+	regionapi "github.com/unikorn-cloud/region/pkg/openapi"
+
+	"k8s.io/utils/ptr"
 )
 
 // Options allows access to CLI options in the provisioner.
@@ -84,12 +92,109 @@ func (p *Provisioner) Object() unikornv1core.ManagableResourceInterface {
 	return &p.instance
 }
 
+func (p *Provisioner) generateServerNetworking() *regionapi.ServerV2Networking {
+	in := p.instance.Spec.Networking
+
+	if in == nil {
+		return nil
+	}
+
+	var out regionapi.ServerV2Networking
+
+	if len(in.SecurityGroupIDs) > 0 {
+		out.SecurityGroups = &in.SecurityGroupIDs
+	}
+
+	if in.PublicIP {
+		out.PublicIP = &in.PublicIP
+	}
+
+	if len(in.AllowedSourceAddresses) > 0 {
+		temp := make([]string, len(in.AllowedSourceAddresses))
+
+		for i := range in.AllowedSourceAddresses {
+			temp[i] = in.AllowedSourceAddresses[i].String()
+		}
+
+		out.AllowedSourceAddresses = &temp
+	}
+
+	if !reflect.ValueOf(out).IsZero() {
+		return &out
+	}
+
+	return nil
+}
+
+func (p *Provisioner) generateUserData() *[]byte {
+	if len(p.instance.Spec.UserData) == 0 {
+		return nil
+	}
+
+	return &p.instance.Spec.UserData
+}
+
 // Provision implements the Provision interface.
 func (p *Provisioner) Provision(ctx context.Context) error {
+	region, err := p.getRegionClient(ctx)
+	if err != nil {
+		return err
+	}
+
+	server, err := p.getServer(ctx, region)
+	if err != nil {
+		return err
+	}
+
+	if server == nil {
+		request := &regionapi.ServerV2Create{
+			Metadata: coreapi.ResourceWriteMetadata{
+				Name:        p.instance.Labels[coreconstants.NameLabel],
+				Description: ptr.To("Server for instance" + p.instance.Name),
+				Tags: &coreapi.TagList{
+					{
+						Name:  constants.InstanceLabel,
+						Value: p.instance.Name,
+					},
+				},
+			},
+			Spec: regionapi.ServerV2CreateSpec{
+				NetworkId:  p.instance.Labels[regionconstants.NetworkLabel],
+				FlavorId:   p.instance.Spec.FlavorID,
+				ImageId:    p.instance.Spec.ImageID,
+				Networking: p.generateServerNetworking(),
+				UserData:   p.generateUserData(),
+			},
+		}
+
+		_, err := p.createServer(ctx, region, request)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
 // Deprovision implements the Provision interface.
 func (p *Provisioner) Deprovision(ctx context.Context) error {
+	region, err := p.getRegionClient(ctx)
+	if err != nil {
+		return err
+	}
+
+	server, err := p.getServer(ctx, region)
+	if err != nil {
+		return err
+	}
+
+	if server != nil {
+		if err := p.deleteServer(ctx, region, server.Metadata.Id); err != nil {
+			return err
+		}
+
+		return provisioners.ErrYield
+	}
+
 	return nil
 }

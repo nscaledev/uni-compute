@@ -196,8 +196,8 @@ github.com/unikorn-cloud/core v1.11.0-rc1 h1:kHIqEOf1pAcPX3wfxgcv5L0MS8vkFPNBKQF
 github.com/unikorn-cloud/core v1.11.0-rc1/go.mod h1:KZLGw/EyZWjem4c80QF70KqpHIT7MAk7o6L4VAWsnGM=
 github.com/unikorn-cloud/identity v1.11.0-rc1 h1:keTRVmKunr7GsQXkmmpyVqTX2h2T4pTpzRNbzWwYMnU=
 github.com/unikorn-cloud/identity v1.11.0-rc1/go.mod h1:gx7yPwG33w1M67HwwcM/ugA2FpQVnY/4iY4osgFXtZg=
-github.com/unikorn-cloud/region v1.11.0-rc1 h1:couzT+Q7t+rEiDEWJEn6rnAjN45mdeOXlk0s+bpHrHU=
-github.com/unikorn-cloud/region v1.11.0-rc1/go.mod h1:xkbP8ibPZMJS503yBEckcyKNrh4UftkOcGrvFsKNUSI=
+github.com/unikorn-cloud/region v1.11.0-rc1.0.20251113161659-ccca973b9f8b h1:bFJAV6oMtK48ivZwgY9O2FUz8XCsyJD47d4kTqjtUxM=
+github.com/unikorn-cloud/region v1.11.0-rc1.0.20251113161659-ccca973b9f8b/go.mod h1:xkbP8ibPZMJS503yBEckcyKNrh4UftkOcGrvFsKNUSI=
 github.com/vmware-labs/yaml-jsonpath v0.3.2 h1:/5QKeCBGdsInyDCyVNLbXyilb61MXGi9NP674f9Hobk=
 github.com/vmware-labs/yaml-jsonpath v0.3.2/go.mod h1:U6whw1z03QyqgWdgXxvVnQ90zN1BWz5V+51Ewf8k+rQ=
 github.com/x448/float16 v0.8.4 h1:qLwI1I70+NjRFUR3zs1JPUCgaCXSh3SW62uAKT1mSBM=
