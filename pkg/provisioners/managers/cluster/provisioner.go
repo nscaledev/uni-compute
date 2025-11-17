@@ -25,12 +25,14 @@ import (
 	"github.com/spf13/pflag"
 
 	unikornv1 "github.com/unikorn-cloud/compute/pkg/apis/unikorn/v1alpha1"
+	"github.com/unikorn-cloud/compute/pkg/constants"
 	"github.com/unikorn-cloud/compute/pkg/provisioners/managers/cluster/util"
 	unikornv1core "github.com/unikorn-cloud/core/pkg/apis/unikorn/v1alpha1"
 	coreclient "github.com/unikorn-cloud/core/pkg/client"
 	"github.com/unikorn-cloud/core/pkg/manager"
 	"github.com/unikorn-cloud/core/pkg/provisioners"
 	identityclient "github.com/unikorn-cloud/identity/pkg/client"
+	identityapi "github.com/unikorn-cloud/identity/pkg/openapi"
 	regionclient "github.com/unikorn-cloud/region/pkg/client"
 	regionapi "github.com/unikorn-cloud/region/pkg/openapi"
 
@@ -95,6 +97,20 @@ var _ provisioners.ManagerProvisioner = &Provisioner{}
 
 func (p *Provisioner) Object() unikornv1core.ManagableResourceInterface {
 	return &p.cluster
+}
+
+func (p *Provisioner) identityClient(ctx context.Context) (identityapi.ClientWithResponsesInterface, error) {
+	client, err := coreclient.FromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	token, err := identityclient.NewTokenIssuer(client, p.options.identityOptions, &p.options.clientOptions, constants.ServiceDescriptor()).Issue(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return identityclient.New(client, p.options.identityOptions, &p.options.clientOptions).ControllerClient(ctx, token, &p.cluster)
 }
 
 // openstackIdentityStatus are acquired from the region controller at
@@ -228,6 +244,15 @@ func (p *Provisioner) Deprovision(ctx context.Context) error {
 	defer p.updateStatus(ctx, serverSet, &openstackIdentityStatus{})
 
 	if err := p.deleteIdentity(ctx, client); err != nil {
+		return err
+	}
+
+	cli, err := coreclient.FromContext(ctx)
+	if err != nil {
+		return err
+	}
+
+	if err := identityclient.NewAllocations(cli, p.identityClient).Delete(ctx, &p.cluster); err != nil {
 		return err
 	}
 

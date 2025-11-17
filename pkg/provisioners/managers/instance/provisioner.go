@@ -31,6 +31,7 @@ import (
 	coreapi "github.com/unikorn-cloud/core/pkg/openapi"
 	"github.com/unikorn-cloud/core/pkg/provisioners"
 	identityclient "github.com/unikorn-cloud/identity/pkg/client"
+	identityapi "github.com/unikorn-cloud/identity/pkg/openapi"
 	regionclient "github.com/unikorn-cloud/region/pkg/client"
 	regionconstants "github.com/unikorn-cloud/region/pkg/constants"
 	regionapi "github.com/unikorn-cloud/region/pkg/openapi"
@@ -90,6 +91,20 @@ var _ provisioners.ManagerProvisioner = &Provisioner{}
 
 func (p *Provisioner) Object() unikornv1core.ManagableResourceInterface {
 	return &p.instance
+}
+
+func (p *Provisioner) identityClient(ctx context.Context) (identityapi.ClientWithResponsesInterface, error) {
+	client, err := coreclient.FromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	token, err := identityclient.NewTokenIssuer(client, p.options.identityOptions, &p.options.clientOptions, constants.ServiceDescriptor()).Issue(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return identityclient.New(client, p.options.identityOptions, &p.options.clientOptions).ControllerClient(ctx, token, &p.instance)
 }
 
 func (p *Provisioner) generateServerNetworking() *regionapi.ServerV2Networking {
@@ -203,6 +218,15 @@ func (p *Provisioner) Deprovision(ctx context.Context) error {
 		}
 
 		return provisioners.ErrYield
+	}
+
+	cli, err := coreclient.FromContext(ctx)
+	if err != nil {
+		return err
+	}
+
+	if err := identityclient.NewAllocations(cli, p.identityClient).Delete(ctx, &p.instance); err != nil {
+		return err
 	}
 
 	return nil
