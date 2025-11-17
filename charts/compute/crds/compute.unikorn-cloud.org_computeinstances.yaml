@@ -175,19 +175,19 @@ spec:
                   - type
                   type: object
                 type: array
-              privateIp:
-                description: PrivateIP is the private IP address.
-                type: string
-              publicIp:
-                description: PublicIP is the public IP address if requested.
-                type: string
-              status:
+              powerState:
                 description: PowerState is the current status of the machine.
                 enum:
                 - Pending
                 - Running
                 - Stopping
                 - Stopped
+                type: string
+              privateIp:
+                description: PrivateIP is the private IP address.
+                type: string
+              publicIp:
+                description: PublicIP is the public IP address if requested.
                 type: string
             type: object
         required:
