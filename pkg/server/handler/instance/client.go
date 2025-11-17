@@ -495,10 +495,6 @@ func (c *Client) Delete(ctx context.Context, instanceID string) error {
 		return err
 	}
 
-	if err := identityclient.NewAllocations(c.client, c.identity).Delete(ctx, resource); err != nil {
-		return err
-	}
-
 	if err := c.client.Delete(ctx, resource); err != nil {
 		if kerrors.IsNotFound(err) {
 			return errors.HTTPNotFound().WithError(err)
