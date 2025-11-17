@@ -1,0 +1,3 @@
+*
+!bin/*-linux-gnu/unikorn-compute-instance-controller
+!hack/passwd.nonroot

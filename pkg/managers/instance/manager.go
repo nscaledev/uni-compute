@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package cluster
+package instance
 
 import (
 	"context"
@@ -22,9 +22,8 @@ import (
 
 	unikornv1 "github.com/unikorn-cloud/compute/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/compute/pkg/constants"
-	"github.com/unikorn-cloud/compute/pkg/provisioners/managers/cluster"
+	"github.com/unikorn-cloud/compute/pkg/provisioners/managers/instance"
 	coreclient "github.com/unikorn-cloud/core/pkg/client"
-	coreconstants "github.com/unikorn-cloud/core/pkg/constants"
 	coremanager "github.com/unikorn-cloud/core/pkg/manager"
 	"github.com/unikorn-cloud/core/pkg/manager/options"
 	"github.com/unikorn-cloud/core/pkg/util"
@@ -53,24 +52,24 @@ func (*Factory) Metadata() util.ServiceDescriptor {
 
 // Options returns any options to be added to the CLI flags and passed to the reconciler.
 func (*Factory) Options() coremanager.ControllerOptions {
-	return &cluster.Options{}
+	return &instance.Options{}
 }
 
 // Reconciler returns a new reconciler instance.
 func (*Factory) Reconciler(options *options.Options, controlerOptions coremanager.ControllerOptions, manager manager.Manager) reconcile.Reconciler {
-	return coremanager.NewReconciler(options, controlerOptions, manager, cluster.New)
+	return coremanager.NewReconciler(options, controlerOptions, manager, instance.New)
 }
 
-// serverEnqueueRequest watches for cluster server member updates and triggers
-// a reconsile of the cluster.  This is done to react to things like status
+// serverToInstanceMapFunc watches for server updates and triggers
+// a reconsile of the instance.  This is done to react to things like status
 // updates and deletions.
-func serverToClusterMapFunc(manager manager.Manager) func(context.Context, *regionv1.Server) []reconcile.Request {
+func serverToInstanceMapFunc(manager manager.Manager) func(context.Context, *regionv1.Server) []reconcile.Request {
 	return func(ctx context.Context, server *regionv1.Server) []reconcile.Request {
 		if server.Spec.Tags == nil {
 			return nil
 		}
 
-		clusterID, ok := server.Spec.Tags.Find(coreconstants.ComputeClusterLabel)
+		instanceID, ok := server.Spec.Tags.Find(constants.InstanceLabel)
 		if !ok {
 			return nil
 		}
@@ -79,17 +78,17 @@ func serverToClusterMapFunc(manager manager.Manager) func(context.Context, *regi
 		// direct lookup in our namespace.
 		cli := manager.GetClient()
 
-		var clusters unikornv1.ComputeClusterList
+		var instances unikornv1.ComputeInstanceList
 
-		if err := cli.List(ctx, &clusters, &client.ListOptions{}); err != nil {
+		if err := cli.List(ctx, &instances, &client.ListOptions{}); err != nil {
 			return nil
 		}
 
-		predicate := func(cluster unikornv1.ComputeCluster) bool {
-			return cluster.Name == clusterID
+		predicate := func(instance unikornv1.ComputeInstance) bool {
+			return instance.Name == instanceID
 		}
 
-		index := slices.IndexFunc(clusters.Items, predicate)
+		index := slices.IndexFunc(instances.Items, predicate)
 		if index < 0 {
 			return nil
 		}
@@ -97,8 +96,8 @@ func serverToClusterMapFunc(manager manager.Manager) func(context.Context, *regi
 		return []reconcile.Request{
 			{
 				NamespacedName: types.NamespacedName{
-					Namespace: clusters.Items[index].Namespace,
-					Name:      clusterID,
+					Namespace: instances.Items[index].Namespace,
+					Name:      instanceID,
 				},
 			},
 		}
@@ -107,13 +106,13 @@ func serverToClusterMapFunc(manager manager.Manager) func(context.Context, *regi
 
 // RegisterWatches adds any watches that would trigger a reconcile.
 func (*Factory) RegisterWatches(manager manager.Manager, controller controller.Controller) error {
-	// Any changes to the cluster spec, trigger a reconcile.
-	if err := controller.Watch(source.Kind(manager.GetCache(), &unikornv1.ComputeCluster{}, &handler.TypedEnqueueRequestForObject[*unikornv1.ComputeCluster]{}, &predicate.TypedGenerationChangedPredicate[*unikornv1.ComputeCluster]{})); err != nil {
+	// Any changes to the instance spec, trigger a reconcile.
+	if err := controller.Watch(source.Kind(manager.GetCache(), &unikornv1.ComputeInstance{}, &handler.TypedEnqueueRequestForObject[*unikornv1.ComputeInstance]{}, &predicate.TypedGenerationChangedPredicate[*unikornv1.ComputeInstance]{})); err != nil {
 		return err
 	}
 
-	// Any changes of servers trigger a reconsile of their owning cluster.
-	if err := controller.Watch(source.Kind(manager.GetCache(), &regionv1.Server{}, handler.TypedEnqueueRequestsFromMapFunc(serverToClusterMapFunc(manager)), &predicate.TypedResourceVersionChangedPredicate[*regionv1.Server]{})); err != nil {
+	// Any changes of servers trigger a reconsile of their owning instance.
+	if err := controller.Watch(source.Kind(manager.GetCache(), &regionv1.Server{}, handler.TypedEnqueueRequestsFromMapFunc(serverToInstanceMapFunc(manager)), &predicate.TypedResourceVersionChangedPredicate[*regionv1.Server]{})); err != nil {
 		return err
 	}
 

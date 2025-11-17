@@ -12,9 +12,9 @@ require (
 	github.com/spf13/viper v1.21.0
 	github.com/spjmurray/go-util v0.1.3
 	github.com/stretchr/testify v1.11.1
-	github.com/unikorn-cloud/core v1.10.0
-	github.com/unikorn-cloud/identity v1.10.0
-	github.com/unikorn-cloud/region v1.10.0
+	github.com/unikorn-cloud/core v1.11.0-rc2
+	github.com/unikorn-cloud/identity v1.11.0-rc2
+	github.com/unikorn-cloud/region v1.11.0-rc2.0.20251114103157-0dbaea02733e
 	go.opentelemetry.io/otel/sdk v1.35.0
 	go.uber.org/mock v0.5.2
 	k8s.io/api v0.33.1
@@ -27,7 +27,6 @@ require (
 	github.com/Masterminds/semver/v3 v3.3.1 // indirect
 	github.com/apapsch/go-jsonmerge/v2 v2.0.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
-	github.com/brunoga/deep v1.2.4 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/coreos/go-oidc/v3 v3.14.1 // indirect

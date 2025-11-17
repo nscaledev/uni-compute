@@ -6,8 +6,6 @@ github.com/apapsch/go-jsonmerge/v2 v2.0.0/go.mod h1:lvDnEdqiQrp0O42VQGgmlKpxL1AP
 github.com/beorn7/perks v1.0.1 h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=
 github.com/beorn7/perks v1.0.1/go.mod h1:G2ZrVWU2WbWT9wwq4/hrbKbnv/1ERSJQ0ibhJ6rlkpw=
 github.com/bmatcuk/doublestar v1.1.1/go.mod h1:UD6OnuiIn0yFxxA2le/rnRU1G4RaI4UvFv1sNto9p6w=
-github.com/brunoga/deep v1.2.4 h1:Aj9E9oUbE+ccbyh35VC/NHlzzjfIVU69BXu2mt2LmL8=
-github.com/brunoga/deep v1.2.4/go.mod h1:GDV6dnXqn80ezsLSZ5Wlv1PdKAWAO4L5PnKYtv2dgaI=
 github.com/cenkalti/backoff/v4 v4.3.0 h1:MyRJ/UdXutAwSAT+s3wNd7MfTIcy71VQueUuFK343L8=
 github.com/cenkalti/backoff/v4 v4.3.0/go.mod h1:Y3VNntkOUPxTVeUxJ/G5vcM//AlwfmyYozVcomhLiZE=
 github.com/cespare/xxhash/v2 v2.3.0 h1:UL815xU9SqsFlibzuggzjXhog7bL6oX9BbNZnL2UFvs=
@@ -211,12 +209,12 @@ github.com/subosito/gotenv v1.6.0 h1:9NlTDc1FTs4qu0DDq7AEtTPNw6SVm7uBMsUCUjABIf8
 github.com/subosito/gotenv v1.6.0/go.mod h1:Dk4QP5c2W3ibzajGcXpNraDfq2IrhjMIvMSWPKKo0FU=
 github.com/ugorji/go/codec v1.2.12 h1:9LC83zGrHhuUA9l16C9AHXAqEV/2wBQ4nkvumAE65EE=
 github.com/ugorji/go/codec v1.2.12/go.mod h1:UNopzCgEMSXjBc6AOMqYvWC1ktqTAfzJZUZgYf6w6lg=
-github.com/unikorn-cloud/core v1.10.0 h1:PWMuYE2uV5ePP714XttqZuNE5nLVxV+j/JhP6FhpiNo=
-github.com/unikorn-cloud/core v1.10.0/go.mod h1:KZLGw/EyZWjem4c80QF70KqpHIT7MAk7o6L4VAWsnGM=
-github.com/unikorn-cloud/identity v1.10.0 h1:s8pI+Wg1qFsLyPSwrTsQvwtBBEvqfrqfQfsHBJnqLcE=
-github.com/unikorn-cloud/identity v1.10.0/go.mod h1:9Jh65LmJVh8TgrlHFNQ5TPVvpAUhtt5589gjHX9fmP4=
-github.com/unikorn-cloud/region v1.10.0 h1:UXwFyD2E9OcH7OvjwK91RgUAGqX3MPHttrGtoHtmz8c=
-github.com/unikorn-cloud/region v1.10.0/go.mod h1:p5z68FvOSTORgdeVDmgHjk7WOixGry1X2szqkSNAcEQ=
+github.com/unikorn-cloud/core v1.11.0-rc2 h1:DVIdB0do3aFKtzEbJkN4DPtGh5CGN03++F65o0lQ0xw=
+github.com/unikorn-cloud/core v1.11.0-rc2/go.mod h1:KZLGw/EyZWjem4c80QF70KqpHIT7MAk7o6L4VAWsnGM=
+github.com/unikorn-cloud/identity v1.11.0-rc2 h1:uOCNw+4CQLVWlGFHW/bSqlT8je1LuSmLxg39B7GlWsI=
+github.com/unikorn-cloud/identity v1.11.0-rc2/go.mod h1:IxN7x+7TRMBxs3wYAXTjwaHq/ZF7388KWVz3MSqauVQ=
+github.com/unikorn-cloud/region v1.11.0-rc2.0.20251114103157-0dbaea02733e h1:KSxr7T+TRcUVCpv4zv6BGrr0/1H84av+hQloVfDV/yQ=
+github.com/unikorn-cloud/region v1.11.0-rc2.0.20251114103157-0dbaea02733e/go.mod h1:qFCOFJfDWBAUk1XjazudPJlG3KXmXvB6T2Kb4ngDn3U=
 github.com/vmware-labs/yaml-jsonpath v0.3.2 h1:/5QKeCBGdsInyDCyVNLbXyilb61MXGi9NP674f9Hobk=
 github.com/vmware-labs/yaml-jsonpath v0.3.2/go.mod h1:U6whw1z03QyqgWdgXxvVnQ90zN1BWz5V+51Ewf8k+rQ=
 github.com/x448/float16 v0.8.4 h1:qLwI1I70+NjRFUR3zs1JPUCgaCXSh3SW62uAKT1mSBM=

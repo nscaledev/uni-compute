@@ -55,4 +55,6 @@ func ServiceDescriptor() util.ServiceDescriptor {
 
 const (
 	ServerDeletionHintAnnotation = "cluster.compute.unikorn-cloud.org/deletion-hint"
+
+	InstanceLabel = "compute.unikorn-cloud.org/instance-id"
 )

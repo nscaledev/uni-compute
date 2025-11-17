@@ -16,6 +16,7 @@ rules:
 - apiGroups:
   - compute.unikorn-cloud.org
   resources:
+  - computeinstances
   - computeclusters
   verbs:
   - list
