@@ -97,7 +97,7 @@ func generateRequiredSecurityGroupRule(in *unikornv1.FirewallRule, prefix unikor
 	rule := &regionapi.SecurityGroupRule{
 		Direction: regionapi.NetworkDirection(in.Direction),
 		Protocol:  regionapi.NetworkProtocol(in.Protocol),
-		Cidr:      prefix.String(),
+		Cidr:      ptr.To(prefix.String()),
 	}
 
 	// TODO: Smell code.  I think the region controller should be responsible
