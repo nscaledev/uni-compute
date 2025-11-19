@@ -101,7 +101,7 @@ The compute service includes comprehensive API integration tests that validate c
 
 #### Test Configuration
 
-Tests are configured via environment variables. Its recomended you create a `.env` file in the `test/` directory, there is a template `.env.example` you can copy and refactor.
+Tests are configured via environment variables. It's recommended you create a `.env` file in the `test/` directory; there is a template `.env.example` you can copy and adapt.
 
 **Required Environment Variables:**
 
