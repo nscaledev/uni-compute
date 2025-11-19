@@ -1,0 +1,72 @@
+name: API Tests
+on:
+  workflow_dispatch:
+    inputs:
+      focus:
+        description: 'Test suite to run'
+        required: false
+        default: 'All'
+        type: choice
+        options:
+        - 'All'
+        - 'Core Cluster Management'
+        - 'Discovery and Metadata'
+        - 'Security and Authentication'
+        - 'Machine Operations'
+  push:
+    branches:
+    - main
+
+permissions:
+  contents: read
+
+jobs:
+  API-Tests:
+    runs-on: ubuntu-latest
+    env:
+      API_BASE_URL: ${{ secrets.API_BASE_URL }}
+      IDENTITY_BASE_URL: ${{ secrets.IDENTITY_BASE_URL }}
+      API_AUTH_TOKEN: ${{ secrets.API_AUTH_TOKEN }}
+      TEST_ORG_ID: ${{ secrets.TEST_ORG_ID }}
+      TEST_PROJECT_ID: ${{ secrets.TEST_PROJECT_ID }}
+      TEST_SECONDARY_PROJECT_ID: ${{ secrets.TEST_SECONDARY_PROJECT_ID }}
+      TEST_REGION_ID: ${{ secrets.TEST_REGION_ID }}
+      TEST_SECONDARY_REGION_ID: ${{ secrets.TEST_SECONDARY_REGION_ID }}
+      TEST_FLAVOR_ID: ${{ secrets.TEST_FLAVOR_ID }}
+      TEST_IMAGE_ID: ${{ secrets.TEST_IMAGE_ID }}
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    
+    - name: Setup Go
+      uses: actions/setup-go@v3
+      with:
+        go-version-file: go.mod
+        cache: true
+    
+    - name: Touch
+      run: make touch
+    
+    - name: Run API Tests - All (Manual)
+      if: github.event_name == 'workflow_dispatch' && github.event.inputs.focus == 'All'
+      run: make test-api
+    
+    - name: Run API Tests - Focused (Manual)
+      if: github.event_name == 'workflow_dispatch' && github.event.inputs.focus != 'All'
+      run: make test-api-focus FOCUS="${{ github.event.inputs.focus }}"
+    
+    - name: Run API Tests - All (Push)
+      if: github.event_name == 'push'
+      run: make test-api
+    
+    - name: Archive API Test Results
+      uses: actions/upload-artifact@v4
+      with:
+        name: api-test-results
+        path: test/api/test-results.json
+    
+    - name: Archive API Test JUnit Report
+      uses: actions/upload-artifact@v4
+      with:
+        name: api-test-junit
+        path: test/api/junit.xml

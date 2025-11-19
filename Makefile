@@ -134,8 +134,39 @@ images-kind-load: images
 
 .PHONY: test-unit
 test-unit:
-	go test -coverpkg ./... -coverprofile cover.out ./...
+	go test -coverpkg ./... -coverprofile cover.out $(shell go list ./... | grep -v /test/api)
 	go tool cover -html cover.out -o cover.html
+
+# API automation test targets
+.PHONY: test-api
+test-api: test-api-setup
+	cd test/api/suites && ginkgo run -v --show-node-events --json-report=test-results.json --junit-report=junit.xml
+
+.PHONY: test-api-focus
+test-api-focus: test-api-setup
+	cd test/api/suites && ginkgo run -v --focus="$(FOCUS)" --json-report=test-results.json --junit-report=junit.xml
+
+.PHONY: test-api-suite
+test-api-suite: test-api-setup
+	cd test/api/suites && ginkgo run $(SUITE) --json-report=test-results.json --junit-report=junit.xml
+
+.PHONY: test-api-parallel
+test-api-parallel: test-api-setup
+	cd test/api/suites && ginkgo run --procs=4 --json-report=test-results.json --junit-report=junit.xml
+
+.PHONY: test-api-ci
+test-api-ci: test-api-setup
+	cd test/api/suites && ginkgo run --randomize-all --randomize-suites --race --json-report=test-results.json --junit-report=junit.xml --output-interceptor-mode=none
+
+.PHONY: test-api-setup
+test-api-setup:
+	@go install github.com/onsi/ginkgo/v2/ginkgo@latest
+	@go install github.com/onsi/gomega/...@latest
+
+# Clean test artifacts
+.PHONY: test-api-clean
+test-api-clean:
+	@rm -f test/api/test-results.json test/api/junit.xml
 
 # Build a binary and install it.
 $(PREFIX)/%: $(BINDIR)/%
