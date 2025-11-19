@@ -13,23 +13,9 @@ on:
         - 'Discovery and Metadata'
         - 'Security and Authentication'
         - 'Machine Operations'
-      parallel:
-        description: 'Run tests in parallel'
-        required: false
-        default: false
-        type: boolean
   push:
     branches:
     - main
-    - jake/inst-134
-    paths:
-    - 'test/api/**'
-    - 'pkg/**'
-    - 'cmd/**'
-    - 'charts/**'
-    - 'go.mod'
-    - 'go.sum'
-    - '.github/workflows/test-api.yaml'
 
 permissions:
   contents: read
@@ -62,12 +48,8 @@ jobs:
       run: make touch
     
     - name: Run API Tests - All (Manual)
-      if: github.event_name == 'workflow_dispatch' && github.event.inputs.focus == 'All' && github.event.inputs.parallel == 'false'
+      if: github.event_name == 'workflow_dispatch' && github.event.inputs.focus == 'All'
       run: make test-api
-
-    - name: Run API Tests - All Parallel (Manual)
-      if: github.event_name == 'workflow_dispatch' && github.event.inputs.focus == 'All' && github.event.inputs.parallel == 'true'
-      run: make test-api-parallel
     
     - name: Run API Tests - Focused (Manual)
       if: github.event_name == 'workflow_dispatch' && github.event.inputs.focus != 'All'
