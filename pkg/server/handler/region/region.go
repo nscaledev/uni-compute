@@ -23,6 +23,7 @@ import (
 
 	unikornv1 "github.com/unikorn-cloud/compute/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/compute/pkg/provisioners/managers/cluster/util"
+	"github.com/unikorn-cloud/core/pkg/server/errors"
 	coreapiutils "github.com/unikorn-cloud/core/pkg/util/api"
 	regionapi "github.com/unikorn-cloud/region/pkg/openapi"
 )
@@ -280,4 +281,28 @@ func (c *Client) GetConsoleOutput(ctx context.Context, organizationID, projectID
 	}
 
 	return resp.JSON200, nil
+}
+
+func GetNetwork(ctx context.Context, region ClientGetterFunc, organizationID, projectID, networkID string) (*regionapi.NetworkV2Read, error) {
+	client, err := region(ctx)
+	if err != nil {
+		return nil, errors.OAuth2ServerError("failed to create region client").WithError(err)
+	}
+
+	response, err := client.GetApiV2NetworksNetworkIDWithResponse(ctx, networkID)
+	if err != nil {
+		return nil, errors.OAuth2InvalidRequest("unable to get network").WithError(err)
+	}
+
+	if response.StatusCode() != http.StatusOK {
+		return nil, errors.OAuth2ServerError("unable to get network")
+	}
+
+	network := response.JSON200
+
+	if network.Metadata.OrganizationId != organizationID || network.Metadata.ProjectId != projectID {
+		return nil, errors.OAuth2InvalidRequest("cluster network does not exist")
+	}
+
+	return network, nil
 }

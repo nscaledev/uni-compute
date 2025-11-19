@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"strconv"
 
 	"github.com/unikorn-cloud/core/pkg/util"
 )
@@ -54,7 +55,21 @@ func ServiceDescriptor() util.ServiceDescriptor {
 }
 
 const (
+	// ResourceAPIVersionLabel defines what API version a resource belongs to
+	// for filtering purposes.
+	ResourceAPIVersionLabel = "resource.unikorn-cloud.org/api-version"
+
 	ServerDeletionHintAnnotation = "cluster.compute.unikorn-cloud.org/deletion-hint"
 
 	InstanceLabel = "compute.unikorn-cloud.org/instance-id"
+
+	ClusterLabel = "compute.unikorn-cloud.org/cluster-id"
 )
+
+func MarshalAPIVersion(i int) string {
+	return strconv.Itoa(i)
+}
+
+func UnmarshalAPIVersion(s string) (int, error) {
+	return strconv.Atoi(s)
+}
