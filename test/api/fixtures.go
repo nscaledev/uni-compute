@@ -29,6 +29,8 @@ import (
 
 	"github.com/unikorn-cloud/compute/pkg/openapi"
 	coreapi "github.com/unikorn-cloud/core/pkg/openapi"
+
+	"k8s.io/utils/ptr"
 )
 
 // ClusterPayloadBuilder builds cluster payloads for testing using type-safe OpenAPI structs.
@@ -50,7 +52,7 @@ func NewClusterPayload() *ClusterPayloadBuilder {
 		cluster: openapi.ComputeClusterWrite{
 			Metadata: coreapi.ResourceWriteMetadata{
 				Name:        uniqueName,
-				Description: ptr(""),
+				Description: ptr.To(""),
 			},
 			Spec: openapi.ComputeClusterSpec{
 				RegionId: config.RegionID,
@@ -93,7 +95,7 @@ func (b *ClusterPayloadBuilder) WithName(name string) *ClusterPayloadBuilder {
 
 // WithDescription sets the cluster description.
 func (b *ClusterPayloadBuilder) WithDescription(desc string) *ClusterPayloadBuilder {
-	b.cluster.Metadata.Description = ptr(desc)
+	b.cluster.Metadata.Description = ptr.To(desc)
 	return b
 }
 
@@ -523,9 +525,4 @@ func VerifyMachineEvicted(cluster openapi.ComputeClusterRead, poolName, evictedM
 	GinkgoWriter.Printf("Pool %s not found in cluster status\n", poolName)
 
 	return false
-}
-
-// ptr is a helper function to get a pointer to a value.
-func ptr[T any](v T) *T {
-	return &v
 }
