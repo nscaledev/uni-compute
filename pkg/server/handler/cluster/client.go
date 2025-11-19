@@ -391,10 +391,6 @@ func (c *Client) Delete(ctx context.Context, organizationID, projectID, clusterI
 		return nil
 	}
 
-	if err := identityclient.NewAllocations(c.client, c.identity).Delete(ctx, cluster); err != nil {
-		return err
-	}
-
 	if err := c.client.Delete(ctx, cluster); err != nil {
 		return errors.OAuth2ServerError("failed to delete cluster").WithError(err)
 	}

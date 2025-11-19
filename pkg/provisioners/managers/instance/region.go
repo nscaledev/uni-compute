@@ -110,7 +110,6 @@ func (p *Provisioner) createServer(ctx context.Context, client regionapi.ClientW
 	return resp.JSON201, nil
 }
 
-/*
 // updateServer updates a server.
 func (p *Provisioner) updateServer(ctx context.Context, client regionapi.ClientWithResponsesInterface, serverID string, request *regionapi.ServerV2Update) (*regionapi.ServerV2Response, error) {
 	resp, err := client.PutApiV2ServersServerIDWithResponse(ctx, serverID, *request)
@@ -124,7 +123,6 @@ func (p *Provisioner) updateServer(ctx context.Context, client regionapi.ClientW
 
 	return resp.JSON202, nil
 }
-*/
 
 // deleteServer deletes a server.
 func (p *Provisioner) deleteServer(ctx context.Context, client regionapi.ClientWithResponsesInterface, id string) error {
