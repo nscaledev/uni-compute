@@ -42,7 +42,7 @@ import (
 var (
 	ErrAnnotation = errors.New("required annotation missing")
 
-	ErrResourceDependency = errors.New("resource deplendedncy error")
+	ErrResourceDependency = errors.New("resource dependency error")
 )
 
 // Options allows access to CLI options in the provisioner.
