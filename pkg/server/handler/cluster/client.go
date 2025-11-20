@@ -18,7 +18,6 @@ package cluster
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"net/http"
 	"slices"
@@ -32,12 +31,10 @@ import (
 	managerutil "github.com/unikorn-cloud/compute/pkg/provisioners/managers/cluster/util"
 	"github.com/unikorn-cloud/compute/pkg/server/handler/region"
 	"github.com/unikorn-cloud/core/pkg/constants"
-	coreerrors "github.com/unikorn-cloud/core/pkg/errors"
 	coreapi "github.com/unikorn-cloud/core/pkg/openapi"
 	"github.com/unikorn-cloud/core/pkg/server/conversion"
-	"github.com/unikorn-cloud/core/pkg/server/errors"
 	"github.com/unikorn-cloud/core/pkg/server/util"
-	coreapiutils "github.com/unikorn-cloud/core/pkg/util/api"
+	errorsv2 "github.com/unikorn-cloud/core/pkg/server/v2/errors"
 	identityclient "github.com/unikorn-cloud/identity/pkg/client"
 	"github.com/unikorn-cloud/identity/pkg/handler/common"
 	identityapi "github.com/unikorn-cloud/identity/pkg/openapi"
@@ -46,7 +43,6 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/utils/ptr"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -97,38 +93,37 @@ func NewClient(client client.Client, namespace string, options *Options, identit
 
 // List returns all clusters owned by the implicit control plane.
 func (c *Client) List(ctx context.Context, organizationID string, params openapi.GetApiV1OrganizationsOrganizationIDClustersParams) (openapi.ComputeClusters, error) {
-	requirement, err := labels.NewRequirement(constants.OrganizationLabel, selection.Equals, []string{organizationID})
-	if err != nil {
-		return nil, errors.OAuth2ServerError("failed to build label selector").WithError(err)
-	}
-
-	selector := labels.NewSelector()
-	selector = selector.Add(*requirement)
-
-	options := &client.ListOptions{
-		LabelSelector: selector,
-	}
-
-	result := &unikornv1.ComputeClusterList{}
-
-	if err := c.client.List(ctx, result, options); err != nil {
-		return nil, errors.OAuth2ServerError("failed to list clusters").WithError(err)
-	}
-
 	tagSelector, err := util.DecodeTagSelectorParam(params.Tag)
 	if err != nil {
 		return nil, err
 	}
 
-	result.Items = slices.DeleteFunc(result.Items, func(resource unikornv1.ComputeCluster) bool {
+	opts := []client.ListOption{
+		&client.ListOptions{
+			LabelSelector: labels.SelectorFromSet(labels.Set{
+				constants.OrganizationLabel: organizationID,
+			}),
+		},
+	}
+
+	var list unikornv1.ComputeClusterList
+	if err := c.client.List(ctx, &list, opts...); err != nil {
+		err = errorsv2.NewInternalError().
+			WithCausef("failed to retrieve comptue clusters: %w", err).
+			Prefixed()
+
+		return nil, err
+	}
+
+	list.Items = slices.DeleteFunc(list.Items, func(resource unikornv1.ComputeCluster) bool {
 		return !resource.Spec.Tags.ContainsAll(tagSelector)
 	})
 
-	slices.SortStableFunc(result.Items, func(a, b unikornv1.ComputeCluster) int {
+	slices.SortStableFunc(list.Items, func(a, b unikornv1.ComputeCluster) int {
 		return strings.Compare(a.Name, b.Name)
 	})
 
-	return newGenerator(c.client, c.options, region.New(c.region), "", organizationID, "", nil).convertList(result), nil
+	return newGenerator(c.client, c.options, region.New(c.region), "", organizationID, "", nil).convertList(&list), nil
 }
 
 func (c *Client) Get(ctx context.Context, organizationID, projectID, clusterID string) (*openapi.ComputeClusterRead, error) {
@@ -142,21 +137,33 @@ func (c *Client) Get(ctx context.Context, organizationID, projectID, clusterID s
 
 // get returns the cluster.
 func (c *Client) get(ctx context.Context, organizationID, projectID, clusterID string) (*unikornv1.ComputeCluster, error) {
-	resource := &unikornv1.ComputeCluster{}
-
-	if err := c.client.Get(ctx, client.ObjectKey{Namespace: c.namespace, Name: clusterID}, resource); err != nil {
-		if kerrors.IsNotFound(err) {
-			return nil, errors.HTTPNotFound().WithError(err)
-		}
-
-		return nil, errors.OAuth2ServerError("unable to get cluster").WithError(err)
+	key := client.ObjectKey{
+		Namespace: c.namespace,
+		Name:      clusterID,
 	}
 
-	if err := util.AssertProjectOwnership(resource, organizationID, projectID); err != nil {
+	var cluster unikornv1.ComputeCluster
+	if err := c.client.Get(ctx, key, &cluster); err != nil {
+		if kerrors.IsNotFound(err) {
+			err = errorsv2.NewResourceMissingError("compute cluster").
+				WithCause(err).
+				Prefixed()
+
+			return nil, err
+		}
+
+		err = errorsv2.NewInternalError().
+			WithCausef("failed to retrieve compute cluster: %w", err).
+			Prefixed()
+
 		return nil, err
 	}
 
-	return resource, nil
+	if err := util.AssertProjectOwnership(&cluster, organizationID, projectID); err != nil {
+		return nil, err
+	}
+
+	return &cluster, nil
 }
 
 func (c *Client) generateAllocations(ctx context.Context, organizationID string, resource *unikornv1.ComputeCluster) (identityapi.ResourceAllocationList, error) {
@@ -175,13 +182,18 @@ func (c *Client) generateAllocations(ctx context.Context, organizationID string,
 
 		serversCommitted += serversMinimum
 
-		flavorByID := func(f regionapi.Flavor) bool {
+		isTargetFlavor := func(f regionapi.Flavor) bool {
 			return f.Metadata.Id == pool.FlavorID
 		}
 
-		index := slices.IndexFunc(flavors, flavorByID)
+		index := slices.IndexFunc(flavors, isTargetFlavor)
 		if index < 0 {
-			return nil, fmt.Errorf("%w: flavorID does not exist", coreerrors.ErrConsistency)
+			// Return an internal error here, as the flavor should have been validated earlier.
+			err = errorsv2.NewInternalError().
+				WithSimpleCause("no matching flavor found when generating allocations").
+				Prefixed()
+
+			return nil, err
 		}
 
 		flavor := flavors[index]
@@ -231,21 +243,21 @@ func (c *Client) createIdentity(ctx context.Context, organizationID, projectID, 
 		},
 	}
 
-	client, err := region.New(c.region).Client(ctx)
+	regionAPIClient, err := region.New(c.region).Client(ctx)
 	if err != nil {
-		return nil, errors.OAuth2ServerError("unable to create region client").WithError(err)
+		return nil, err
 	}
 
-	resp, err := client.PostApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesWithResponse(ctx, organizationID, projectID, request)
+	response, err := regionAPIClient.PostApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesWithResponse(ctx, organizationID, projectID, request)
 	if err != nil {
-		return nil, errors.OAuth2ServerError("unable to create identity").WithError(err)
+		err = errorsv2.NewInternalError().
+			WithCausef("failed to create identity: %w", err).
+			Prefixed()
+
+		return nil, err
 	}
 
-	if resp.StatusCode() != http.StatusCreated {
-		return nil, errors.OAuth2ServerError("unable to create identity").WithError(coreapiutils.ExtractError(resp.StatusCode(), resp))
-	}
-
-	return resp.JSON201, nil
+	return coreapi.ParseJSONPointerResponse[regionapi.IdentityRead](response.HTTPResponse.Header, response.Body, response.StatusCode(), http.StatusCreated)
 }
 
 func (c *Client) createNetworkOpenstack(ctx context.Context, organizationID, projectID string, cluster *unikornv1.ComputeCluster, identity *regionapi.IdentityRead) (*regionapi.NetworkRead, error) {
@@ -274,21 +286,21 @@ func (c *Client) createNetworkOpenstack(ctx context.Context, organizationID, pro
 		},
 	}
 
-	client, err := region.New(c.region).Client(ctx)
+	regionAPIClient, err := region.New(c.region).Client(ctx)
 	if err != nil {
-		return nil, errors.OAuth2ServerError("unable to create region client").WithError(err)
+		return nil, err
 	}
 
-	resp, err := client.PostApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDNetworksWithResponse(ctx, organizationID, projectID, identity.Metadata.Id, request)
+	response, err := regionAPIClient.PostApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDNetworksWithResponse(ctx, organizationID, projectID, identity.Metadata.Id, request)
 	if err != nil {
-		return nil, errors.OAuth2ServerError("unable to create network").WithError(err)
+		err = errorsv2.NewInternalError().
+			WithCausef("failed to create network: %w", err).
+			Prefixed()
+
+		return nil, err
 	}
 
-	if resp.StatusCode() != http.StatusCreated {
-		return nil, errors.OAuth2ServerError("unable to create network").WithError(coreapiutils.ExtractError(resp.StatusCode(), resp))
-	}
-
-	return resp.JSON201, nil
+	return coreapi.ParseJSONPointerResponse[regionapi.NetworkRead](response.HTTPResponse.Header, response.Body, response.StatusCode(), http.StatusCreated)
 }
 
 func (c *Client) applyCloudSpecificConfiguration(ctx context.Context, organizationID, projectID string, identity *regionapi.IdentityRead, cluster *unikornv1.ComputeCluster) error {
@@ -302,7 +314,7 @@ func (c *Client) applyCloudSpecificConfiguration(ctx context.Context, organizati
 	// Provision a network for nodes to attach to.
 	network, err := c.createNetworkOpenstack(ctx, organizationID, projectID, cluster, identity)
 	if err != nil {
-		return errors.OAuth2ServerError("failed to create physical network").WithError(err)
+		return err
 	}
 
 	cluster.Labels[constants.NetworkLabel] = network.Metadata.Id
@@ -347,7 +359,7 @@ func metadataMutator(required, current metav1.Object) error {
 	return nil
 }
 
-// Create creates the implicit cluster indentified by the JTW claims.
+// Create creates the implicit cluster identified by the JTW claims.
 func (c *Client) Create(ctx context.Context, organizationID, projectID string, request *openapi.ComputeClusterWrite) (*openapi.ComputeClusterRead, error) {
 	cluster, err := newGenerator(c.client, c.options, region.New(c.region), c.namespace, organizationID, projectID, nil).generate(ctx, request)
 	if err != nil {
@@ -362,7 +374,7 @@ func (c *Client) Create(ctx context.Context, organizationID, projectID string, r
 
 	allocations, err := c.generateAllocations(ctx, organizationID, cluster)
 	if err != nil {
-		return nil, errors.OAuth2ServerError("failed to generate quota allocations").WithError(err)
+		return nil, err
 	}
 
 	if err := identityclient.NewAllocations(c.client, c.identity).Create(ctx, cluster, allocations); err != nil {
@@ -374,13 +386,17 @@ func (c *Client) Create(ctx context.Context, organizationID, projectID string, r
 	}
 
 	if err := c.client.Create(ctx, cluster); err != nil {
-		return nil, errors.OAuth2ServerError("failed to create cluster").WithError(err)
+		err = errorsv2.NewInternalError().
+			WithCausef("failed to create compute cluster: %w", err).
+			Prefixed()
+
+		return nil, err
 	}
 
 	return newGenerator(c.client, c.options, region.New(c.region), "", organizationID, "", nil).convert(cluster), nil
 }
 
-// Delete deletes the implicit cluster indentified by the JTW claims.
+// Delete deletes the implicit cluster identified by the JTW claims.
 func (c *Client) Delete(ctx context.Context, organizationID, projectID, clusterID string) error {
 	cluster, err := c.get(ctx, organizationID, projectID, clusterID)
 	if err != nil {
@@ -392,7 +408,15 @@ func (c *Client) Delete(ctx context.Context, organizationID, projectID, clusterI
 	}
 
 	if err := c.client.Delete(ctx, cluster); err != nil {
-		return errors.OAuth2ServerError("failed to delete cluster").WithError(err)
+		if kerrors.IsNotFound(err) {
+			return errorsv2.NewResourceMissingError("compute cluster").
+				WithCause(err).
+				Prefixed()
+		}
+
+		return errorsv2.NewInternalError().
+			WithCausef("failed to delete compute cluster: %w", err).
+			Prefixed()
 	}
 
 	return nil
@@ -406,7 +430,10 @@ func (c *Client) Update(ctx context.Context, organizationID, projectID, clusterI
 	}
 
 	if current.DeletionTimestamp != nil {
-		return errors.OAuth2InvalidRequest("compute cluster is being deleted")
+		return errorsv2.NewConflictError().
+			WithSimpleCause("compute cluster is being deleted").
+			WithErrorDescription("The compute cluster is being deleted and cannot be modified.").
+			Prefixed()
 	}
 
 	required, err := newGenerator(c.client, c.options, region.New(c.region), c.namespace, organizationID, projectID, current).generate(ctx, request)
@@ -415,7 +442,7 @@ func (c *Client) Update(ctx context.Context, organizationID, projectID, clusterI
 	}
 
 	if err := conversion.UpdateObjectMetadata(required, current, common.IdentityMetadataMutator, metadataMutator); err != nil {
-		return errors.OAuth2ServerError("failed to merge metadata").WithError(err)
+		return err
 	}
 
 	// Experience has taught me that modifying caches by accident is a bad thing
@@ -426,12 +453,14 @@ func (c *Client) Update(ctx context.Context, organizationID, projectID, clusterI
 	updated.Spec = required.Spec
 
 	if err := conversion.LogUpdate(ctx, current, updated); err != nil {
-		return errors.OAuth2ServerError("failed to log update").WithError(err)
+		return errorsv2.NewInternalError().
+			WithCausef("failed to log compute cluster update: %w", err).
+			Prefixed()
 	}
 
 	allocations, err := c.generateAllocations(ctx, organizationID, updated)
 	if err != nil {
-		return errors.OAuth2ServerError("failed to generate quota allocations").WithError(err)
+		return err
 	}
 
 	if err := identityclient.NewAllocations(c.client, c.identity).Update(ctx, updated, allocations); err != nil {
@@ -439,7 +468,9 @@ func (c *Client) Update(ctx context.Context, organizationID, projectID, clusterI
 	}
 
 	if err := c.client.Patch(ctx, updated, client.MergeFrom(current)); err != nil {
-		return errors.OAuth2ServerError("failed to patch cluster").WithError(err)
+		return errorsv2.NewInternalError().
+			WithCausef("failed to patch compute cluster: %w", err).
+			Prefixed()
 	}
 
 	return nil
@@ -448,7 +479,7 @@ func (c *Client) Update(ctx context.Context, organizationID, projectID, clusterI
 // Evict is pretty complicated, we need to delete the requested servers from the
 // region service, and update the cluster's pools to remove those instances so they don't
 // just get recreated instantly.  What we do is scale down the cluster, but annotate it
-// with a the list of server IDs we'd like to delete.
+// with a list of server IDs we'd like to delete.
 //
 //nolint:cyclop
 func (c *Client) Evict(ctx context.Context, organizationID, projectID, clusterID string, request *openapi.EvictionWrite) error {
@@ -458,17 +489,23 @@ func (c *Client) Evict(ctx context.Context, organizationID, projectID, clusterID
 	}
 
 	if cluster.DeletionTimestamp != nil {
-		return errors.OAuth2InvalidRequest("compute cluster is being deleted")
+		return errorsv2.NewConflictError().
+			WithSimpleCause("compute cluster is being deleted").
+			WithErrorDescription("The compute cluster is being deleted and cannot be modified.").
+			Prefixed()
 	}
 
 	if _, ok := cluster.Annotations[computeconstants.ServerDeletionHintAnnotation]; ok {
-		return errors.OAuth2InvalidRequest("eviction is currently pending")
+		return errorsv2.NewConflictError().
+			WithSimpleCause("compute cluster is being evicted").
+			WithErrorDescription("The compute cluster is being evicted.").
+			Prefixed()
 	}
 
 	// Lookup the servers and ensure they all exist...
 	servers, err := region.New(c.region).Servers(ctx, organizationID, cluster)
 	if err != nil {
-		return errors.OAuth2ServerError("failed to list servers").WithError(err)
+		return err
 	}
 
 	servers = slices.DeleteFunc(servers, func(server regionapi.ServerRead) bool {
@@ -476,7 +513,10 @@ func (c *Client) Evict(ctx context.Context, organizationID, projectID, clusterID
 	})
 
 	if len(servers) != len(request.MachineIDs) {
-		return errors.OAuth2InvalidRequest("requested machine ID not found or deleting")
+		return errorsv2.NewInvalidRequestError().
+			WithSimpleCause("one or more servers could not be found").
+			WithErrorDescription("One of the specified machine IDs is invalid or cannot be resolved.").
+			Prefixed()
 	}
 
 	updated := cluster.DeepCopy()
@@ -486,12 +526,14 @@ func (c *Client) Evict(ctx context.Context, organizationID, projectID, clusterID
 
 		poolName, err := managerutil.GetWorkloadPoolTag(server.Metadata.Tags)
 		if err != nil {
-			return errors.OAuth2ServerError("failed to lookup server pool name")
+			return errorsv2.NewInternalError().WithCause(err).Prefixed()
 		}
 
 		pool, ok := updated.GetWorkloadPool(poolName)
 		if !ok {
-			return errors.OAuth2ServerError("failed to lookup server pool")
+			return errorsv2.NewInternalError().
+				WithSimpleCausef("no workload pool %s found in compute cluster", poolName).
+				Prefixed()
 		}
 
 		pool.Replicas--
@@ -505,7 +547,7 @@ func (c *Client) Evict(ctx context.Context, organizationID, projectID, clusterID
 
 	allocations, err := c.generateAllocations(ctx, organizationID, updated)
 	if err != nil {
-		return errors.OAuth2ServerError("failed to generate quota allocations").WithError(err)
+		return err
 	}
 
 	if err := identityclient.NewAllocations(c.client, c.identity).Update(ctx, updated, allocations); err != nil {
@@ -513,7 +555,9 @@ func (c *Client) Evict(ctx context.Context, organizationID, projectID, clusterID
 	}
 
 	if err := c.client.Patch(ctx, updated, client.MergeFrom(cluster)); err != nil {
-		return errors.OAuth2ServerError("failed to patch cluster").WithError(err)
+		return errorsv2.NewInternalError().
+			WithCausef("failed to patch compute cluster: %w", err).
+			Prefixed()
 	}
 
 	return nil
@@ -526,14 +570,13 @@ func (c *Client) HardRebootMachine(ctx context.Context, organizationID, projectI
 	}
 
 	if cluster.DeletionTimestamp != nil {
-		return errors.OAuth2InvalidRequest("compute cluster is being deleted")
+		return errorsv2.NewConflictError().
+			WithSimpleCause("compute cluster is being deleted").
+			WithErrorDescription("The compute cluster is being deleted and cannot be modified.").
+			Prefixed()
 	}
 
-	if err := region.New(c.region).HardRebootServer(ctx, organizationID, projectID, cluster.Annotations[constants.IdentityAnnotation], machineID); err != nil {
-		return errors.OAuth2ServerError("failed to hard reboot machine").WithError(err)
-	}
-
-	return nil
+	return region.New(c.region).HardRebootServer(ctx, organizationID, projectID, cluster.Annotations[constants.IdentityAnnotation], machineID)
 }
 
 func (c *Client) SoftRebootMachine(ctx context.Context, organizationID, projectID, clusterID, machineID string) error {
@@ -543,14 +586,13 @@ func (c *Client) SoftRebootMachine(ctx context.Context, organizationID, projectI
 	}
 
 	if cluster.DeletionTimestamp != nil {
-		return errors.OAuth2InvalidRequest("compute cluster is being deleted")
+		return errorsv2.NewConflictError().
+			WithSimpleCause("compute cluster is being deleted").
+			WithErrorDescription("The compute cluster is being deleted and cannot be modified.").
+			Prefixed()
 	}
 
-	if err := region.New(c.region).SoftRebootServer(ctx, organizationID, projectID, cluster.Annotations[constants.IdentityAnnotation], machineID); err != nil {
-		return errors.OAuth2ServerError("failed to soft reboot machine").WithError(err)
-	}
-
-	return nil
+	return region.New(c.region).SoftRebootServer(ctx, organizationID, projectID, cluster.Annotations[constants.IdentityAnnotation], machineID)
 }
 
 func (c *Client) StartMachine(ctx context.Context, organizationID, projectID, clusterID, machineID string) error {
@@ -560,14 +602,13 @@ func (c *Client) StartMachine(ctx context.Context, organizationID, projectID, cl
 	}
 
 	if cluster.DeletionTimestamp != nil {
-		return errors.OAuth2InvalidRequest("compute cluster is being deleted")
+		return errorsv2.NewConflictError().
+			WithSimpleCause("compute cluster is being deleted").
+			WithErrorDescription("The compute cluster is being deleted and cannot be modified.").
+			Prefixed()
 	}
 
-	if err := region.New(c.region).StartServer(ctx, organizationID, projectID, cluster.Annotations[constants.IdentityAnnotation], machineID); err != nil {
-		return errors.OAuth2ServerError("failed to start machine").WithError(err)
-	}
-
-	return nil
+	return region.New(c.region).StartServer(ctx, organizationID, projectID, cluster.Annotations[constants.IdentityAnnotation], machineID)
 }
 
 func (c *Client) StopMachine(ctx context.Context, organizationID, projectID, clusterID, machineID string) error {
@@ -577,14 +618,13 @@ func (c *Client) StopMachine(ctx context.Context, organizationID, projectID, clu
 	}
 
 	if cluster.DeletionTimestamp != nil {
-		return errors.OAuth2InvalidRequest("compute cluster is being deleted")
+		return errorsv2.NewConflictError().
+			WithSimpleCause("compute cluster is being deleted").
+			WithErrorDescription("The compute cluster is being deleted and cannot be modified.").
+			Prefixed()
 	}
 
-	if err := region.New(c.region).StopServer(ctx, organizationID, projectID, cluster.Annotations[constants.IdentityAnnotation], machineID); err != nil {
-		return errors.OAuth2ServerError("failed to stop machine").WithError(err)
-	}
-
-	return nil
+	return region.New(c.region).StopServer(ctx, organizationID, projectID, cluster.Annotations[constants.IdentityAnnotation], machineID)
 }
 
 func (c *Client) CreateConsoleSession(ctx context.Context, organizationID, projectID, clusterID, machineID string) (*regionapi.ConsoleSessionResponse, error) {
@@ -594,16 +634,15 @@ func (c *Client) CreateConsoleSession(ctx context.Context, organizationID, proje
 	}
 
 	if cluster.DeletionTimestamp != nil {
-		return nil, errors.OAuth2InvalidRequest("compute cluster is being deleted")
+		err = errorsv2.NewConflictError().
+			WithSimpleCause("compute cluster is being deleted").
+			WithErrorDescription("The compute cluster is being deleted and cannot be modified.").
+			Prefixed()
+
+		return nil, err
 	}
 
-	resp, err := region.New(c.region).CreateConsoleSession(ctx, organizationID, projectID, cluster.Annotations[constants.IdentityAnnotation], machineID)
-	if err != nil {
-		// REVIEW_ME: Is there a way to check if the underlying error is a 404 not found?
-		return nil, errors.OAuth2ServerError("failed to create console session").WithError(err)
-	}
-
-	return resp, err
+	return region.New(c.region).CreateConsoleSession(ctx, organizationID, projectID, cluster.Annotations[constants.IdentityAnnotation], machineID)
 }
 
 func (c *Client) GetConsoleOutput(ctx context.Context, organizationID, projectID, clusterID, machineID string, params *openapi.GetApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDConsoleoutputParams) (*regionapi.ConsoleOutputResponse, error) {
@@ -613,18 +652,17 @@ func (c *Client) GetConsoleOutput(ctx context.Context, organizationID, projectID
 	}
 
 	if cluster.DeletionTimestamp != nil {
-		return nil, errors.OAuth2InvalidRequest("compute cluster is being deleted")
+		err = errorsv2.NewConflictError().
+			WithSimpleCause("compute cluster is being deleted").
+			WithErrorDescription("The compute cluster is being deleted and cannot be modified.").
+			Prefixed()
+
+		return nil, err
 	}
 
-	p := &regionapi.GetApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDServersServerIDConsoleoutputParams{
+	getConsoleOutputParams := &regionapi.GetApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDServersServerIDConsoleoutputParams{
 		Length: params.Length,
 	}
 
-	resp, err := region.New(c.region).GetConsoleOutput(ctx, organizationID, projectID, cluster.Annotations[constants.IdentityAnnotation], machineID, p)
-	if err != nil {
-		// REVIEW_ME: Is there a way to check if the underlying error is a 404 not found?
-		return nil, errors.OAuth2ServerError("failed to get console output").WithError(err)
-	}
-
-	return resp, err
+	return region.New(c.region).GetConsoleOutput(ctx, organizationID, projectID, cluster.Annotations[constants.IdentityAnnotation], machineID, getConsoleOutputParams)
 }

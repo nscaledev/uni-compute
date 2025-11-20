@@ -27,7 +27,7 @@ import (
 	coreconstants "github.com/unikorn-cloud/core/pkg/constants"
 	coreapi "github.com/unikorn-cloud/core/pkg/openapi"
 	"github.com/unikorn-cloud/core/pkg/provisioners"
-	coreapiutils "github.com/unikorn-cloud/core/pkg/util/api"
+	errorsv2 "github.com/unikorn-cloud/core/pkg/server/v2/errors"
 	identityclient "github.com/unikorn-cloud/identity/pkg/client"
 	regionclient "github.com/unikorn-cloud/region/pkg/client"
 	regionapi "github.com/unikorn-cloud/region/pkg/openapi"
@@ -70,23 +70,22 @@ func (p *Provisioner) getIdentity(ctx context.Context, client regionapi.ClientWi
 		return nil, err
 	}
 
-	if response.StatusCode() != http.StatusOK {
-		return nil, coreapiutils.ExtractError(response.StatusCode(), response)
+	identity, err := coreapi.ParseJSONPointerResponse[regionapi.IdentityRead](response.HTTPResponse.Header, response.Body, response.StatusCode(), http.StatusOK)
+	if err != nil {
+		return nil, err
 	}
 
-	resource := response.JSON200
-
 	//nolint:exhaustive
-	switch resource.Metadata.ProvisioningStatus {
+	switch identity.Metadata.ProvisioningStatus {
 	case coreapi.ResourceProvisioningStatusProvisioned:
-		return resource, nil
+		return identity, nil
 	case coreapi.ResourceProvisioningStatusUnknown, coreapi.ResourceProvisioningStatusProvisioning:
 		log.Info("waiting for identity to become ready")
 
 		return nil, provisioners.ErrYield
 	}
 
-	return nil, fmt.Errorf("%w: unhandled status %s", ErrResourceDependency, resource.Metadata.ProvisioningStatus)
+	return nil, fmt.Errorf("%w: unhandled status %s", ErrResourceDependency, identity.Metadata.ProvisioningStatus)
 }
 
 // deleteIdentity deletes an identity associated with a cluster.
@@ -96,20 +95,19 @@ func (p *Provisioner) deleteIdentity(ctx context.Context, client regionapi.Clien
 		return err
 	}
 
-	statusCode := response.StatusCode()
-
-	// An accepted status means the API has recorded the deletion event and
-	// we can delete the cluster.  Yield and await deletion next time around.
-	if statusCode == http.StatusAccepted {
+	err = coreapi.AssertResponseStatus(response.HTTPResponse.Header, response.StatusCode(), http.StatusAccepted)
+	if err == nil {
+		// An accepted status means the API has recorded the deletion event, and
+		// we can delete the cluster.  Yield and await deletion next time around.
 		return fmt.Errorf("%w: awaiting identity deletion", provisioners.ErrYield)
 	}
 
-	// A not found means it's been deleted already and can proceed.
-	if statusCode == http.StatusNotFound {
+	if errorsv2.IsAPIResourceMissingError(err) {
+		// A not found means it's been deleted already and can proceed.
 		return nil
 	}
 
-	return coreapiutils.ExtractError(statusCode, response)
+	return err
 }
 
 // getNetwork returns the network associated with a compute cluster.
@@ -127,23 +125,22 @@ func (p *Provisioner) getNetwork(ctx context.Context, client regionapi.ClientWit
 		return nil, err
 	}
 
-	if response.StatusCode() != http.StatusOK {
-		return nil, coreapiutils.ExtractError(response.StatusCode(), response)
+	network, err := coreapi.ParseJSONPointerResponse[regionapi.NetworkRead](response.HTTPResponse.Header, response.Body, response.StatusCode(), http.StatusOK)
+	if err != nil {
+		return nil, err
 	}
 
-	resource := response.JSON200
-
 	//nolint:exhaustive
-	switch resource.Metadata.ProvisioningStatus {
+	switch network.Metadata.ProvisioningStatus {
 	case coreapi.ResourceProvisioningStatusProvisioned:
-		return resource, nil
+		return network, nil
 	case coreapi.ResourceProvisioningStatusUnknown, coreapi.ResourceProvisioningStatusProvisioning:
 		log.Info("waiting for network to become ready")
 
 		return nil, provisioners.ErrYield
 	}
 
-	return nil, fmt.Errorf("%w: unhandled status %s", ErrResourceDependency, resource.Metadata.ProvisioningStatus)
+	return nil, fmt.Errorf("%w: unhandled status %s", ErrResourceDependency, network.Metadata.ProvisioningStatus)
 }
 
 // listServers lists all servers that are part of this cluster.
@@ -157,59 +154,53 @@ func (p *Provisioner) listServers(ctx context.Context, client regionapi.ClientWi
 		return nil, err
 	}
 
-	if response.StatusCode() != http.StatusOK {
-		return nil, coreapiutils.ExtractError(response.StatusCode(), response)
+	data, err := coreapi.ParseJSONPointerResponse[regionapi.ServersRead](response.HTTPResponse.Header, response.Body, response.StatusCode(), http.StatusOK)
+	if err != nil {
+		return nil, err
 	}
 
-	return *response.JSON200, nil
+	return *data, nil
 }
 
 // createServer creates a new server.
 func (p *Provisioner) createServer(ctx context.Context, client regionapi.ClientWithResponsesInterface, request *regionapi.ServerWrite) (*regionapi.ServerResponse, error) {
-	resp, err := client.PostApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDServersWithResponse(ctx, p.cluster.Labels[coreconstants.OrganizationLabel], p.cluster.Labels[coreconstants.ProjectLabel], p.cluster.Annotations[coreconstants.IdentityAnnotation], *request)
+	response, err := client.PostApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDServersWithResponse(ctx, p.cluster.Labels[coreconstants.OrganizationLabel], p.cluster.Labels[coreconstants.ProjectLabel], p.cluster.Annotations[coreconstants.IdentityAnnotation], *request)
 	if err != nil {
 		return nil, err
 	}
 
-	if resp.StatusCode() != http.StatusCreated {
-		return nil, coreapiutils.ExtractError(resp.StatusCode(), resp)
-	}
-
-	return resp.JSON201, nil
+	return coreapi.ParseJSONPointerResponse[regionapi.ServerRead](response.HTTPResponse.Header, response.Body, response.StatusCode(), http.StatusCreated)
 }
 
 // updateServer updates a server.
 func (p *Provisioner) updateServer(ctx context.Context, client regionapi.ClientWithResponsesInterface, serverID string, request *regionapi.ServerWrite) (*regionapi.ServerResponse, error) {
-	resp, err := client.PutApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDServersServerIDWithResponse(ctx, p.cluster.Labels[coreconstants.OrganizationLabel], p.cluster.Labels[coreconstants.ProjectLabel], p.cluster.Annotations[coreconstants.IdentityAnnotation], serverID, *request)
+	response, err := client.PutApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDServersServerIDWithResponse(ctx, p.cluster.Labels[coreconstants.OrganizationLabel], p.cluster.Labels[coreconstants.ProjectLabel], p.cluster.Annotations[coreconstants.IdentityAnnotation], serverID, *request)
 	if err != nil {
 		return nil, err
 	}
 
-	if resp.StatusCode() != http.StatusAccepted {
-		return nil, coreapiutils.ExtractError(resp.StatusCode(), resp)
-	}
-
-	return resp.JSON202, nil
+	return coreapi.ParseJSONPointerResponse[regionapi.ServerRead](response.HTTPResponse.Header, response.Body, response.StatusCode(), http.StatusAccepted)
 }
 
 // deleteServer deletes a server.
 func (p *Provisioner) deleteServer(ctx context.Context, client regionapi.ClientWithResponsesInterface, id string) error {
-	resp, err := client.DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDServersServerIDWithResponse(ctx, p.cluster.Labels[coreconstants.OrganizationLabel], p.cluster.Labels[coreconstants.ProjectLabel], p.cluster.Annotations[coreconstants.IdentityAnnotation], id)
+	response, err := client.DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDServersServerIDWithResponse(ctx, p.cluster.Labels[coreconstants.OrganizationLabel], p.cluster.Labels[coreconstants.ProjectLabel], p.cluster.Annotations[coreconstants.IdentityAnnotation], id)
 	if err != nil {
 		return err
 	}
 
-	// Gone already, ignore me!
-	if resp.StatusCode() == http.StatusNotFound {
+	err = coreapi.AssertResponseStatus(response.HTTPResponse.Header, response.StatusCode(), http.StatusAccepted)
+	if err == nil {
+		// TODO: add to the status in a deprovisioning state.
 		return nil
 	}
 
-	if resp.StatusCode() != http.StatusAccepted {
-		return coreapiutils.ExtractError(resp.StatusCode(), resp)
+	if errorsv2.IsAPIResourceMissingError(err) {
+		// Gone already, ignore me!
+		return nil
 	}
 
-	// TODO: add to the status in a deprovisioning state.
-	return nil
+	return err
 }
 
 // listSecurityGroups reads all security groups for the cluster.
@@ -223,50 +214,44 @@ func (p *Provisioner) listSecurityGroups(ctx context.Context, client regionapi.C
 		return nil, err
 	}
 
-	if response.StatusCode() != http.StatusOK {
-		return nil, coreapiutils.ExtractError(response.StatusCode(), response)
+	data, err := coreapi.ParseJSONPointerResponse[regionapi.SecurityGroupsRead](response.HTTPResponse.Header, response.Body, response.StatusCode(), http.StatusOK)
+	if err != nil {
+		return nil, err
 	}
 
-	return *response.JSON200, nil
+	return *data, nil
 }
 
 // createSecurityGroup creates a security group.
 func (p *Provisioner) createSecurityGroup(ctx context.Context, client regionapi.ClientWithResponsesInterface, request *regionapi.SecurityGroupWrite) (*regionapi.SecurityGroupRead, error) {
-	resp, err := client.PostApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDSecuritygroupsWithResponse(ctx, p.cluster.Labels[coreconstants.OrganizationLabel], p.cluster.Labels[coreconstants.ProjectLabel], p.cluster.Annotations[coreconstants.IdentityAnnotation], *request)
+	response, err := client.PostApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDSecuritygroupsWithResponse(ctx, p.cluster.Labels[coreconstants.OrganizationLabel], p.cluster.Labels[coreconstants.ProjectLabel], p.cluster.Annotations[coreconstants.IdentityAnnotation], *request)
 	if err != nil {
 		return nil, err
 	}
 
-	if resp.StatusCode() != http.StatusCreated {
-		return nil, coreapiutils.ExtractError(resp.StatusCode(), resp)
-	}
-
-	return resp.JSON201, nil
+	return coreapi.ParseJSONPointerResponse[regionapi.SecurityGroupRead](response.HTTPResponse.Header, response.Body, response.StatusCode(), http.StatusCreated)
 }
 
 // updateSecurityGroup updates a security group.
 func (p *Provisioner) updateSecurityGroup(ctx context.Context, client regionapi.ClientWithResponsesInterface, id string, request *regionapi.SecurityGroupWrite) (*regionapi.SecurityGroupRead, error) {
-	resp, err := client.PutApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDSecuritygroupsSecurityGroupIDWithResponse(ctx, p.cluster.Labels[coreconstants.OrganizationLabel], p.cluster.Labels[coreconstants.ProjectLabel], p.cluster.Annotations[coreconstants.IdentityAnnotation], id, *request)
+	response, err := client.PutApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDSecuritygroupsSecurityGroupIDWithResponse(ctx, p.cluster.Labels[coreconstants.OrganizationLabel], p.cluster.Labels[coreconstants.ProjectLabel], p.cluster.Annotations[coreconstants.IdentityAnnotation], id, *request)
 	if err != nil {
 		return nil, err
 	}
 
-	if resp.StatusCode() != http.StatusAccepted {
-		return nil, coreapiutils.ExtractError(resp.StatusCode(), resp)
-	}
-
-	return resp.JSON202, nil
+	return coreapi.ParseJSONPointerResponse[regionapi.SecurityGroupRead](response.HTTPResponse.Header, response.Body, response.StatusCode(), http.StatusAccepted)
 }
 
 // deleteSecurityGroup delete's a security group.
 func (p *Provisioner) deleteSecurityGroup(ctx context.Context, client regionapi.ClientWithResponsesInterface, id string) error {
-	resp, err := client.DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDSecuritygroupsSecurityGroupIDWithResponse(ctx, p.cluster.Labels[coreconstants.OrganizationLabel], p.cluster.Labels[coreconstants.ProjectLabel], p.cluster.Annotations[coreconstants.IdentityAnnotation], id)
+	response, err := client.DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDSecuritygroupsSecurityGroupIDWithResponse(ctx, p.cluster.Labels[coreconstants.OrganizationLabel], p.cluster.Labels[coreconstants.ProjectLabel], p.cluster.Annotations[coreconstants.IdentityAnnotation], id)
 	if err != nil {
 		return err
 	}
 
-	if resp.StatusCode() != http.StatusAccepted && resp.StatusCode() != http.StatusNotFound {
-		return coreapiutils.ExtractError(resp.StatusCode(), resp)
+	err = coreapi.AssertResponseStatus(response.HTTPResponse.Header, response.StatusCode(), http.StatusAccepted)
+	if err != nil && !errorsv2.IsAPIResourceMissingError(err) {
+		return err
 	}
 
 	return nil

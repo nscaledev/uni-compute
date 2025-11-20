@@ -22,8 +22,7 @@ import (
 
 	"github.com/unikorn-cloud/compute/pkg/openapi"
 	"github.com/unikorn-cloud/compute/pkg/server/handler/instance"
-	"github.com/unikorn-cloud/core/pkg/server/errors"
-	"github.com/unikorn-cloud/core/pkg/server/util"
+	"github.com/unikorn-cloud/core/pkg/server/v2/httputil"
 )
 
 func (h *Handler) instanceClient() *instance.Client {
@@ -33,60 +32,58 @@ func (h *Handler) instanceClient() *instance.Client {
 func (h *Handler) GetApiV2Instances(w http.ResponseWriter, r *http.Request, params openapi.GetApiV2InstancesParams) {
 	result, err := h.instanceClient().List(r.Context(), params)
 	if err != nil {
-		errors.HandleError(w, r, err)
+		httputil.WriteAPIErrorResponse(w, r, err)
 		return
 	}
 
-	util.WriteJSONResponse(w, r, http.StatusOK, result)
+	httputil.WriteJSONResponse(w, r, http.StatusOK, result)
 }
 
 func (h *Handler) PostApiV2Instances(w http.ResponseWriter, r *http.Request) {
-	request := &openapi.InstanceCreate{}
-
-	if err := util.ReadJSONBody(r, request); err != nil {
-		errors.HandleError(w, r, err)
+	request, err := httputil.ReadJSONRequestBody[openapi.InstanceCreate](r.Body)
+	if err != nil {
+		httputil.WriteAPIErrorResponse(w, r, err)
 		return
 	}
 
 	result, err := h.instanceClient().Create(r.Context(), request)
 	if err != nil {
-		errors.HandleError(w, r, err)
+		httputil.WriteAPIErrorResponse(w, r, err)
 		return
 	}
 
-	util.WriteJSONResponse(w, r, http.StatusCreated, result)
+	httputil.WriteJSONResponse(w, r, http.StatusCreated, result)
 }
 
 func (h *Handler) GetApiV2InstancesInstanceID(w http.ResponseWriter, r *http.Request, instanceID openapi.InstanceIDParameter) {
 	result, err := h.instanceClient().Get(r.Context(), instanceID)
 	if err != nil {
-		errors.HandleError(w, r, err)
+		httputil.WriteAPIErrorResponse(w, r, err)
 		return
 	}
 
-	util.WriteJSONResponse(w, r, http.StatusOK, result)
+	httputil.WriteJSONResponse(w, r, http.StatusOK, result)
 }
 
 func (h *Handler) PutApiV2InstancesInstanceID(w http.ResponseWriter, r *http.Request, instanceID openapi.InstanceIDParameter) {
-	request := &openapi.InstanceUpdate{}
-
-	if err := util.ReadJSONBody(r, request); err != nil {
-		errors.HandleError(w, r, err)
+	request, err := httputil.ReadJSONRequestBody[openapi.InstanceUpdate](r.Body)
+	if err != nil {
+		httputil.WriteAPIErrorResponse(w, r, err)
 		return
 	}
 
 	result, err := h.instanceClient().Update(r.Context(), instanceID, request)
 	if err != nil {
-		errors.HandleError(w, r, err)
+		httputil.WriteAPIErrorResponse(w, r, err)
 		return
 	}
 
-	util.WriteJSONResponse(w, r, http.StatusAccepted, result)
+	httputil.WriteJSONResponse(w, r, http.StatusAccepted, result)
 }
 
 func (h *Handler) DeleteApiV2InstancesInstanceID(w http.ResponseWriter, r *http.Request, instanceID openapi.InstanceIDParameter) {
 	if err := h.instanceClient().Delete(r.Context(), instanceID); err != nil {
-		errors.HandleError(w, r, err)
+		httputil.WriteAPIErrorResponse(w, r, err)
 		return
 	}
 
@@ -96,16 +93,16 @@ func (h *Handler) DeleteApiV2InstancesInstanceID(w http.ResponseWriter, r *http.
 func (h *Handler) GetApiV2InstancesInstanceIDSshkey(w http.ResponseWriter, r *http.Request, instanceID openapi.InstanceIDParameter) {
 	result, err := h.instanceClient().SSHKey(r.Context(), instanceID)
 	if err != nil {
-		errors.HandleError(w, r, err)
+		httputil.WriteAPIErrorResponse(w, r, err)
 		return
 	}
 
-	util.WriteJSONResponse(w, r, http.StatusOK, result)
+	httputil.WriteJSONResponse(w, r, http.StatusOK, result)
 }
 
 func (h *Handler) PostApiV2InstancesInstanceIDStart(w http.ResponseWriter, r *http.Request, instanceID openapi.InstanceIDParameter) {
 	if err := h.instanceClient().Start(r.Context(), instanceID); err != nil {
-		errors.HandleError(w, r, err)
+		httputil.WriteAPIErrorResponse(w, r, err)
 		return
 	}
 
@@ -114,7 +111,7 @@ func (h *Handler) PostApiV2InstancesInstanceIDStart(w http.ResponseWriter, r *ht
 
 func (h *Handler) PostApiV2InstancesInstanceIDStop(w http.ResponseWriter, r *http.Request, instanceID openapi.InstanceIDParameter) {
 	if err := h.instanceClient().Stop(r.Context(), instanceID); err != nil {
-		errors.HandleError(w, r, err)
+		httputil.WriteAPIErrorResponse(w, r, err)
 		return
 	}
 
@@ -123,7 +120,7 @@ func (h *Handler) PostApiV2InstancesInstanceIDStop(w http.ResponseWriter, r *htt
 
 func (h *Handler) PostApiV2InstancesInstanceIDReboot(w http.ResponseWriter, r *http.Request, instanceID openapi.InstanceIDParameter, params openapi.PostApiV2InstancesInstanceIDRebootParams) {
 	if err := h.instanceClient().Reboot(r.Context(), instanceID, params); err != nil {
-		errors.HandleError(w, r, err)
+		httputil.WriteAPIErrorResponse(w, r, err)
 		return
 	}
 
@@ -133,19 +130,19 @@ func (h *Handler) PostApiV2InstancesInstanceIDReboot(w http.ResponseWriter, r *h
 func (h *Handler) GetApiV2InstancesInstanceIDConsoleoutput(w http.ResponseWriter, r *http.Request, instanceID openapi.InstanceIDParameter, params openapi.GetApiV2InstancesInstanceIDConsoleoutputParams) {
 	result, err := h.instanceClient().ConsoleOutput(r.Context(), instanceID, params)
 	if err != nil {
-		errors.HandleError(w, r, err)
+		httputil.WriteAPIErrorResponse(w, r, err)
 		return
 	}
 
-	util.WriteJSONResponse(w, r, http.StatusOK, result)
+	httputil.WriteJSONResponse(w, r, http.StatusOK, result)
 }
 
 func (h *Handler) GetApiV2InstancesInstanceIDConsolesession(w http.ResponseWriter, r *http.Request, instanceID openapi.InstanceIDParameter) {
 	result, err := h.instanceClient().ConsoleSession(r.Context(), instanceID)
 	if err != nil {
-		errors.HandleError(w, r, err)
+		httputil.WriteAPIErrorResponse(w, r, err)
 		return
 	}
 
-	util.WriteJSONResponse(w, r, http.StatusOK, result)
+	httputil.WriteJSONResponse(w, r, http.StatusOK, result)
 }
