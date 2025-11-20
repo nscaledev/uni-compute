@@ -179,16 +179,43 @@ func (b *ClusterPayloadBuilder) BuildTyped() openapi.ComputeClusterWrite {
 	return b.cluster
 }
 
+// findOrphanedClusterID attempts to find a cluster by name when the ID wasn't captured during creation.
+// Returns empty string if not found.
+func findOrphanedClusterID(ctx context.Context, client *APIClient, config *TestConfig, clusterName string) string {
+	GinkgoWriter.Printf("No cluster ID available, attempting to find cluster by name: %s\n", clusterName)
+
+	clusters, listErr := client.ListOrganizationClusters(ctx, config.OrgID)
+	if listErr != nil {
+		GinkgoWriter.Printf("Warning: Could not list clusters for cleanup: %v\n", listErr)
+		return ""
+	}
+
+	for _, cluster := range clusters {
+		if cluster.Metadata.Name == clusterName {
+			GinkgoWriter.Printf("Found orphaned cluster by name: %s (ID: %s)\n", clusterName, cluster.Metadata.Id)
+			return cluster.Metadata.Id
+		}
+	}
+
+	GinkgoWriter.Printf("Skipping cleanup: cluster not found by name\n")
+
+	return ""
+}
+
 // CreateClusterWithCleanup creates a cluster, waits for provisioning, and schedules automatic cleanup.
 // Accepts a typed struct for type safety (or use BuildTyped() from the builder).
 func CreateClusterWithCleanup(client *APIClient, ctx context.Context, config *TestConfig, payload openapi.ComputeClusterWrite) (openapi.ComputeClusterRead, string) {
 	var clusterID string
 
+	clusterName := payload.Metadata.Name
+
 	// Schedule cleanup FIRST - ensures cleanup runs even if creation/provisioning fails
 	DeferCleanup(func() {
 		if clusterID == "" {
-			GinkgoWriter.Printf("Skipping cleanup: no cluster ID available\n")
-			return
+			clusterID = findOrphanedClusterID(ctx, client, config, clusterName)
+			if clusterID == "" {
+				return
+			}
 		}
 
 		GinkgoWriter.Printf("Cleaning up cluster: %s\n", clusterID)
@@ -219,7 +246,7 @@ func CreateClusterWithCleanup(client *APIClient, ctx context.Context, config *Te
 			Skip(skipMsg)
 		}
 
-		panic(err)
+		Fail(fmt.Sprintf("Failed to create cluster: %v", err))
 	}
 
 	clusterID = cluster.Metadata.Id
