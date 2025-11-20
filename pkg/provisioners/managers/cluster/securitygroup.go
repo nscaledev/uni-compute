@@ -97,6 +97,7 @@ func generateRequiredSecurityGroupRule(in *unikornv1.FirewallRule, prefix unikor
 	rule := &regionapi.SecurityGroupRule{
 		Direction: regionapi.NetworkDirection(in.Direction),
 		Protocol:  regionapi.NetworkProtocol(in.Protocol),
+		Port:      &regionapi.SecurityGroupRulePort{},
 		Cidr:      ptr.To(prefix.String()),
 	}
 
