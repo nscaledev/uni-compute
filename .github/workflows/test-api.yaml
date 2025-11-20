@@ -13,9 +13,6 @@ on:
         - 'Discovery and Metadata'
         - 'Security and Authentication'
         - 'Machine Operations'
-  push:
-    branches:
-    - main
 
 permissions:
   contents: read
