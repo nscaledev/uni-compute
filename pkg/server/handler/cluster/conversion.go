@@ -18,8 +18,6 @@ package cluster
 
 import (
 	"context"
-	goerrors "errors"
-	"fmt"
 	"net"
 	"net/http"
 	"slices"
@@ -30,17 +28,12 @@ import (
 	unikornv1core "github.com/unikorn-cloud/core/pkg/apis/unikorn/v1alpha1"
 	coreapi "github.com/unikorn-cloud/core/pkg/openapi"
 	"github.com/unikorn-cloud/core/pkg/server/conversion"
-	"github.com/unikorn-cloud/core/pkg/server/errors"
-	coreapiutils "github.com/unikorn-cloud/core/pkg/util/api"
+	errorsv2 "github.com/unikorn-cloud/core/pkg/server/v2/errors"
 	"github.com/unikorn-cloud/identity/pkg/handler/common"
 	unikornv1region "github.com/unikorn-cloud/region/pkg/apis/unikorn/v1alpha1"
 	regionapi "github.com/unikorn-cloud/region/pkg/openapi"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
-)
-
-var (
-	ErrResourceLookup = goerrors.New("could not find the requested resource")
 )
 
 // generator wraps up the myriad things we need to pass around as an object
@@ -300,13 +293,11 @@ func convertMachinesStatus(in []unikornv1.MachineStatus) *openapi.ComputeCluster
 }
 
 func convertWorkloadPoolStatus(in *unikornv1.WorkloadPoolStatus) *openapi.ComputeClusterWorkloadPoolStatus {
-	out := &openapi.ComputeClusterWorkloadPoolStatus{
+	return &openapi.ComputeClusterWorkloadPoolStatus{
 		Name:     in.Name,
 		Replicas: in.Replicas,
 		Machines: convertMachinesStatus(in.Machines),
 	}
-
-	return out
 }
 
 func convertWorkloadPoolsStatus(in []unikornv1.WorkloadPoolStatus) *openapi.ComputeClusterWorkloadPoolsStatus {
@@ -334,7 +325,7 @@ func convertClusterStatus(in *unikornv1.ComputeClusterStatus) *openapi.ComputeCl
 
 // convert converts from a custom resource into the API definition.
 func (g *generator) convert(in *unikornv1.ComputeCluster) *openapi.ComputeClusterRead {
-	out := &openapi.ComputeClusterRead{
+	return &openapi.ComputeClusterRead{
 		Metadata: conversion.ProjectScopedResourceReadMetadata(in, in.Spec.Tags),
 		Spec: openapi.ComputeClusterSpec{
 			RegionId:      in.Spec.RegionID,
@@ -342,8 +333,6 @@ func (g *generator) convert(in *unikornv1.ComputeCluster) *openapi.ComputeCluste
 		},
 		Status: convertClusterStatus(&in.Status),
 	}
-
-	return out
 }
 
 // uconvertList converts from a custom resource list into the API definition.
@@ -361,7 +350,7 @@ func (g *generator) convertList(in *unikornv1.ComputeClusterList) openapi.Comput
 func (g *generator) chooseImage(ctx context.Context, regionID string, pool *openapi.ComputeClusterWorkloadPool, _ *regionapi.Flavor) (*regionapi.Image, error) {
 	images, err := g.region.Images(ctx, g.organizationID, regionID)
 	if err != nil {
-		return nil, errors.OAuth2ServerError("failed to list images").WithError(err)
+		return nil, err
 	}
 
 	// TODO: is the image compatible with the flavor virtualization type???
@@ -370,7 +359,12 @@ func (g *generator) chooseImage(ctx context.Context, regionID string, pool *open
 	})
 
 	if len(images) == 0 {
-		return nil, errors.OAuth2ServerError("unable to select an image")
+		err = errorsv2.NewInvalidRequestError().
+			WithSimpleCause("no matching images found").
+			WithErrorDescription("One of the provided image selectors is invalid or cannot be resolved.").
+			Prefixed()
+
+		return nil, err
 	}
 
 	// Preserve existing image to prevent unexpected rebuilds.
@@ -509,6 +503,11 @@ func (g *generator) generateAllowedAddressPairs(in *openapi.AllowedAddressPairLi
 
 		_, cidr, err := net.ParseCIDR(ap.Cidr)
 		if err != nil {
+			err = errorsv2.NewInvalidRequestError().
+				WithCausef("failed to parse allowed address pair CIDR: %w", err).
+				WithErrorDescription("One of the specified allowed address pairs is not a valid CIDR notation.").
+				Prefixed()
+
 			return nil, err
 		}
 
@@ -584,6 +583,11 @@ func generatePrefixes(in []string) ([]unikornv1core.IPv4Prefix, error) {
 	for i := range in {
 		_, cidr, err := net.ParseCIDR(in[i])
 		if err != nil {
+			err = errorsv2.NewInvalidRequestError().
+				WithCausef("failed to parse firewall prefix: %w", err).
+				WithErrorDescription("One of the specified firewall prefixes is not a valid CIDR notation.").
+				Prefixed()
+
 			return nil, err
 		}
 
@@ -634,28 +638,39 @@ func generateFirewallRules(in *openapi.FirewallRules) ([]unikornv1.FirewallRule,
 // lookupFlavor resolves the flavor from its name.
 // NOTE: It looks like garbage performance, but the provider should be memoized...
 func (g *generator) lookupFlavor(ctx context.Context, request *openapi.ComputeClusterWrite, id string) (*regionapi.Flavor, error) {
-	client, err := g.region.Client(ctx)
+	regionAPIClient, err := g.region.Client(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := client.GetApiV1OrganizationsOrganizationIDRegionsRegionIDFlavorsWithResponse(ctx, g.organizationID, request.Spec.RegionId)
+	response, err := regionAPIClient.GetApiV1OrganizationsOrganizationIDRegionsRegionIDFlavorsWithResponse(ctx, g.organizationID, request.Spec.RegionId)
+	if err != nil {
+		err = errorsv2.NewInternalError().
+			WithCausef("failed to retrieve flavorrs: %w", err).
+			Prefixed()
+
+		return nil, err
+	}
+
+	data, err := coreapi.ParseJSONPointerResponse[regionapi.Flavors](response.HTTPResponse.Header, response.Body, response.StatusCode(), http.StatusOK)
 	if err != nil {
 		return nil, err
 	}
 
-	if resp.StatusCode() != http.StatusOK {
-		return nil, coreapiutils.ExtractError(resp.StatusCode(), resp)
-	}
+	flavors := *data
 
-	flavors := *resp.JSON200
-
-	index := slices.IndexFunc(flavors, func(flavor regionapi.Flavor) bool {
+	isTargetFlavor := func(flavor regionapi.Flavor) bool {
 		return flavor.Metadata.Id == id
-	})
+	}
 
+	index := slices.IndexFunc(flavors, isTargetFlavor)
 	if index < 0 {
-		return nil, fmt.Errorf("%w: flavor %s", ErrResourceLookup, id)
+		err = errorsv2.NewInvalidRequestError().
+			WithSimpleCause("no matching flavor found").
+			WithErrorDescription("One of the specified flavor IDs is invalid or cannot be resolved.").
+			Prefixed()
+
+		return nil, err
 	}
 
 	return &flavors[index], nil
@@ -679,7 +694,7 @@ func (g *generator) generate(ctx context.Context, request *openapi.ComputeCluste
 	}
 
 	if err := common.SetIdentityMetadata(ctx, &out.ObjectMeta); err != nil {
-		return nil, errors.OAuth2ServerError("failed to set identity metadata").WithError(err)
+		return nil, err
 	}
 
 	return out, nil
