@@ -20,6 +20,7 @@ import (
 	"context"
 
 	"github.com/unikorn-cloud/compute/pkg/openapi"
+	errorsv2 "github.com/unikorn-cloud/core/pkg/server/v2/errors"
 	"github.com/unikorn-cloud/identity/pkg/principal"
 	"github.com/unikorn-cloud/identity/pkg/rbac"
 	regionconstants "github.com/unikorn-cloud/region/pkg/constants"
@@ -48,7 +49,16 @@ func AddRegionIDQuery(selector labels.Selector, query *openapi.RegionIDQueryPara
 		return selector, nil
 	}
 
-	return rbac.AddQuery(selector, regionconstants.RegionLabel, *query)
+	selector, err := rbac.AddQuery(selector, regionconstants.RegionLabel, *query)
+	if err != nil {
+		err = errorsv2.NewInternalError().
+			WithCausef("failed to add region id label selector: %w", err).
+			Prefixed()
+
+		return nil, err
+	}
+
+	return selector, nil
 }
 
 func AddNetworkIDQuery(selector labels.Selector, query *openapi.NetworkIDQueryParameter) (labels.Selector, error) {
@@ -56,7 +66,16 @@ func AddNetworkIDQuery(selector labels.Selector, query *openapi.NetworkIDQueryPa
 		return selector, nil
 	}
 
-	return rbac.AddQuery(selector, regionconstants.NetworkLabel, *query)
+	selector, err := rbac.AddQuery(selector, regionconstants.NetworkLabel, *query)
+	if err != nil {
+		err = errorsv2.NewInternalError().
+			WithCausef("failed to add network id label selector: %w", err).
+			Prefixed()
+
+		return nil, err
+	}
+
+	return selector, nil
 }
 
 // InjectUserPrincipal updates the principal information from either the resource request
@@ -64,7 +83,9 @@ func AddNetworkIDQuery(selector labels.Selector, query *openapi.NetworkIDQueryPa
 func InjectUserPrincipal(ctx context.Context, organizationID, projectID string) error {
 	principal, err := principal.FromContext(ctx)
 	if err != nil {
-		return err
+		return errorsv2.NewInternalError().
+			WithCausef("failed to inject user principal: %w", err).
+			Prefixed()
 	}
 
 	if principal.OrganizationID == "" {

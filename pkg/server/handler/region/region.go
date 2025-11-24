@@ -23,7 +23,8 @@ import (
 
 	unikornv1 "github.com/unikorn-cloud/compute/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/compute/pkg/provisioners/managers/cluster/util"
-	coreapiutils "github.com/unikorn-cloud/core/pkg/util/api"
+	coreapi "github.com/unikorn-cloud/core/pkg/openapi"
+	errorsv2 "github.com/unikorn-cloud/core/pkg/server/v2/errors"
 	regionapi "github.com/unikorn-cloud/region/pkg/openapi"
 )
 
@@ -43,93 +44,103 @@ func New(clientGetter ClientGetterFunc) *Client {
 	}
 }
 
-// Client returns a client.
 func (c *Client) Client(ctx context.Context) (regionapi.ClientWithResponsesInterface, error) {
-	client, err := c.clientGetter(ctx)
+	regionAPIClient, err := c.clientGetter(ctx)
 	if err != nil {
+		err = errorsv2.NewInternalError().
+			WithCausef("failed to retrieve region API client: %w", err).
+			Prefixed()
+
 		return nil, err
 	}
 
-	return client, nil
+	return regionAPIClient, nil
 }
 
 // List lists all regions.
 func (c *Client) List(ctx context.Context, organizationID string) ([]regionapi.RegionRead, error) {
-	client, err := c.Client(ctx)
+	regionAPIClient, err := c.Client(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := client.GetApiV1OrganizationsOrganizationIDRegionsWithResponse(ctx, organizationID)
+	response, err := regionAPIClient.GetApiV1OrganizationsOrganizationIDRegionsWithResponse(ctx, organizationID)
+	if err != nil {
+		err = errorsv2.NewInternalError().
+			WithCausef("failed to retrieve regions: %w", err).
+			Prefixed()
+
+		return nil, err
+	}
+
+	data, err := coreapi.ParseJSONPointerResponse[regionapi.Regions](response.HTTPResponse.Header, response.Body, response.StatusCode(), http.StatusOK)
 	if err != nil {
 		return nil, err
 	}
 
-	if resp.StatusCode() != http.StatusOK {
-		return nil, coreapiutils.ExtractError(resp.StatusCode(), resp)
-	}
+	regions := slices.DeleteFunc(*data, func(region regionapi.RegionRead) bool {
+		return region.Spec.Type == regionapi.Kubernetes
+	})
 
-	regions := *resp.JSON200
-
-	filter := func(x regionapi.RegionRead) bool {
-		return x.Spec.Type == regionapi.Kubernetes
-	}
-
-	filtered := slices.DeleteFunc(regions, filter)
-
-	return filtered, nil
+	return regions, nil
 }
 
 // Flavors returns all compute compatible flavors.
 func (c *Client) Flavors(ctx context.Context, organizationID, regionID string) ([]regionapi.Flavor, error) {
-	client, err := c.Client(ctx)
+	regionAPIClient, err := c.Client(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := client.GetApiV1OrganizationsOrganizationIDRegionsRegionIDFlavorsWithResponse(ctx, organizationID, regionID)
+	response, err := regionAPIClient.GetApiV1OrganizationsOrganizationIDRegionsRegionIDFlavorsWithResponse(ctx, organizationID, regionID)
 	if err != nil {
+		err = errorsv2.NewInternalError().
+			WithCausef("failed to retrieve flavors: %w", err).
+			Prefixed()
+
 		return nil, err
 	}
 
-	if resp.StatusCode() != http.StatusOK {
-		return nil, coreapiutils.ExtractError(resp.StatusCode(), resp)
+	data, err := coreapi.ParseJSONPointerResponse[regionapi.Flavors](response.HTTPResponse.Header, response.Body, response.StatusCode(), http.StatusOK)
+	if err != nil {
+		return nil, err
 	}
-
-	flavors := *resp.JSON200
 
 	// TODO: filtering.
-	return flavors, nil
+	return *data, nil
 }
 
 // Images returns all compute compatible images.
 func (c *Client) Images(ctx context.Context, organizationID, regionID string) ([]regionapi.Image, error) {
-	client, err := c.Client(ctx)
+	regionAPIClient, err := c.Client(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := client.GetApiV1OrganizationsOrganizationIDRegionsRegionIDImagesWithResponse(ctx, organizationID, regionID)
+	response, err := regionAPIClient.GetApiV1OrganizationsOrganizationIDRegionsRegionIDImagesWithResponse(ctx, organizationID, regionID)
+	if err != nil {
+		err = errorsv2.NewInternalError().
+			WithCausef("failed to retrieve images: %w", err).
+			Prefixed()
+
+		return nil, err
+	}
+
+	data, err := coreapi.ParseJSONPointerResponse[regionapi.Images](response.HTTPResponse.Header, response.Body, response.StatusCode(), http.StatusOK)
 	if err != nil {
 		return nil, err
 	}
 
-	if resp.StatusCode() != http.StatusOK {
-		return nil, coreapiutils.ExtractError(resp.StatusCode(), resp)
-	}
-
-	images := *resp.JSON200
-
-	filtered := slices.DeleteFunc(images, func(image regionapi.Image) bool {
+	images := slices.DeleteFunc(*data, func(image regionapi.Image) bool {
 		// Delete images that declare any software versions - if it doesn't exist, assume general purpose.
 		return image.Spec.SoftwareVersions != nil && len(*image.Spec.SoftwareVersions) > 0
 	})
 
-	return filtered, nil
+	return images, nil
 }
 
 func (c *Client) Servers(ctx context.Context, organizationID string, cluster *unikornv1.ComputeCluster) ([]regionapi.ServerRead, error) {
-	client, err := c.Client(ctx)
+	regionAPIClient, err := c.Client(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -138,146 +149,160 @@ func (c *Client) Servers(ctx context.Context, organizationID string, cluster *un
 		Tag: util.ClusterTagSelector(cluster),
 	}
 
-	resp, err := client.GetApiV1OrganizationsOrganizationIDServersWithResponse(ctx, organizationID, params)
+	response, err := regionAPIClient.GetApiV1OrganizationsOrganizationIDServersWithResponse(ctx, organizationID, params)
+	if err != nil {
+		err = errorsv2.NewInternalError().
+			WithCausef("failed to retrieve servers: %w", err).
+			Prefixed()
+
+		return nil, err
+	}
+
+	data, err := coreapi.ParseJSONPointerResponse[regionapi.ServersRead](response.HTTPResponse.Header, response.Body, response.StatusCode(), http.StatusOK)
 	if err != nil {
 		return nil, err
 	}
 
-	if resp.StatusCode() != http.StatusOK {
-		return nil, coreapiutils.ExtractError(resp.StatusCode(), resp)
-	}
-
-	servers := *resp.JSON200
-
-	return servers, nil
+	return *data, nil
 }
 
 func (c *Client) DeleteServer(ctx context.Context, organizationID, projectID, identityID, serverID string) error {
-	client, err := c.Client(ctx)
+	regionAPIClient, err := c.Client(ctx)
 	if err != nil {
 		return err
 	}
 
-	resp, err := client.DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDServersServerIDWithResponse(ctx, organizationID, projectID, identityID, serverID)
+	response, err := regionAPIClient.DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDServersServerIDWithResponse(ctx, organizationID, projectID, identityID, serverID)
 	if err != nil {
-		return err
+		return errorsv2.NewInternalError().
+			WithCausef("failed to delete server: %w", err).
+			Prefixed()
 	}
 
-	if resp.StatusCode() != http.StatusAccepted && resp.StatusCode() != http.StatusNotFound {
-		return coreapiutils.ExtractError(resp.StatusCode(), resp)
+	err = coreapi.AssertResponseStatus(response.HTTPResponse.Header, response.StatusCode(), http.StatusAccepted)
+	if err != nil && !errorsv2.IsAPIResourceMissingError(err) {
+		return err
 	}
 
 	return nil
 }
 
 func (c *Client) HardRebootServer(ctx context.Context, organizationID, projectID, identityID, serverID string) error {
-	client, err := c.Client(ctx)
+	regionAPIClient, err := c.Client(ctx)
 	if err != nil {
 		return err
 	}
 
-	resp, err := client.PostApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDServersServerIDHardrebootWithResponse(ctx, organizationID, projectID, identityID, serverID)
+	response, err := regionAPIClient.PostApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDServersServerIDHardrebootWithResponse(ctx, organizationID, projectID, identityID, serverID)
 	if err != nil {
-		return err
+		return errorsv2.NewInternalError().
+			WithCausef("failed to hard reboot server: %w", err).
+			Prefixed()
 	}
 
-	// REVIEW_ME: The endpoint doesn't seem to return 404 when the server is not found. Maybe we should remove the check and update the OpenAPI spec?
-	if resp.StatusCode() != http.StatusAccepted && resp.StatusCode() != http.StatusNotFound {
-		return coreapiutils.ExtractError(resp.StatusCode(), resp)
+	err = coreapi.AssertResponseStatus(response.HTTPResponse.Header, response.StatusCode(), http.StatusAccepted)
+	if err != nil && !errorsv2.IsAPIResourceMissingError(err) {
+		return err
 	}
 
 	return nil
 }
 
 func (c *Client) SoftRebootServer(ctx context.Context, organizationID, projectID, identityID, serverID string) error {
-	client, err := c.Client(ctx)
+	regionAPIClient, err := c.Client(ctx)
 	if err != nil {
 		return err
 	}
 
-	resp, err := client.PostApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDServersServerIDSoftrebootWithResponse(ctx, organizationID, projectID, identityID, serverID)
+	response, err := regionAPIClient.PostApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDServersServerIDSoftrebootWithResponse(ctx, organizationID, projectID, identityID, serverID)
 	if err != nil {
-		return err
+		return errorsv2.NewInternalError().
+			WithCausef("failed to soft reboot server: %w", err).
+			Prefixed()
 	}
 
-	// REVIEW_ME: The endpoint doesn't seem to return 404 when the server is not found. Maybe we should remove the check and update the OpenAPI spec?
-	if resp.StatusCode() != http.StatusAccepted && resp.StatusCode() != http.StatusNotFound {
-		return coreapiutils.ExtractError(resp.StatusCode(), resp)
+	err = coreapi.AssertResponseStatus(response.HTTPResponse.Header, response.StatusCode(), http.StatusAccepted)
+	if err != nil && !errorsv2.IsAPIResourceMissingError(err) {
+		return err
 	}
 
 	return nil
 }
 
 func (c *Client) StartServer(ctx context.Context, organizationID, projectID, identityID, serverID string) error {
-	client, err := c.Client(ctx)
+	regionAPIClient, err := c.Client(ctx)
 	if err != nil {
 		return err
 	}
 
-	resp, err := client.PostApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDServersServerIDStartWithResponse(ctx, organizationID, projectID, identityID, serverID)
+	response, err := regionAPIClient.PostApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDServersServerIDStartWithResponse(ctx, organizationID, projectID, identityID, serverID)
 	if err != nil {
-		return err
+		return errorsv2.NewInternalError().
+			WithCausef("failed to start server: %w", err).
+			Prefixed()
 	}
 
-	// REVIEW_ME: The endpoint doesn't seem to return 404 when the server is not found. Maybe we should remove the check and update the OpenAPI spec?
-	if resp.StatusCode() != http.StatusAccepted && resp.StatusCode() != http.StatusNotFound {
-		return coreapiutils.ExtractError(resp.StatusCode(), resp)
+	err = coreapi.AssertResponseStatus(response.HTTPResponse.Header, response.StatusCode(), http.StatusAccepted)
+	if err != nil && !errorsv2.IsAPIResourceMissingError(err) {
+		return err
 	}
 
 	return nil
 }
 
 func (c *Client) StopServer(ctx context.Context, organizationID, projectID, identityID, serverID string) error {
-	client, err := c.Client(ctx)
+	regionAPIClient, err := c.Client(ctx)
 	if err != nil {
 		return err
 	}
 
-	resp, err := client.PostApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDServersServerIDStopWithResponse(ctx, organizationID, projectID, identityID, serverID)
+	response, err := regionAPIClient.PostApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDServersServerIDStopWithResponse(ctx, organizationID, projectID, identityID, serverID)
 	if err != nil {
-		return err
+		return errorsv2.NewInternalError().
+			WithCausef("failed to stop server: %w", err).
+			Prefixed()
 	}
 
-	// REVIEW_ME: The endpoint doesn't seem to return 404 when the server is not found. Maybe we should remove the check and update the OpenAPI spec?
-	if resp.StatusCode() != http.StatusAccepted && resp.StatusCode() != http.StatusNotFound {
-		return coreapiutils.ExtractError(resp.StatusCode(), resp)
+	err = coreapi.AssertResponseStatus(response.HTTPResponse.Header, response.StatusCode(), http.StatusAccepted)
+	if err != nil && !errorsv2.IsAPIResourceMissingError(err) {
+		return err
 	}
 
 	return nil
 }
 
 func (c *Client) CreateConsoleSession(ctx context.Context, organizationID, projectID, identityID, serverID string) (*regionapi.ConsoleSessionResponse, error) {
-	client, err := c.Client(ctx)
+	regionAPIClient, err := c.Client(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := client.GetApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDServersServerIDConsolesessionsWithResponse(ctx, organizationID, projectID, identityID, serverID)
+	response, err := regionAPIClient.GetApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDServersServerIDConsolesessionsWithResponse(ctx, organizationID, projectID, identityID, serverID)
 	if err != nil {
+		err = errorsv2.NewInternalError().
+			WithCausef("failed to create console session: %w", err).
+			Prefixed()
+
 		return nil, err
 	}
 
-	if resp.StatusCode() != http.StatusOK {
-		return nil, coreapiutils.ExtractError(resp.StatusCode(), resp)
-	}
-
-	return resp.JSON200, nil
+	return coreapi.ParseJSONPointerResponse[regionapi.ConsoleSession](response.HTTPResponse.Header, response.Body, response.StatusCode(), http.StatusOK)
 }
 
 func (c *Client) GetConsoleOutput(ctx context.Context, organizationID, projectID, identityID, serverID string, params *regionapi.GetApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDServersServerIDConsoleoutputParams) (*regionapi.ConsoleOutputResponse, error) {
-	client, err := c.Client(ctx)
+	regionAPIClient, err := c.Client(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := client.GetApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDServersServerIDConsoleoutputWithResponse(ctx, organizationID, projectID, identityID, serverID, params)
+	response, err := regionAPIClient.GetApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDServersServerIDConsoleoutputWithResponse(ctx, organizationID, projectID, identityID, serverID, params)
 	if err != nil {
+		err = errorsv2.NewInternalError().
+			WithCausef("failed to retrieve console output: %w", err).
+			Prefixed()
+
 		return nil, err
 	}
 
-	if resp.StatusCode() != http.StatusOK {
-		return nil, coreapiutils.ExtractError(resp.StatusCode(), resp)
-	}
-
-	return resp.JSON200, nil
+	return coreapi.ParseJSONPointerResponse[regionapi.ConsoleOutput](response.HTTPResponse.Header, response.Body, response.StatusCode(), http.StatusOK)
 }

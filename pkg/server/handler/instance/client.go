@@ -33,9 +33,9 @@ import (
 	coreconstants "github.com/unikorn-cloud/core/pkg/constants"
 	coreapi "github.com/unikorn-cloud/core/pkg/openapi"
 	"github.com/unikorn-cloud/core/pkg/server/conversion"
-	"github.com/unikorn-cloud/core/pkg/server/errors"
 	"github.com/unikorn-cloud/core/pkg/server/saga"
 	coreutil "github.com/unikorn-cloud/core/pkg/server/util"
+	errorsv2 "github.com/unikorn-cloud/core/pkg/server/v2/errors"
 	identityclient "github.com/unikorn-cloud/identity/pkg/client"
 	"github.com/unikorn-cloud/identity/pkg/handler/common"
 	identityapi "github.com/unikorn-cloud/identity/pkg/openapi"
@@ -64,7 +64,7 @@ type Client struct {
 	region RegionAPIClientGetter
 }
 
-// New creates a new client.
+// NewClient creates a new client.
 func NewClient(client client.Client, namespace string, identity identityclient.APIClientGetter, region RegionAPIClientGetter) *Client {
 	return &Client{
 		client:    client,
@@ -75,18 +75,25 @@ func NewClient(client client.Client, namespace string, identity identityclient.A
 }
 
 func convertCreateToUpdateRequest(in *computeapi.InstanceCreate) (*computeapi.InstanceUpdate, error) {
-	t, err := json.Marshal(in)
+	bs, err := json.Marshal(in)
 	if err != nil {
-		return nil, errors.OAuth2ServerError("failed to marshal request").WithError(err)
+		err = errorsv2.NewInternalError().
+			WithCausef("failed to marshal instance create request: %w", err).
+			Prefixed()
+
+		return nil, err
 	}
 
-	out := &computeapi.InstanceUpdate{}
+	var params computeapi.InstanceUpdate
+	if err := json.Unmarshal(bs, &params); err != nil {
+		err = errorsv2.NewInternalError().
+			WithCausef("failed to unmarshal data to instance update request: %w", err).
+			Prefixed()
 
-	if err := json.Unmarshal(t, out); err != nil {
-		return nil, errors.OAuth2ServerError("failed to unmarshal request").WithError(err)
+		return nil, err
 	}
 
-	return out, nil
+	return &params, nil
 }
 
 func convertNetworking(in *computev1.ComputeInstanceNetworking) *computeapi.InstanceNetworking {
@@ -205,7 +212,12 @@ func generateNetworking(in *computeapi.InstanceNetworking) (*computev1.ComputeIn
 		for i, v := range allowedSourceAddresses {
 			_, prefix, err := net.ParseCIDR(v)
 			if err != nil {
-				return nil, errors.OAuth2InvalidRequest("failed to parse IPv4 prefix").WithError(err)
+				err = errorsv2.NewInvalidRequestError().
+					WithCausef("failed to parse CIDR: %w", err).
+					WithErrorDescription("One of the specified allowed source addresses is not a valid CIDR notation.").
+					Prefixed()
+
+				return nil, err
 			}
 
 			temp.AllowedSourceAddresses[i] = corev1.IPv4Prefix{
@@ -228,6 +240,19 @@ func generateUserdata(in *[]byte) []byte {
 	}
 
 	return *in
+}
+
+func (c *Client) getRegionAPIClient(ctx context.Context) (regionapi.ClientWithResponsesInterface, error) {
+	regionAPIClient, err := c.region(ctx)
+	if err != nil {
+		err = errorsv2.NewInternalError().
+			WithCausef("failed to retrieve region API client: %w", err).
+			Prefixed()
+
+		return nil, err
+	}
+
+	return regionAPIClient, nil
 }
 
 func (c *Client) generate(ctx context.Context, in *computeapi.InstanceUpdate, organizationID, projectID, regionID, networkID string) (*computev1.ComputeInstance, error) {
@@ -254,62 +279,65 @@ func (c *Client) generate(ctx context.Context, in *computeapi.InstanceUpdate, or
 	}
 
 	if err := util.InjectUserPrincipal(ctx, organizationID, projectID); err != nil {
-		return nil, errors.OAuth2ServerError("unable to set principal information").WithError(err)
+		return nil, err
 	}
 
 	if err := common.SetIdentityMetadata(ctx, &out.ObjectMeta); err != nil {
-		return nil, errors.OAuth2ServerError("failed to set identity metadata").WithError(err)
+		return nil, err
 	}
 
 	return out, nil
 }
 
 func (c *Client) List(ctx context.Context, params computeapi.GetApiV2InstancesParams) (computeapi.InstancesRead, error) {
-	var err error
-
-	selector := labels.Everything()
-
-	selector, err = rbac.AddOrganizationAndProjectIDQuery(ctx, selector, util.OrganizationIDQuery(params.OrganizationID), util.ProjectIDQuery(params.ProjectID))
-	if err != nil {
-		return nil, errors.OAuth2ServerError("failed to add identity label selector").WithError(err)
-	}
-
-	selector, err = util.AddRegionIDQuery(selector, params.RegionID)
-	if err != nil {
-		return nil, errors.OAuth2ServerError("failed to add region label selector").WithError(err)
-	}
-
-	selector, err = util.AddNetworkIDQuery(selector, params.NetworkID)
-	if err != nil {
-		return nil, errors.OAuth2ServerError("failed to add network label selector").WithError(err)
-	}
-
-	options := &client.ListOptions{
-		Namespace:     c.namespace,
-		LabelSelector: selector,
-	}
-
-	result := &computev1.ComputeInstanceList{}
-
-	if err := c.client.List(ctx, result, options); err != nil {
-		return nil, errors.OAuth2ServerError("unable to list instances").WithError(err)
-	}
-
 	tagSelector, err := coreutil.DecodeTagSelectorParam(params.Tag)
 	if err != nil {
 		return nil, err
 	}
 
-	result.Items = slices.DeleteFunc(result.Items, func(resource computev1.ComputeInstance) bool {
+	selector := labels.Everything()
+
+	selector, err = rbac.AddOrganizationAndProjectIDQuery(ctx, selector, util.OrganizationIDQuery(params.OrganizationID), util.ProjectIDQuery(params.ProjectID))
+	if err != nil {
+		return nil, err
+	}
+
+	selector, err = util.AddRegionIDQuery(selector, params.RegionID)
+	if err != nil {
+		return nil, err
+	}
+
+	selector, err = util.AddNetworkIDQuery(selector, params.NetworkID)
+	if err != nil {
+		return nil, err
+	}
+
+	opts := []client.ListOption{
+		&client.ListOptions{
+			Namespace:     c.namespace,
+			LabelSelector: selector,
+		},
+	}
+
+	var list computev1.ComputeInstanceList
+	if err := c.client.List(ctx, &list, opts...); err != nil {
+		err = errorsv2.NewInternalError().
+			WithCausef("failed to retrieve instances: %w", err).
+			Prefixed()
+
+		return nil, err
+	}
+
+	list.Items = slices.DeleteFunc(list.Items, func(resource computev1.ComputeInstance) bool {
 		return !resource.Spec.Tags.ContainsAll(tagSelector) ||
 			rbac.AllowProjectScope(ctx, "compute:instances", identityapi.Read, resource.Labels[coreconstants.OrganizationLabel], resource.Labels[coreconstants.ProjectLabel]) != nil
 	})
 
-	slices.SortStableFunc(result.Items, func(a, b computev1.ComputeInstance) int {
+	slices.SortStableFunc(list.Items, func(a, b computev1.ComputeInstance) int {
 		return cmp.Compare(a.Name, b.Name)
 	})
 
-	return convertList(result), nil
+	return convertList(&list), nil
 }
 
 type createSaga struct {
@@ -341,7 +369,9 @@ func (s *createSaga) deleteAllocation(ctx context.Context) error {
 
 func (s *createSaga) createInstance(ctx context.Context) error {
 	if err := s.client.client.Create(ctx, s.resource); err != nil {
-		return errors.OAuth2ServerError("unable to create instance").WithError(err)
+		return errorsv2.NewInternalError().
+			WithCausef("failed to create instance: %w", err).
+			Prefixed()
 	}
 
 	return nil
@@ -355,24 +385,41 @@ func (s *createSaga) Actions() []saga.Action {
 }
 
 func (c *Client) getNetwork(ctx context.Context, organizationID, projectID, networkID string) (*regionapi.NetworkV2Read, error) {
-	region, err := c.region(ctx)
+	region, err := c.getRegionAPIClient(ctx)
 	if err != nil {
-		return nil, errors.OAuth2ServerError("failed to create region client").WithError(err)
+		return nil, err
 	}
 
 	response, err := region.GetApiV2NetworksNetworkIDWithResponse(ctx, networkID)
 	if err != nil {
-		return nil, errors.OAuth2InvalidRequest("unable to get network").WithError(err)
+		err = errorsv2.NewInternalError().
+			WithCausef("failed to retrieve network: %w", err).
+			Prefixed()
+
+		return nil, err
 	}
 
-	if response.StatusCode() != http.StatusOK {
-		return nil, errors.OAuth2InvalidRequest("unable to get network - wrong status code")
-	}
+	network, err := coreapi.ParseJSONPointerResponse[regionapi.NetworkV2Read](response.HTTPResponse.Header, response.Body, response.StatusCode(), http.StatusOK)
+	if err != nil {
+		if errorsv2.IsAPIResourceMissingError(err) {
+			err = errorsv2.NewInvalidRequestError().
+				WithCause(err).
+				WithErrorDescription("The provided network ID is invalid or cannot be resolved.").
+				Prefixed()
 
-	network := response.JSON200
+			return nil, err
+		}
+
+		return nil, err
+	}
 
 	if network.Metadata.OrganizationId != organizationID || network.Metadata.ProjectId != projectID {
-		return nil, errors.OAuth2InvalidRequest("instance network does not match requested organization/project")
+		err = errorsv2.NewInvalidRequestError().
+			WithSimpleCause("network does not belong to the specified organization and project").
+			WithErrorDescription("The provided network ID is invalid or cannot be resolved.").
+			Prefixed()
+
+		return nil, err
 	}
 
 	return network, nil
@@ -419,21 +466,33 @@ func (c *Client) Create(ctx context.Context, request *computeapi.InstanceCreate)
 }
 
 func (c *Client) GetRaw(ctx context.Context, instanceID string) (*computev1.ComputeInstance, error) {
-	result := &computev1.ComputeInstance{}
-
-	if err := c.client.Get(ctx, client.ObjectKey{Namespace: c.namespace, Name: instanceID}, result); err != nil {
-		if kerrors.IsNotFound(err) {
-			return nil, errors.HTTPNotFound().WithError(err)
-		}
-
-		return nil, errors.OAuth2ServerError("unable to lookup instance").WithError(err)
+	key := client.ObjectKey{
+		Namespace: c.namespace,
+		Name:      instanceID,
 	}
 
-	if err := rbac.AllowProjectScope(ctx, "compute:instances", identityapi.Read, result.Labels[coreconstants.OrganizationLabel], result.Labels[coreconstants.ProjectLabel]); err != nil {
+	var instance computev1.ComputeInstance
+	if err := c.client.Get(ctx, key, &instance); err != nil {
+		if kerrors.IsNotFound(err) {
+			err = errorsv2.NewResourceMissingError("instance").
+				WithCause(err).
+				Prefixed()
+
+			return nil, err
+		}
+
+		err = errorsv2.NewInternalError().
+			WithCausef("failed to retrieve instance: %w", err).
+			Prefixed()
+
 		return nil, err
 	}
 
-	return result, nil
+	if err := rbac.AllowProjectScope(ctx, "compute:instances", identityapi.Read, instance.Labels[coreconstants.OrganizationLabel], instance.Labels[coreconstants.ProjectLabel]); err != nil {
+		return nil, err
+	}
+
+	return &instance, nil
 }
 
 func (c *Client) Get(ctx context.Context, instanceID string) (*computeapi.InstanceRead, error) {
@@ -461,7 +520,12 @@ func (c *Client) Update(ctx context.Context, instanceID string, request *compute
 	}
 
 	if current.DeletionTimestamp != nil {
-		return nil, errors.OAuth2InvalidRequest("server is being deleted")
+		err = errorsv2.NewConflictError().
+			WithSimpleCause("instance is being deleted").
+			WithErrorDescription("The instance is being deleted and cannot be modified.").
+			Prefixed()
+
+		return nil, err
 	}
 
 	required, err := c.generate(ctx, request, organizationID, projectID, regionID, networkID)
@@ -475,7 +539,11 @@ func (c *Client) Update(ctx context.Context, instanceID string, request *compute
 	updated.Spec = required.Spec
 
 	if err := c.client.Patch(ctx, updated, client.MergeFrom(current)); err != nil {
-		return nil, errors.OAuth2ServerError("unable to update instance").WithError(err)
+		err = errorsv2.NewInternalError().
+			WithCausef("failed to patch instance: %w", err).
+			Prefixed()
+
+		return nil, err
 	}
 
 	return convert(updated), nil
@@ -497,10 +565,14 @@ func (c *Client) Delete(ctx context.Context, instanceID string) error {
 
 	if err := c.client.Delete(ctx, resource); err != nil {
 		if kerrors.IsNotFound(err) {
-			return errors.HTTPNotFound().WithError(err)
+			return errorsv2.NewResourceMissingError("instance").
+				WithCause(err).
+				Prefixed()
 		}
 
-		return errors.OAuth2ServerError("unable to delete instance").WithError(err)
+		return errorsv2.NewInternalError().
+			WithCausef("failed to delete instance: %w", err).
+			Prefixed()
 	}
 
 	return nil
@@ -528,17 +600,34 @@ func (c *Client) serverID(ctx context.Context, region regionapi.ClientWithRespon
 
 	response, err := region.GetApiV2ServersWithResponse(ctx, params)
 	if err != nil {
-		return "", errors.OAuth2ServerError("unable to query servers for instance").WithError(err)
+		err = errorsv2.NewInternalError().
+			WithCausef("failed to retrieve servers: %w", err).
+			Prefixed()
+
+		return "", err
 	}
 
-	if response.StatusCode() != http.StatusOK {
-		return "", errors.OAuth2ServerError("unable to query servers for instance - incorrect status code")
+	data, err := coreapi.ParseJSONPointerResponse[regionapi.ServersV2Read](response.HTTPResponse.Header, response.Body, response.StatusCode(), http.StatusOK)
+	if err != nil {
+		return "", err
 	}
 
-	servers := *response.JSON200
+	servers := *data
 
-	if len(servers) != 1 {
-		return "", errors.OAuth2ServerError("unable to query server for instance - incorrect number of matches")
+	if len(servers) == 0 {
+		err = errorsv2.NewInternalError().
+			WithSimpleCause("no server found for instance").
+			Prefixed()
+
+		return "", err
+	}
+
+	if len(servers) > 1 {
+		err := errorsv2.NewInternalError().
+			WithSimpleCause("multiple servers found for instance").
+			Prefixed()
+
+		return "", err
 	}
 
 	return servers[0].Metadata.Id, nil
@@ -550,7 +639,7 @@ func (c *Client) SSHKey(ctx context.Context, instanceID string) (*regionapi.SshK
 		return nil, err
 	}
 
-	region, err := c.region(ctx)
+	region, err := c.getRegionAPIClient(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -562,14 +651,14 @@ func (c *Client) SSHKey(ctx context.Context, instanceID string) (*regionapi.SshK
 
 	response, err := region.GetApiV2ServersServerIDSshkeyWithResponse(ctx, serverID)
 	if err != nil {
-		return nil, errors.OAuth2ServerError("unable to fetch SSH key for instance").WithError(err)
+		err = errorsv2.NewInternalError().
+			WithCausef("failed to retrieve SSH key: %w", err).
+			Prefixed()
+
+		return nil, err
 	}
 
-	if response.StatusCode() != http.StatusOK {
-		return nil, errors.OAuth2ServerError("unable to fetch SSH key for instance - incorrect status code")
-	}
-
-	return response.JSON200, nil
+	return coreapi.ParseJSONPointerResponse[regionapi.SshKey](response.HTTPResponse.Header, response.Body, response.StatusCode(), http.StatusOK)
 }
 
 func (c *Client) Start(ctx context.Context, instanceID string) error {
@@ -578,7 +667,7 @@ func (c *Client) Start(ctx context.Context, instanceID string) error {
 		return err
 	}
 
-	region, err := c.region(ctx)
+	region, err := c.getRegionAPIClient(ctx)
 	if err != nil {
 		return err
 	}
@@ -590,14 +679,12 @@ func (c *Client) Start(ctx context.Context, instanceID string) error {
 
 	response, err := region.PostApiV2ServersServerIDStartWithResponse(ctx, serverID)
 	if err != nil {
-		return errors.OAuth2ServerError("unable to start server for instance").WithError(err)
+		return errorsv2.NewInternalError().
+			WithCausef("failed to start server: %w", err).
+			Prefixed()
 	}
 
-	if response.StatusCode() != http.StatusAccepted {
-		return errors.OAuth2ServerError("unable to start server for instance - incorrect status code")
-	}
-
-	return nil
+	return coreapi.AssertResponseStatus(response.HTTPResponse.Header, response.StatusCode(), http.StatusAccepted)
 }
 
 func (c *Client) Stop(ctx context.Context, instanceID string) error {
@@ -606,7 +693,7 @@ func (c *Client) Stop(ctx context.Context, instanceID string) error {
 		return err
 	}
 
-	region, err := c.region(ctx)
+	region, err := c.getRegionAPIClient(ctx)
 	if err != nil {
 		return err
 	}
@@ -618,14 +705,12 @@ func (c *Client) Stop(ctx context.Context, instanceID string) error {
 
 	response, err := region.PostApiV2ServersServerIDStopWithResponse(ctx, serverID)
 	if err != nil {
-		return errors.OAuth2ServerError("unable to stop server for instance").WithError(err)
+		return errorsv2.NewInternalError().
+			WithCausef("failed to stop server: %w", err).
+			Prefixed()
 	}
 
-	if response.StatusCode() != http.StatusAccepted {
-		return errors.OAuth2ServerError("unable to start server for instance - incorrect status code")
-	}
-
-	return nil
+	return coreapi.AssertResponseStatus(response.HTTPResponse.Header, response.StatusCode(), http.StatusAccepted)
 }
 
 func (c *Client) Reboot(ctx context.Context, instanceID string, params computeapi.PostApiV2InstancesInstanceIDRebootParams) error {
@@ -634,7 +719,7 @@ func (c *Client) Reboot(ctx context.Context, instanceID string, params computeap
 		return err
 	}
 
-	region, err := c.region(ctx)
+	region, err := c.getRegionAPIClient(ctx)
 	if err != nil {
 		return err
 	}
@@ -648,26 +733,22 @@ func (c *Client) Reboot(ctx context.Context, instanceID string, params computeap
 	if params.Hard != nil && *params.Hard {
 		response, err := region.PostApiV2ServersServerIDHardrebootWithResponse(ctx, serverID)
 		if err != nil {
-			return errors.OAuth2ServerError("unable to reboot server for instance").WithError(err)
+			return errorsv2.NewInternalError().
+				WithCausef("failed to hard reboot server: %w", err).
+				Prefixed()
 		}
 
-		if response.StatusCode() != http.StatusAccepted {
-			return errors.OAuth2ServerError("unable to reboot server for instance - incorrect status code")
-		}
-
-		return nil
+		return coreapi.AssertResponseStatus(response.HTTPResponse.Header, response.StatusCode(), http.StatusAccepted)
 	}
 
 	response, err := region.PostApiV2ServersServerIDSoftrebootWithResponse(ctx, serverID)
 	if err != nil {
-		return errors.OAuth2ServerError("unable to reboot server for instance").WithError(err)
+		return errorsv2.NewInternalError().
+			WithCausef("failed to soft reboot server: %w", err).
+			Prefixed()
 	}
 
-	if response.StatusCode() != http.StatusAccepted {
-		return errors.OAuth2ServerError("unable to reboot server for instance - incorrect status code")
-	}
-
-	return nil
+	return coreapi.AssertResponseStatus(response.HTTPResponse.Header, response.StatusCode(), http.StatusAccepted)
 }
 
 func (c *Client) ConsoleOutput(ctx context.Context, instanceID string, params computeapi.GetApiV2InstancesInstanceIDConsoleoutputParams) (*regionapi.ConsoleOutputResponse, error) {
@@ -676,7 +757,7 @@ func (c *Client) ConsoleOutput(ctx context.Context, instanceID string, params co
 		return nil, err
 	}
 
-	region, err := c.region(ctx)
+	region, err := c.getRegionAPIClient(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -686,24 +767,21 @@ func (c *Client) ConsoleOutput(ctx context.Context, instanceID string, params co
 		return nil, err
 	}
 
-	var requestParams *regionapi.GetApiV2ServersServerIDConsoleoutputParams
-
+	var apiParams regionapi.GetApiV2ServersServerIDConsoleoutputParams
 	if params.Length != nil {
-		requestParams = &regionapi.GetApiV2ServersServerIDConsoleoutputParams{
-			Length: params.Length,
-		}
+		apiParams.Length = params.Length
 	}
 
-	response, err := region.GetApiV2ServersServerIDConsoleoutputWithResponse(ctx, serverID, requestParams)
+	response, err := region.GetApiV2ServersServerIDConsoleoutputWithResponse(ctx, serverID, &apiParams)
 	if err != nil {
-		return nil, errors.OAuth2ServerError("unable to get console output for instance").WithError(err)
+		err = errorsv2.NewInternalError().
+			WithCausef("failed to retrieve console output: %w", err).
+			Prefixed()
+
+		return nil, err
 	}
 
-	if response.StatusCode() != http.StatusAccepted {
-		return nil, errors.OAuth2ServerError("unable to get console output for instance - incorrect status code")
-	}
-
-	return response.JSON200, nil
+	return coreapi.ParseJSONPointerResponse[regionapi.ConsoleOutput](response.HTTPResponse.Header, response.Body, response.StatusCode(), http.StatusOK)
 }
 
 func (c *Client) ConsoleSession(ctx context.Context, instanceID string) (*regionapi.ConsoleSessionResponse, error) {
@@ -712,7 +790,7 @@ func (c *Client) ConsoleSession(ctx context.Context, instanceID string) (*region
 		return nil, err
 	}
 
-	region, err := c.region(ctx)
+	region, err := c.getRegionAPIClient(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -724,12 +802,12 @@ func (c *Client) ConsoleSession(ctx context.Context, instanceID string) (*region
 
 	response, err := region.GetApiV2ServersServerIDConsolesessionsWithResponse(ctx, serverID)
 	if err != nil {
-		return nil, errors.OAuth2ServerError("unable to start console session for instance").WithError(err)
+		err = errorsv2.NewInternalError().
+			WithCausef("failed to create console session: %w", err).
+			Prefixed()
+
+		return nil, err
 	}
 
-	if response.StatusCode() != http.StatusOK {
-		return nil, errors.OAuth2ServerError("unable to start console session for instance - incorrect status code")
-	}
-
-	return response.JSON200, nil
+	return coreapi.ParseJSONPointerResponse[regionapi.ConsoleSessionResponse](response.HTTPResponse.Header, response.Body, response.StatusCode(), http.StatusOK)
 }

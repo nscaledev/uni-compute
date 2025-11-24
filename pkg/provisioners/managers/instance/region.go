@@ -24,7 +24,7 @@ import (
 	coreclient "github.com/unikorn-cloud/core/pkg/client"
 	coreconstants "github.com/unikorn-cloud/core/pkg/constants"
 	coreapi "github.com/unikorn-cloud/core/pkg/openapi"
-	coreapiutils "github.com/unikorn-cloud/core/pkg/util/api"
+	errorsv2 "github.com/unikorn-cloud/core/pkg/server/v2/errors"
 	identityclient "github.com/unikorn-cloud/identity/pkg/client"
 	regionclient "github.com/unikorn-cloud/region/pkg/client"
 	regionconstants "github.com/unikorn-cloud/region/pkg/constants"
@@ -82,64 +82,57 @@ func (p *Provisioner) getServer(ctx context.Context, client regionapi.ClientWith
 		return nil, err
 	}
 
-	if response.StatusCode() != http.StatusOK {
-		return nil, coreapiutils.ExtractError(response.StatusCode(), response)
+	data, err := coreapi.ParseJSONPointerResponse[regionapi.ServersV2Read](response.HTTPResponse.Header, response.Body, response.StatusCode(), http.StatusOK)
+	if err != nil {
+		return nil, err
 	}
 
-	result := *response.JSON200
-
-	if len(result) == 0 {
+	servers := *data
+	if len(servers) == 0 {
 		//nolint:nilnil
 		return nil, nil
 	}
 
-	return &result[0], nil
+	return &servers[0], nil
 }
 
 // createServer creates a new server.
 func (p *Provisioner) createServer(ctx context.Context, client regionapi.ClientWithResponsesInterface, request *regionapi.ServerV2Create) (*regionapi.ServerV2Response, error) {
-	resp, err := client.PostApiV2ServersWithResponse(ctx, *request)
+	response, err := client.PostApiV2ServersWithResponse(ctx, *request)
 	if err != nil {
 		return nil, err
 	}
 
-	if resp.StatusCode() != http.StatusCreated {
-		return nil, coreapiutils.ExtractError(resp.StatusCode(), resp)
-	}
-
-	return resp.JSON201, nil
+	return coreapi.ParseJSONPointerResponse[regionapi.ServerV2Read](response.HTTPResponse.Header, response.Body, response.StatusCode(), http.StatusCreated)
 }
 
 // updateServer updates a server.
 func (p *Provisioner) updateServer(ctx context.Context, client regionapi.ClientWithResponsesInterface, serverID string, request *regionapi.ServerV2Update) (*regionapi.ServerV2Response, error) {
-	resp, err := client.PutApiV2ServersServerIDWithResponse(ctx, serverID, *request)
+	response, err := client.PutApiV2ServersServerIDWithResponse(ctx, serverID, *request)
 	if err != nil {
 		return nil, err
 	}
 
-	if resp.StatusCode() != http.StatusAccepted {
-		return nil, coreapiutils.ExtractError(resp.StatusCode(), resp)
-	}
-
-	return resp.JSON202, nil
+	return coreapi.ParseJSONPointerResponse[regionapi.ServerV2Read](response.HTTPResponse.Header, response.Body, response.StatusCode(), http.StatusOK)
 }
 
 // deleteServer deletes a server.
 func (p *Provisioner) deleteServer(ctx context.Context, client regionapi.ClientWithResponsesInterface, id string) error {
-	resp, err := client.DeleteApiV2ServersServerIDWithResponse(ctx, id)
+	response, err := client.DeleteApiV2ServersServerIDWithResponse(ctx, id)
 	if err != nil {
 		return err
 	}
 
-	// Gone already, ignore me!
-	if resp.StatusCode() == http.StatusNotFound {
+	err = coreapi.AssertResponseStatus(response.HTTPResponse.Header, response.StatusCode(), http.StatusAccepted)
+	if err == nil {
+		// TODO: add to the status in a deprovisioning state.
 		return nil
 	}
 
-	if resp.StatusCode() != http.StatusAccepted {
-		return coreapiutils.ExtractError(resp.StatusCode(), resp)
+	if errorsv2.IsAPIResourceMissingError(err) {
+		// Gone already, ignore me!
+		return nil
 	}
 
-	// TODO: add to the status in a deprovisioning state.
-	return nil
+	return err
 }
