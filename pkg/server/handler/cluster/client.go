@@ -102,8 +102,13 @@ func (c *Client) List(ctx context.Context, organizationID string, params openapi
 		return nil, errors.OAuth2ServerError("failed to build label selector").WithError(err)
 	}
 
+	versionRequirement, err := labels.NewRequirement(computeconstants.ResourceAPIVersionLabel, selection.DoesNotExist, nil)
+	if err != nil {
+		return nil, errors.OAuth2ServerError("failed to build label selector").WithError(err)
+	}
+
 	selector := labels.NewSelector()
-	selector = selector.Add(*requirement)
+	selector = selector.Add(*requirement, *versionRequirement)
 
 	options := &client.ListOptions{
 		LabelSelector: selector,
@@ -150,6 +155,10 @@ func (c *Client) get(ctx context.Context, organizationID, projectID, clusterID s
 		}
 
 		return nil, errors.OAuth2ServerError("unable to get cluster").WithError(err)
+	}
+
+	if _, ok := resource.Labels[computeconstants.ResourceAPIVersionLabel]; ok {
+		return nil, errors.HTTPNotFound()
 	}
 
 	if err := util.AssertProjectOwnership(resource, organizationID, projectID); err != nil {

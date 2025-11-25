@@ -131,11 +131,25 @@ type ComputeClusterSpec struct {
 	// Tags are aribrary user data.
 	Tags unikornv1core.TagList `json:"tags,omitempty"`
 	// Region to provision the cluster in.
-	RegionID string `json:"regionId"`
+	// TODO: V1 delete me.
+	RegionID string `json:"regionId,omitempty"`
 	// Network defines the Compute networking.
-	Network *unikornv1core.NetworkGeneric `json:"network"`
+	// TODO: V1 delete me.
+	Network *unikornv1core.NetworkGeneric `json:"network,omitempty"`
 	// WorkloadPools defines the workload cluster topology.
-	WorkloadPools *ComputeClusterWorkloadPoolsSpec `json:"workloadPools"`
+	// TODO: V1 delete me.
+	WorkloadPools *ComputeClusterWorkloadPoolsSpec `json:"workloadPools,omitempty"`
+	// Pools of instances.
+	Pools []InstancePoolSpec `json:"pools,omitempty"`
+}
+
+type InstancePoolSpec struct {
+	// Name of the workload pool
+	Name string `json:"name"`
+	// Replicas are the number of instances in the pool.
+	Replicas int `json:"replicas"`
+	// InstanceTemplate is used to create instances.
+	Template ComputeInstanceSpec `json:"template"`
 }
 
 type ComputeClusterWorkloadPoolsSpec struct {
@@ -148,13 +162,25 @@ type ComputeClusterWorkloadPoolsSpec struct {
 // ComputeClusterStatus defines the observed state of the Compute cluster.
 type ComputeClusterStatus struct {
 	// Namespace defines the namespace a cluster resides in.
+	// TODO: V1 delete me.
 	Namespace string `json:"namespace,omitempty"`
 	// SSHPrivateKey is the key used to access the cluster.
+	// TODO: V1 delete me.
 	SSHPrivateKey *string `json:"sshPrivateKey,omitempty"`
 	// WorkloadPools is the status of all pools.
+	// TODO: V1 delete me.
 	WorkloadPools []WorkloadPoolStatus `json:"workloadpools,omitempty"`
 	// Current service state of a Compute cluster.
 	Conditions []unikornv1core.Condition `json:"conditions,omitempty"`
+	// Pools are the pool statuses.
+	Pools []InstancePoolStatus `json:"pools,omitempty"`
+}
+
+type InstancePoolStatus struct {
+	// Name of the workload pool
+	Name string `json:"name"`
+	// Replicas are the number of instances currently in the pool.
+	Replicas int `json:"replicas"`
 }
 
 type WorkloadPoolStatus struct {

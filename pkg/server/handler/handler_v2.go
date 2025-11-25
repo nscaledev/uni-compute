@@ -149,3 +149,66 @@ func (h *Handler) GetApiV2InstancesInstanceIDConsolesession(w http.ResponseWrite
 
 	util.WriteJSONResponse(w, r, http.StatusOK, result)
 }
+
+func (h *Handler) GetApiV2Clusters(w http.ResponseWriter, r *http.Request, params openapi.GetApiV2ClustersParams) {
+	result, err := h.clusterClient().ListV2(r.Context(), params)
+	if err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	util.WriteJSONResponse(w, r, http.StatusOK, result)
+}
+
+func (h *Handler) PostApiV2Clusters(w http.ResponseWriter, r *http.Request) {
+	request := &openapi.ClusterV2Create{}
+
+	if err := util.ReadJSONBody(r, request); err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	result, err := h.clusterClient().CreateV2(r.Context(), request)
+	if err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	util.WriteJSONResponse(w, r, http.StatusCreated, result)
+}
+
+func (h *Handler) GetApiV2ClustersClusterID(w http.ResponseWriter, r *http.Request, clusterID openapi.ClusterIDParameter) {
+	result, err := h.clusterClient().GetV2(r.Context(), clusterID)
+	if err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	util.WriteJSONResponse(w, r, http.StatusOK, result)
+}
+
+func (h *Handler) PutApiV2ClustersClusterID(w http.ResponseWriter, r *http.Request, clusterID openapi.ClusterIDParameter) {
+	request := &openapi.ClusterV2Update{}
+
+	if err := util.ReadJSONBody(r, request); err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	result, err := h.clusterClient().UpdateV2(r.Context(), clusterID, request)
+	if err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	util.WriteJSONResponse(w, r, http.StatusAccepted, result)
+}
+
+func (h *Handler) DeleteApiV2ClustersClusterID(w http.ResponseWriter, r *http.Request, clusterID openapi.ClusterIDParameter) {
+	if err := h.clusterClient().DeleteV2(r.Context(), clusterID); err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusAccepted)
+}

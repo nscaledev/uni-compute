@@ -47,6 +47,72 @@ type AllowedAddressPairList = []AllowedAddressPair
 // to act as a router without SNAT rules.
 type AllowedSourceAddresses = []string
 
+// ClusterV2Create A cluster creation request.
+type ClusterV2Create struct {
+	// Metadata Metadata required for all API resource reads and writes.
+	Metadata externalRef0.ResourceWriteMetadata `json:"metadata"`
+
+	// Spec A cluster creation specification.
+	Spec ClusterV2CreateSpec `json:"spec"`
+}
+
+// ClusterV2CreateSpec defines model for clusterV2CreateSpec.
+type ClusterV2CreateSpec struct {
+	// NetworkId The network ID to attach the compute instance to.
+	NetworkId string `json:"networkId"`
+
+	// OrganizationId The organization to provision the resource in.
+	OrganizationId string `json:"organizationId"`
+
+	// Pools A list of workload pools.
+	Pools PoolV2List `json:"pools"`
+
+	// ProjectId The project to provision the resource in.
+	ProjectId string `json:"projectId"`
+}
+
+// ClusterV2Read A compute cluster.
+type ClusterV2Read struct {
+	// Metadata Metadata required by project scoped resource reads.
+	Metadata externalRef0.ProjectScopedResourceReadMetadata `json:"metadata"`
+
+	// Spec A cluster specification.
+	Spec ClusterV2Spec `json:"spec"`
+
+	// Status A cluster status.
+	Status ClusterV2Status `json:"status"`
+}
+
+// ClusterV2ReadList A list of compute clusters.
+type ClusterV2ReadList = []ClusterV2Read
+
+// ClusterV2Spec A cluster specification.
+type ClusterV2Spec struct {
+	// Pools A list of workload pools.
+	Pools PoolV2List `json:"pools"`
+}
+
+// ClusterV2Status A cluster status.
+type ClusterV2Status struct {
+	// NetworkId The network ID the cluster is running on.
+	NetworkId string `json:"networkId"`
+
+	// Pools A list of workload pool statuses.
+	Pools PoolV2StatusList `json:"pools"`
+
+	// RegionId The region ID the cluster is running in.
+	RegionId string `json:"regionId"`
+}
+
+// ClusterV2Update A cluster update request.
+type ClusterV2Update struct {
+	// Metadata Metadata required for all API resource reads and writes.
+	Metadata externalRef0.ResourceWriteMetadata `json:"metadata"`
+
+	// Spec A cluster specification.
+	Spec ClusterV2Spec `json:"spec"`
+}
+
 // ComputeClusterMachineStatus Compute cluster machine status.
 type ComputeClusterMachineStatus struct {
 	// FlavorID Machine flavorID.
@@ -354,6 +420,44 @@ type MachinePool struct {
 	UserData *[]byte `json:"userData,omitempty"`
 }
 
+// PoolV2 A workload pool.
+type PoolV2 struct {
+	// FlavorId The flavor CPU/RAM of a compute instance.
+	FlavorId string `json:"flavorId"`
+
+	// ImageId The image of a compute instance.
+	ImageId string `json:"imageId"`
+
+	// Name The name of the pool.  Instances will inherit this name plus a short suffix.
+	Name string `json:"name"`
+
+	// Networking A compute instance's network  configuration.
+	Networking *InstanceNetworking `json:"networking,omitempty"`
+
+	// Replicas The number of instances to maintain.
+	Replicas int `json:"replicas"`
+
+	// UserData Contains base64-encoded configuration information or scripts to use upon launch.
+	// The format of the data is governed by the cloud-init standard, and may be a script,
+	// a MIME multipart archive, etc.
+	UserData *[]byte `json:"userData,omitempty"`
+}
+
+// PoolV2List A list of workload pools.
+type PoolV2List = []PoolV2
+
+// PoolV2Status A workload pool.
+type PoolV2Status struct {
+	// Name The name of the pool.
+	Name string `json:"name"`
+
+	// Replicas The number of instances that exist.
+	Replicas int `json:"replicas"`
+}
+
+// PoolV2StatusList A list of workload pool statuses.
+type PoolV2StatusList = []PoolV2Status
+
 // PublicIPAllocation A public IP allocation settings.
 type PublicIPAllocation struct {
 	// Enabled Enable public IP allocation.
@@ -405,6 +509,12 @@ type RegionIDParameter = KubernetesNameParameter
 // RegionIDQueryParameter defines model for regionIDQueryParameter.
 type RegionIDQueryParameter = []string
 
+// ClusterV2ListResponse A list of compute clusters.
+type ClusterV2ListResponse = ClusterV2ReadList
+
+// ClusterV2Response A compute cluster.
+type ClusterV2Response = ClusterV2Read
+
 // ComputeClusterDetailResponse Compute cluster read.
 type ComputeClusterDetailResponse = ComputeClusterRead
 
@@ -419,6 +529,12 @@ type InstanceResponse = InstanceRead
 
 // InstancesResponse A list of compute instances.
 type InstancesResponse = InstancesRead
+
+// ClusterV2CreateRequest A cluster creation request.
+type ClusterV2CreateRequest = ClusterV2Create
+
+// ClusterV2UpdateRequest A cluster update request.
+type ClusterV2UpdateRequest = ClusterV2Update
 
 // CreateComputeClusterRequest Compute cluster create or update.
 type CreateComputeClusterRequest = ComputeClusterWrite
@@ -443,6 +559,25 @@ type GetApiV1OrganizationsOrganizationIDClustersParams struct {
 type GetApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDConsoleoutputParams struct {
 	// Length The requested output length.
 	Length *LengthParameter `form:"length,omitempty" json:"length,omitempty"`
+}
+
+// GetApiV2ClustersParams defines parameters for GetApiV2Clusters.
+type GetApiV2ClustersParams struct {
+	// Tag A set of tags to match against resources in the form "name=value",
+	// thus when encoded you get "?tag=foo%3Dcat&bar%3Ddog".
+	Tag *externalRef0.TagSelectorParameter `form:"tag,omitempty" json:"tag,omitempty"`
+
+	// OrganizationID Allows resources to be filtered by organization.
+	OrganizationID *OrganizationIDQueryParameter `form:"organizationID,omitempty" json:"organizationID,omitempty"`
+
+	// ProjectID Allows resources to be filtered by project.
+	ProjectID *ProjectIDQueryParameter `form:"projectID,omitempty" json:"projectID,omitempty"`
+
+	// RegionID Allows resources to be filtered by region.
+	RegionID *RegionIDQueryParameter `form:"regionID,omitempty" json:"regionID,omitempty"`
+
+	// NetworkID Allows resources to be filtered by network.
+	NetworkID *NetworkIDQueryParameter `form:"networkID,omitempty" json:"networkID,omitempty"`
 }
 
 // GetApiV2InstancesParams defines parameters for GetApiV2Instances.
@@ -484,6 +619,12 @@ type PutApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDJSONRe
 
 // PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDEvictJSONRequestBody defines body for PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDEvict for application/json ContentType.
 type PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDEvictJSONRequestBody = EvictionWrite
+
+// PostApiV2ClustersJSONRequestBody defines body for PostApiV2Clusters for application/json ContentType.
+type PostApiV2ClustersJSONRequestBody = ClusterV2Create
+
+// PutApiV2ClustersClusterIDJSONRequestBody defines body for PutApiV2ClustersClusterID for application/json ContentType.
+type PutApiV2ClustersClusterIDJSONRequestBody = ClusterV2Update
 
 // PostApiV2InstancesJSONRequestBody defines body for PostApiV2Instances for application/json ContentType.
 type PostApiV2InstancesJSONRequestBody = InstanceCreate

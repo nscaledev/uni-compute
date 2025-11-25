@@ -28,6 +28,7 @@ import (
 	computev1 "github.com/unikorn-cloud/compute/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/compute/pkg/constants"
 	computeapi "github.com/unikorn-cloud/compute/pkg/openapi"
+	"github.com/unikorn-cloud/compute/pkg/server/handler/region"
 	"github.com/unikorn-cloud/compute/pkg/server/handler/util"
 	corev1 "github.com/unikorn-cloud/core/pkg/apis/unikorn/v1alpha1"
 	coreconstants "github.com/unikorn-cloud/core/pkg/constants"
@@ -51,8 +52,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type RegionAPIClientGetter func(context.Context) (regionapi.ClientWithResponsesInterface, error)
-
 type Client struct {
 	// client ia a Kubernetes client.
 	client client.Client
@@ -61,11 +60,11 @@ type Client struct {
 	// identity is a client to access the identity service.
 	identity identityclient.APIClientGetter
 	// region is a client to access regions.
-	region RegionAPIClientGetter
+	region region.ClientGetterFunc
 }
 
 // New creates a new client.
-func NewClient(client client.Client, namespace string, identity identityclient.APIClientGetter, region RegionAPIClientGetter) *Client {
+func NewClient(client client.Client, namespace string, identity identityclient.APIClientGetter, region region.ClientGetterFunc) *Client {
 	return &Client{
 		client:    client,
 		namespace: namespace,
@@ -89,7 +88,7 @@ func convertCreateToUpdateRequest(in *computeapi.InstanceCreate) (*computeapi.In
 	return out, nil
 }
 
-func convertNetworking(in *computev1.ComputeInstanceNetworking) *computeapi.InstanceNetworking {
+func ConvertNetworking(in *computev1.ComputeInstanceNetworking) *computeapi.InstanceNetworking {
 	if in == nil {
 		return nil
 	}
@@ -121,7 +120,7 @@ func convertNetworking(in *computev1.ComputeInstanceNetworking) *computeapi.Inst
 	return &out
 }
 
-func convertUserData(in []byte) *[]byte {
+func ConvertUserData(in []byte) *[]byte {
 	if in == nil {
 		return nil
 	}
@@ -154,8 +153,8 @@ func convert(in *computev1.ComputeInstance) *computeapi.InstanceRead {
 		Spec: computeapi.InstanceSpec{
 			FlavorId:   in.Spec.FlavorID,
 			ImageId:    in.Spec.ImageID,
-			Networking: convertNetworking(in.Spec.Networking),
-			UserData:   convertUserData(in.Spec.UserData),
+			Networking: ConvertNetworking(in.Spec.Networking),
+			UserData:   ConvertUserData(in.Spec.UserData),
 		},
 		Status: computeapi.InstanceStatus{
 			RegionId:   in.Labels[regionconstants.RegionLabel],
@@ -179,7 +178,7 @@ func convertList(in *computev1.ComputeInstanceList) []computeapi.InstanceRead {
 	return out
 }
 
-func generateNetworking(in *computeapi.InstanceNetworking) (*computev1.ComputeInstanceNetworking, error) {
+func GenerateNetworking(in *computeapi.InstanceNetworking) (*computev1.ComputeInstanceNetworking, error) {
 	if in == nil {
 		//nolint:nilnil
 		return nil, nil
@@ -222,7 +221,7 @@ func generateNetworking(in *computeapi.InstanceNetworking) (*computev1.ComputeIn
 	return &temp, nil
 }
 
-func generateUserdata(in *[]byte) []byte {
+func GenerateUserData(in *[]byte) []byte {
 	if in == nil || len(*in) == 0 {
 		return nil
 	}
@@ -231,7 +230,7 @@ func generateUserdata(in *[]byte) []byte {
 }
 
 func (c *Client) generate(ctx context.Context, in *computeapi.InstanceUpdate, organizationID, projectID, regionID, networkID string) (*computev1.ComputeInstance, error) {
-	networking, err := generateNetworking(in.Spec.Networking)
+	networking, err := GenerateNetworking(in.Spec.Networking)
 	if err != nil {
 		return nil, err
 	}
@@ -244,12 +243,13 @@ func (c *Client) generate(ctx context.Context, in *computeapi.InstanceUpdate, or
 			WithLabel(regionconstants.NetworkLabel, networkID).
 			Get(),
 		Spec: computev1.ComputeInstanceSpec{
+			Tags: conversion.GenerateTagList(in.Metadata.Tags),
 			MachineGeneric: corev1.MachineGeneric{
 				FlavorID: in.Spec.FlavorId,
 				ImageID:  in.Spec.ImageId,
 			},
 			Networking: networking,
-			UserData:   generateUserdata(in.Spec.UserData),
+			UserData:   GenerateUserData(in.Spec.UserData),
 		},
 	}
 
@@ -354,30 +354,6 @@ func (s *createSaga) Actions() []saga.Action {
 	}
 }
 
-func (c *Client) getNetwork(ctx context.Context, organizationID, projectID, networkID string) (*regionapi.NetworkV2Read, error) {
-	region, err := c.region(ctx)
-	if err != nil {
-		return nil, errors.OAuth2ServerError("failed to create region client").WithError(err)
-	}
-
-	response, err := region.GetApiV2NetworksNetworkIDWithResponse(ctx, networkID)
-	if err != nil {
-		return nil, errors.OAuth2InvalidRequest("unable to get network").WithError(err)
-	}
-
-	if response.StatusCode() != http.StatusOK {
-		return nil, errors.OAuth2InvalidRequest("unable to get network - wrong status code")
-	}
-
-	network := response.JSON200
-
-	if network.Metadata.OrganizationId != organizationID || network.Metadata.ProjectId != projectID {
-		return nil, errors.OAuth2InvalidRequest("instance network does not match requested organization/project")
-	}
-
-	return network, nil
-}
-
 func (c *Client) Create(ctx context.Context, request *computeapi.InstanceCreate) (*computeapi.InstanceRead, error) {
 	organizationID := request.Spec.OrganizationId
 	projectID := request.Spec.ProjectId
@@ -392,7 +368,7 @@ func (c *Client) Create(ctx context.Context, request *computeapi.InstanceCreate)
 	// would get the network impersonating the user principal and let the region service do
 	// the necessary ReBAC checks, but we cannot do that yet.  If we could do that we could
 	// infer the organization and project IDs too and not have to specify them in this API.
-	network, err := c.getNetwork(ctx, organizationID, projectID, request.Spec.NetworkId)
+	network, err := region.GetNetwork(ctx, c.region, organizationID, projectID, request.Spec.NetworkId)
 	if err != nil {
 		return nil, err
 	}
