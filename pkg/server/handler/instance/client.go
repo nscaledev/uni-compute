@@ -312,24 +312,63 @@ func (c *Client) List(ctx context.Context, params computeapi.GetApiV2InstancesPa
 	return convertList(result), nil
 }
 
-type createSaga struct {
-	client   *Client
-	resource *computev1.ComputeInstance
-}
-
-func newCreateSaga(client *Client, resource *computev1.ComputeInstance) *createSaga {
-	return &createSaga{
-		client:   client,
-		resource: resource,
+func (c *Client) generateAllocation(ctx context.Context, organizationID, regionID string, resource *computev1.ComputeInstance) (identityapi.ResourceAllocationList, error) {
+	flavors, err := region.New(c.region).Flavors(ctx, organizationID, regionID)
+	if err != nil {
+		return nil, err
 	}
-}
 
-func (s *createSaga) createAllocation(ctx context.Context) error {
+	matchFlavor := func(flavor regionapi.Flavor) bool {
+		return flavor.Metadata.Id == resource.Spec.FlavorID
+	}
+
+	index := slices.IndexFunc(flavors, matchFlavor)
+	if index < 0 {
+		return nil, errors.OAuth2InvalidRequest("requested flavor does not exist")
+	}
+
+	flavor := &flavors[index]
+
+	var gpus int
+
+	if flavor.Spec.Gpu != nil {
+		gpus = flavor.Spec.Gpu.PhysicalCount
+	}
+
 	required := identityapi.ResourceAllocationList{
 		{
 			Kind:      "servers",
 			Committed: 1,
 		},
+		{
+			Kind:      "gpus",
+			Committed: gpus,
+		},
+	}
+
+	return required, nil
+}
+
+type createSaga struct {
+	client         *Client
+	organizationID string
+	regionID       string
+	resource       *computev1.ComputeInstance
+}
+
+func newCreateSaga(client *Client, organizationID, regionID string, resource *computev1.ComputeInstance) *createSaga {
+	return &createSaga{
+		client:         client,
+		organizationID: organizationID,
+		regionID:       regionID,
+		resource:       resource,
+	}
+}
+
+func (s *createSaga) createAllocation(ctx context.Context) error {
+	required, err := s.client.generateAllocation(ctx, s.organizationID, s.regionID, s.resource)
+	if err != nil {
+		return err
 	}
 
 	return identityclient.NewAllocations(s.client.client, s.client.identity).Create(ctx, s.resource, required)
@@ -409,7 +448,7 @@ func (c *Client) Create(ctx context.Context, request *computeapi.InstanceCreate)
 		return nil, err
 	}
 
-	s := newCreateSaga(c, resource)
+	s := newCreateSaga(c, organizationID, regionID, resource)
 
 	if err := saga.Run(ctx, s); err != nil {
 		return nil, err
@@ -445,6 +484,57 @@ func (c *Client) Get(ctx context.Context, instanceID string) (*computeapi.Instan
 	return convert(result), nil
 }
 
+type updateSaga struct {
+	client         *Client
+	organizationID string
+	regionID       string
+	current        *computev1.ComputeInstance
+	updated        *computev1.ComputeInstance
+}
+
+func newUpdateSaga(client *Client, organizationID, regionID string, current, updated *computev1.ComputeInstance) *updateSaga {
+	return &updateSaga{
+		client:         client,
+		organizationID: organizationID,
+		regionID:       regionID,
+		current:        current,
+		updated:        updated,
+	}
+}
+
+func (s *updateSaga) updateAllocation(ctx context.Context) error {
+	required, err := s.client.generateAllocation(ctx, s.organizationID, s.regionID, s.updated)
+	if err != nil {
+		return err
+	}
+
+	return identityclient.NewAllocations(s.client.client, s.client.identity).Update(ctx, s.current, required)
+}
+
+func (s *updateSaga) revertAllocation(ctx context.Context) error {
+	required, err := s.client.generateAllocation(ctx, s.organizationID, s.regionID, s.current)
+	if err != nil {
+		return err
+	}
+
+	return identityclient.NewAllocations(s.client.client, s.client.identity).Update(ctx, s.current, required)
+}
+
+func (s *updateSaga) updateInstance(ctx context.Context) error {
+	if err := s.client.client.Patch(ctx, s.updated, client.MergeFrom(s.current)); err != nil {
+		return errors.OAuth2ServerError("unable to update instance").WithError(err)
+	}
+
+	return nil
+}
+
+func (s *updateSaga) Actions() []saga.Action {
+	return []saga.Action{
+		saga.NewAction("update quota allocation", s.updateAllocation, s.revertAllocation),
+		saga.NewAction("update instance", s.updateInstance, nil),
+	}
+}
+
 func (c *Client) Update(ctx context.Context, instanceID string, request *computeapi.InstanceUpdate) (*computeapi.InstanceRead, error) {
 	current, err := c.GetRaw(ctx, instanceID)
 	if err != nil {
@@ -469,16 +559,23 @@ func (c *Client) Update(ctx context.Context, instanceID string, request *compute
 		return nil, err
 	}
 
+	// Preserve allocation information.
+	// TODO: this is smell code, perhaps we want to rejig the interface to accept both
+	// current and updated resources, and that can transparently do the preservation.
+	required.Annotations[coreconstants.AllocationAnnotation] = current.Annotations[coreconstants.AllocationAnnotation]
+
 	updated := current.DeepCopy()
 	updated.Labels = required.Labels
 	updated.Annotations = required.Annotations
 	updated.Spec = required.Spec
 
-	if err := c.client.Patch(ctx, updated, client.MergeFrom(current)); err != nil {
-		return nil, errors.OAuth2ServerError("unable to update instance").WithError(err)
+	s := newUpdateSaga(c, organizationID, regionID, current, updated)
+
+	if err := saga.Run(ctx, s); err != nil {
+		return nil, err
 	}
 
-	return convert(updated), nil
+	return convert(s.updated), nil
 }
 
 func (c *Client) Delete(ctx context.Context, instanceID string) error {
