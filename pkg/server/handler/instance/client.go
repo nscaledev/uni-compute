@@ -28,6 +28,7 @@ import (
 	computev1 "github.com/unikorn-cloud/compute/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/compute/pkg/constants"
 	computeapi "github.com/unikorn-cloud/compute/pkg/openapi"
+	"github.com/unikorn-cloud/compute/pkg/server/handler/region"
 	"github.com/unikorn-cloud/compute/pkg/server/handler/util"
 	corev1 "github.com/unikorn-cloud/core/pkg/apis/unikorn/v1alpha1"
 	coreconstants "github.com/unikorn-cloud/core/pkg/constants"
@@ -51,8 +52,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type RegionAPIClientGetter func(context.Context) (regionapi.ClientWithResponsesInterface, error)
-
 type Client struct {
 	// client ia a Kubernetes client.
 	client client.Client
@@ -61,11 +60,11 @@ type Client struct {
 	// identity is a client to access the identity service.
 	identity identityclient.APIClientGetter
 	// region is a client to access regions.
-	region RegionAPIClientGetter
+	region region.ClientGetterFunc
 }
 
 // New creates a new client.
-func NewClient(client client.Client, namespace string, identity identityclient.APIClientGetter, region RegionAPIClientGetter) *Client {
+func NewClient(client client.Client, namespace string, identity identityclient.APIClientGetter, region region.ClientGetterFunc) *Client {
 	return &Client{
 		client:    client,
 		namespace: namespace,
