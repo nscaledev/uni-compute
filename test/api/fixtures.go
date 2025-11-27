@@ -130,6 +130,12 @@ func (b *ClusterPayloadBuilder) WithImageID(imageID string) *ClusterPayloadBuild
 	return b
 }
 
+// ClearWorkloadPools removes all default workload pools to start fresh.
+func (b *ClusterPayloadBuilder) ClearWorkloadPools() *ClusterPayloadBuilder {
+	b.cluster.Spec.WorkloadPools = []openapi.ComputeClusterWorkloadPool{}
+	return b
+}
+
 // WithWorkloadPool adds a workload pool configuration.
 func (b *ClusterPayloadBuilder) WithWorkloadPool(name, flavorID, imageID string, replicas int) *ClusterPayloadBuilder {
 	pool := openapi.ComputeClusterWorkloadPool{
@@ -552,4 +558,150 @@ func VerifyMachineEvicted(cluster openapi.ComputeClusterRead, poolName, evictedM
 	GinkgoWriter.Printf("Pool %s not found in cluster status\n", poolName)
 
 	return false
+}
+
+// FindPoolByName finds a workload pool by name in the cluster spec.
+func FindPoolByName(pools []openapi.ComputeClusterWorkloadPool, poolName string) *openapi.ComputeClusterWorkloadPool {
+	for i := range pools {
+		if pools[i].Name == poolName {
+			return &pools[i]
+		}
+	}
+
+	return nil
+}
+
+// checkStatusPoolReplicas checks if the status pool has the expected number of replicas.
+func checkStatusPoolReplicas(cluster *openapi.ComputeClusterRead, poolName string, expectedReplicas int) bool {
+	if cluster.Status == nil || cluster.Status.WorkloadPools == nil {
+		GinkgoWriter.Printf("Cluster status not available yet\n")
+		return false
+	}
+
+	for _, statusPool := range *cluster.Status.WorkloadPools {
+		if statusPool.Name == poolName {
+			machineCount := 0
+			if statusPool.Machines != nil {
+				machineCount = len(*statusPool.Machines)
+			}
+
+			if machineCount != expectedReplicas {
+				GinkgoWriter.Printf("Pool %s has %d machines in status (waiting for %d)\n", poolName, machineCount, expectedReplicas)
+				return false
+			}
+
+			GinkgoWriter.Printf("Pool %s reached target: %d replicas\n", poolName, expectedReplicas)
+
+			return true
+		}
+	}
+
+	// When scaling to zero, the pool is removed from status.workloadPools
+	if expectedReplicas == 0 {
+		GinkgoWriter.Printf("Pool %s reached target: 0 replicas (pool removed from status)\n", poolName)
+		return true
+	}
+
+	GinkgoWriter.Printf("Pool %s not found in status\n", poolName)
+
+	return false
+}
+
+// WaitForPoolReplicas waits for a workload pool to have the expected number of replicas.
+func WaitForPoolReplicas(client *APIClient, ctx context.Context, config *TestConfig, clusterID, poolName string, expectedReplicas int) {
+	Eventually(func() bool {
+		cluster, err := client.GetCluster(ctx, config.OrgID, config.ProjectID, clusterID)
+		if err != nil {
+			GinkgoWriter.Printf("Error getting cluster: %v\n", err)
+			return false
+		}
+
+		// Check provisioning status - wait for cluster to be provisioned
+		if cluster.Metadata.ProvisioningStatus != coreapi.ResourceProvisioningStatusProvisioned {
+			GinkgoWriter.Printf("Waiting for cluster to be provisioned (current: %s)\n", cluster.Metadata.ProvisioningStatus)
+			return false
+		}
+
+		// Check spec for expected replicas
+		pool := FindPoolByName(cluster.Spec.WorkloadPools, poolName)
+		if pool == nil {
+			GinkgoWriter.Printf("Pool %s not found in spec\n", poolName)
+			return false
+		}
+
+		if pool.Machine.Replicas != expectedReplicas {
+			GinkgoWriter.Printf("Pool %s has %d replicas in spec (waiting for %d)\n", poolName, pool.Machine.Replicas, expectedReplicas)
+			return false
+		}
+
+		return checkStatusPoolReplicas(&cluster, poolName, expectedReplicas)
+	}).WithTimeout(config.TestTimeout).WithPolling(10 * time.Second).Should(BeTrue())
+}
+
+// VerifyPoolReplicas verifies a pool has the expected number of replicas in spec.
+func VerifyPoolReplicas(cluster *openapi.ComputeClusterRead, poolName string, expectedReplicas int) {
+	pool := FindPoolByName(cluster.Spec.WorkloadPools, poolName)
+	Expect(pool).NotTo(BeNil(), "Pool %s should exist in spec", poolName)
+	Expect(pool.Machine.Replicas).To(Equal(expectedReplicas), "Pool %s should have %d replicas", poolName, expectedReplicas)
+}
+
+// WaitForPoolMachinesActive waits for all machines in a pool to become active.
+func WaitForPoolMachinesActive(client *APIClient, ctx context.Context, config *TestConfig, clusterID, poolName string, expectedCount int) {
+	Eventually(func() bool {
+		cluster, err := client.GetCluster(ctx, config.OrgID, config.ProjectID, clusterID)
+		if err != nil {
+			return false
+		}
+
+		if cluster.Status == nil || cluster.Status.WorkloadPools == nil {
+			return false
+		}
+
+		for _, statusPool := range *cluster.Status.WorkloadPools {
+			if statusPool.Name == poolName {
+				if statusPool.Machines == nil || len(*statusPool.Machines) != expectedCount {
+					return false
+				}
+
+				for _, machine := range *statusPool.Machines {
+					if machine.Status != "Running" {
+						return false
+					}
+				}
+
+				return true
+			}
+		}
+
+		return false
+	}).WithTimeout(config.TestTimeout).WithPolling(10 * time.Second).Should(BeTrue())
+}
+
+// VerifyMultiplePoolsReplicas verifies multiple pools have their expected replicas.
+func VerifyMultiplePoolsReplicas(cluster *openapi.ComputeClusterRead, poolReplicas map[string]int) {
+	for poolName, expectedReplicas := range poolReplicas {
+		VerifyPoolReplicas(cluster, poolName, expectedReplicas)
+	}
+}
+
+// VerifyPoolFirewallRules verifies a pool has the expected firewall configuration.
+func VerifyPoolFirewallRules(cluster *openapi.ComputeClusterRead, poolName string, expectedRuleCount int) {
+	pool := FindPoolByName(cluster.Spec.WorkloadPools, poolName)
+	Expect(pool).NotTo(BeNil(), "Pool %s should exist", poolName)
+	Expect(pool.Machine.Firewall).NotTo(BeNil(), "Pool %s should have firewall rules", poolName)
+	Expect(*pool.Machine.Firewall).To(HaveLen(expectedRuleCount), "Pool %s should have %d firewall rules", poolName, expectedRuleCount)
+}
+
+// VerifyDefaultFirewallRule verifies a pool has the default SSH firewall rule.
+func VerifyDefaultFirewallRule(cluster *openapi.ComputeClusterRead, poolName string) {
+	pool := FindPoolByName(cluster.Spec.WorkloadPools, poolName)
+	Expect(pool).NotTo(BeNil(), "Pool %s should exist", poolName)
+	Expect(pool.Machine.Firewall).NotTo(BeNil(), "Pool %s should have firewall rules", poolName)
+	Expect(*pool.Machine.Firewall).To(HaveLen(1), "Pool %s should have 1 firewall rule", poolName)
+
+	rule := (*pool.Machine.Firewall)[0]
+	Expect(rule.Direction).To(BeEquivalentTo("ingress"), "Firewall direction should be ingress")
+	Expect(rule.Protocol).To(BeEquivalentTo("tcp"), "Firewall protocol should be tcp")
+	Expect(rule.Port).To(Equal(22), "Firewall port should be 22")
+	Expect(rule.Prefixes).To(ContainElement("0.0.0.0/0"), "Firewall should allow all IPs")
 }
