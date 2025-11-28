@@ -14,19 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// Package api provides helper functions for building test payloads.
+// This file intentionally left minimal as builders were moved to fixtures.go.
 package api
-
-import (
-	"fmt"
-
-	"k8s.io/apimachinery/pkg/util/rand"
-)
-
-func generateRandomName(prefix string) string {
-	randomStr := rand.String(8)
-	return fmt.Sprintf("%s-%s", prefix, randomStr)
-}
-
-func GenerateTestID() string {
-	return generateRandomName("test")
-}
