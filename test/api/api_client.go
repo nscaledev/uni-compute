@@ -29,6 +29,7 @@ import (
 
 	"github.com/unikorn-cloud/compute/pkg/openapi"
 	coreclient "github.com/unikorn-cloud/core/pkg/testing/client"
+	regionopenapi "github.com/unikorn-cloud/region/pkg/openapi"
 )
 
 // GinkgoLogger implements the Logger interface for Ginkgo tests.
@@ -120,7 +121,7 @@ func (c *APIClient) handleClusterListResponse(resp *http.Response, respBody []by
 	}
 }
 
-func (c *APIClient) ListRegions(ctx context.Context, orgID string) ([]map[string]interface{}, error) {
+func (c *APIClient) ListRegions(ctx context.Context, orgID string) (regionopenapi.Regions, error) {
 	path := c.endpoints.ListRegions(orgID)
 	config := coreclient.ResponseHandlerConfig{
 		ResourceType:   "regions",
@@ -130,10 +131,10 @@ func (c *APIClient) ListRegions(ctx context.Context, orgID string) ([]map[string
 		AllowNotFound:  true,
 	}
 
-	return c.ListResource(ctx, path, config)
+	return coreclient.ListResource[regionopenapi.Regions](ctx, c.APIClient, path, config)
 }
 
-func (c *APIClient) ListFlavors(ctx context.Context, orgID, regionID string) ([]map[string]interface{}, error) {
+func (c *APIClient) ListFlavors(ctx context.Context, orgID, regionID string) (regionopenapi.Flavors, error) {
 	path := c.endpoints.ListFlavors(orgID, regionID)
 	config := coreclient.ResponseHandlerConfig{
 		ResourceType:   "flavors",
@@ -143,10 +144,10 @@ func (c *APIClient) ListFlavors(ctx context.Context, orgID, regionID string) ([]
 		AllowNotFound:  true,
 	}
 
-	return c.ListResource(ctx, path, config)
+	return coreclient.ListResource[regionopenapi.Flavors](ctx, c.APIClient, path, config)
 }
 
-func (c *APIClient) ListImages(ctx context.Context, orgID, regionID string) ([]map[string]interface{}, error) {
+func (c *APIClient) ListImages(ctx context.Context, orgID, regionID string) (regionopenapi.Images, error) {
 	path := c.endpoints.ListImages(orgID, regionID)
 	config := coreclient.ResponseHandlerConfig{
 		ResourceType:   "images",
@@ -156,7 +157,7 @@ func (c *APIClient) ListImages(ctx context.Context, orgID, regionID string) ([]m
 		AllowNotFound:  true,
 	}
 
-	return c.ListResource(ctx, path, config)
+	return coreclient.ListResource[regionopenapi.Images](ctx, c.APIClient, path, config)
 }
 
 // CreateCluster creates a new compute cluster.
