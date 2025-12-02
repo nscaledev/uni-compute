@@ -122,5 +122,3 @@ require (
 )
 
 tool github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen
-
-replace github.com/unikorn-cloud/core => ../uni-core
