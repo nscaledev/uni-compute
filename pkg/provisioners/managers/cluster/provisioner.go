@@ -165,8 +165,12 @@ func (p *Provisioner) updateStatus(ctx context.Context, serverSet serverSet, opt
 	}
 }
 
-// provision does what provisioning can and updates the cluster status.
-func (p *Provisioner) provision(ctx context.Context) error {
+// Provision implements the Provision interface.
+func (p *Provisioner) Provision(ctx context.Context) error {
+	if _, ok := p.cluster.Labels[constants.ResourceAPIVersionLabel]; ok {
+		return nil
+	}
+
 	// Likewise identity creation is provisioned asynchronously as it too takes a
 	// long time, especially if a physical network is being provisioned and that
 	// needs to go out and talk to switches.
@@ -210,17 +214,12 @@ func (p *Provisioner) provision(ctx context.Context) error {
 	return nil
 }
 
-// Provision implements the Provision interface.
-func (p *Provisioner) Provision(ctx context.Context) error {
-	if err := p.provision(ctx); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 // Deprovision implements the Provision interface.
 func (p *Provisioner) Deprovision(ctx context.Context) error {
+	if _, ok := p.cluster.Labels[constants.ResourceAPIVersionLabel]; ok {
+		return nil
+	}
+
 	// Clean up the identity when everything has cleanly deprovisioned.
 	// An accepted status means the API has recoded the deletion event and
 	// we can delete the cluster, a not found means it's been deleted already

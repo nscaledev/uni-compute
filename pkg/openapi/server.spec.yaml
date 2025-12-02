@@ -4,7 +4,7 @@ info:
   description: |-
     The Compute Service API provides services that allows provisioning and life cycle
     management of Compute clusters.
-  version: 1.10.0
+  version: 1.11.0
 paths:
   /api/v1/organizations/{organizationID}/regions:
     description: |-
@@ -583,6 +583,100 @@ paths:
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/notFoundResponse'
         '500':
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
+  /api/v2/clusters:
+    description: Compute cluster services.
+    get:
+      description: List compute clusters.
+      security:
+      - oauth2Authentication: []
+      parameters:
+      - $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/parameters/tagSelectorParameter'
+      - $ref: '#/components/parameters/organizationIDQueryParameter'
+      - $ref: '#/components/parameters/projectIDQueryParameter'
+      - $ref: '#/components/parameters/regionIDQueryParameter'
+      - $ref: '#/components/parameters/networkIDQueryParameter'
+      responses:
+        '200':
+          $ref: '#/components/responses/clusterV2ListResponse'
+        '400':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/badRequestResponse'
+        '401':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
+        '403':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/forbiddenResponse'
+        '404':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/notFoundResponse'
+        '500':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
+    post:
+      description: Create a cluster.
+      security:
+      - oauth2Authentication: []
+      requestBody:
+        $ref: '#/components/requestBodies/clusterV2CreateRequest'
+      responses:
+        '201':
+          $ref: '#/components/responses/clusterV2Response'
+        '400':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/badRequestResponse'
+        '401':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
+        '403':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/forbiddenResponse'
+        '500':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
+  /api/v2/clusters/{clusterID}:
+    description: Compute cluster services.
+    parameters:
+    - $ref: '#/components/parameters/clusterIDParameter'
+    get:
+      description: Get a cluster.
+      security:
+      - oauth2Authentication: []
+      responses:
+        '200':
+          $ref: '#/components/responses/clusterV2Response'
+        '400':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/badRequestResponse'
+        '401':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
+        '403':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/forbiddenResponse'
+        '500':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
+    put:
+      description: Update a cluster.
+      security:
+      - oauth2Authentication: []
+      requestBody:
+        $ref: '#/components/requestBodies/clusterV2UpdateRequest'
+      responses:
+        '202':
+          $ref: '#/components/responses/clusterV2Response'
+        '400':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/badRequestResponse'
+        '401':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
+        '403':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/forbiddenResponse'
+        '500':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
+    delete:
+      description: Delete a cluster.
+      security:
+      - oauth2Authentication: []
+      responses:
+        '202':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/acceptedResponse'
+        '400':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/badRequestResponse'
+        '401':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
+        '403':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/forbiddenResponse'
+        '500':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
+
 components:
   parameters:
     organizationIDParameter:
@@ -1097,6 +1191,144 @@ components:
       properties:
         machineIDs:
           $ref: '#/components/schemas/machineIDList'
+    poolV2:
+      description: A workload pool.
+      type: object
+      required:
+      - name
+      - replicas
+      - flavorId
+      - imageId
+      properties:
+        name:
+          description: The name of the pool.  Instances will inherit this name plus a short suffix.
+          type: string
+        replicas:
+          description: The number of instances to maintain.
+          type: integer
+        flavorId:
+          description: The flavor CPU/RAM of a compute instance.
+          type: string
+        imageId:
+          description: The image of a compute instance.
+          type: string
+        networking:
+          $ref: '#/components/schemas/instanceNetworking'
+        userData:
+          description: |-
+            Contains base64-encoded configuration information or scripts to use upon launch.
+            The format of the data is governed by the cloud-init standard, and may be a script,
+            a MIME multipart archive, etc.
+          type: string
+          format: byte
+    poolV2List:
+      description: A list of workload pools.
+      type: array
+      items:
+        $ref: '#/components/schemas/poolV2'
+    poolV2Status:
+      description: A workload pool.
+      type: object
+      required:
+      - name
+      - replicas
+      properties:
+        name:
+          description: The name of the pool.
+          type: string
+        replicas:
+          description: The number of instances that exist.
+          type: integer
+    poolV2StatusList:
+      description: A list of workload pool statuses.
+      type: array
+      items:
+        $ref: '#/components/schemas/poolV2Status'
+    clusterV2Spec:
+      description: A cluster specification.
+      type: object
+      required:
+      - pools
+      properties:
+        pools:
+          $ref: '#/components/schemas/poolV2List'
+    clusterV2CreateSpec:
+      description: A cluster creation specification.
+      type: object
+      allOf:
+      - $ref: '#/components/schemas/clusterV2Spec'
+      - type: object
+        required:
+        - organizationId
+        - projectId
+        - networkId
+        properties:
+          organizationId:
+            description: The organization to provision the resource in.
+            type: string
+          projectId:
+            description: The project to provision the resource in.
+            type: string 
+          networkId:
+            description: The network ID to attach the compute instance to.
+            type: string
+    clusterV2Status:
+      description: A cluster status.
+      type: object
+      required:
+      - regionId 
+      - networkId
+      - pools
+      properties:
+        regionId:
+          description: The region ID the cluster is running in.
+          type: string
+        networkId:
+          description: The network ID the cluster is running on.
+          type: string
+        pools:
+          $ref: '#/components/schemas/poolV2StatusList'
+    clusterV2Create:
+      description: A cluster creation request.
+      type: object
+      required:
+      - metadata
+      - spec
+      properties:
+        metadata:
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/schemas/resourceWriteMetadata'
+        spec:
+          $ref: '#/components/schemas/clusterV2CreateSpec'
+    clusterV2Update:
+      description: A cluster update request.
+      type: object
+      required:
+      - metadata
+      - spec
+      properties:
+        metadata:
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/schemas/resourceWriteMetadata'
+        spec:
+          $ref: '#/components/schemas/clusterV2Spec'
+    clusterV2Read:
+      description: A compute cluster.
+      type: object
+      required:
+      - metadata
+      - spec
+      - status
+      properties:
+        metadata:
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/schemas/projectScopedResourceReadMetadata'
+        spec:
+          $ref: '#/components/schemas/clusterV2Spec'
+        status:
+          $ref: '#/components/schemas/clusterV2Status'
+    clusterV2ReadList:
+      description: A list of compute clusters.
+      type: array
+      items:
+        $ref: '#/components/schemas/clusterV2Read'
   requestBodies:
     instanceCreateRequest:
       description: A compute instance creation request.
@@ -1171,6 +1403,41 @@ components:
                   enabled: true
                 allowedAddressPairs:
                   - cidr: 10.8.0.0/16
+    clusterV2CreateRequest:
+      description: A cluster creation request.
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/clusterV2Create'
+          example:
+            metadata:
+              name: my-cluster
+            spec:
+              organizationId: d4600d6e-e965-4b44-a808-84fb2fa36702
+              projectId: cae219d7-10e5-4601-8c2c-ee7e066b93ce
+              networkId: b059b3e6-9ae5-42b7-94b4-f42fb7a6baee
+              pools:
+              - name: pool-1
+                replicas: 1
+                flavorId: c7568e2d-f9ab-453d-9a3a-51375f78426b
+                imageId: a10e30e8-006a-48e6-a3c7-3c9416891f31
+    clusterV2UpdateRequest:
+      description: A cluster update request.
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/clusterV2Update'
+          example:
+            metadata:
+              name: my-cluster
+            spec:
+              pools:
+              - name: pool-1
+                replicas: 1
+                flavorId: c7568e2d-f9ab-453d-9a3a-51375f78426b
+                imageId: a10e30e8-006a-48e6-a3c7-3c9416891f31
     evictionRequest:
       description: A set of machines to evict from a cluster.
       required: true
@@ -1404,6 +1671,66 @@ components:
                   status: Running
                   provisioningStatus: provisioned
                   healthStatus: healthy
+    clusterV2Response:
+      description: A cluster response.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/clusterV2Read'
+          example:
+            metadata:
+              id: c7568e2d-f9ab-453d-9a3a-51375f78426b
+              name: my-cluster
+              organizationId: d4600d6e-e965-4b44-a808-84fb2fa36702
+              projectId: cae219d7-10e5-4601-8c2c-ee7e066b93ce
+              creationTime: 2023-07-31T10:45:45Z
+              provisioningStatus: provisioned
+              healthStatus: healthy
+            spec: 
+              pools:
+              - name: pool-1
+                replicas: 1
+                flavorId: c7568e2d-f9ab-453d-9a3a-51375f78426b
+                imageId: a10e30e8-006a-48e6-a3c7-3c9416891f31
+                networking:
+                  securityGroups:
+                  - da0d1761-5b83-4d1a-a4d1-47e65ecbeb85
+            status:
+              regionId: bb518c64-6856-4d67-a799-314ba668649f
+              networkId: b059b3e6-9ae5-42b7-94b4-f42fb7a6baee
+              pools:
+              - name: pool-1
+                replicas: 1
+    clusterV2ListResponse:
+      description: A cluster response.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/clusterV2ReadList'
+          example:
+          - metadata:
+              id: c7568e2d-f9ab-453d-9a3a-51375f78426b
+              name: my-cluster
+              organizationId: d4600d6e-e965-4b44-a808-84fb2fa36702
+              projectId: cae219d7-10e5-4601-8c2c-ee7e066b93ce
+              creationTime: 2023-07-31T10:45:45Z
+              provisioningStatus: provisioned
+              healthStatus: healthy
+            spec:
+              pools:
+              - name: pool-1
+                replicas: 1
+                flavorId: c7568e2d-f9ab-453d-9a3a-51375f78426b
+                imageId: a10e30e8-006a-48e6-a3c7-3c9416891f31
+                networking:
+                  securityGroups:
+                  - da0d1761-5b83-4d1a-a4d1-47e65ecbeb85
+            status:
+              regionId: bb518c64-6856-4d67-a799-314ba668649f
+              networkId: b059b3e6-9ae5-42b7-94b4-f42fb7a6baee
+              pools:
+              - name: pool-1
+                replicas: 1
   securitySchemes:
     oauth2Authentication:
       description: Operation requires OAuth 2.0 bearer token authentication.

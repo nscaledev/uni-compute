@@ -24,14 +24,19 @@ spec:
     message: Resource principal/unikorn-cloud.org/organization label is immutable
   - expression: "object.metadata.?labels[?'unikorn-cloud.org/project'].orValue('') != ''"
     message: Resource must contain a unikorn-cloud.org/project label
-  - expression: "object.metadata.?annotations[?'unikorn-cloud.org/identity-id'].orValue('') != ''"
-    message: Resource must contain a unikorn-cloud.org/identity-id annotations
+  - expression: "object.metadata.?labels[?'resource.unikorn-cloud.org/api-version'].orValue('') != '' || object.metadata.?annotations[?'unikorn-cloud.org/identity-id'].orValue('') != ''"
+    message: Resource (legacy) must contain a unikorn-cloud.org/identity-id annotations
   - expression: "oldObject == null || oldObject.metadata.?labels[?'principal.unikorn-cloud.org/project'].orValue('') ==  object.metadata.?labels[?'principal.unikorn-cloud.org/project'].orValue('')"
     message: Resource principal/unikorn-cloud.org/project label is immutable
-  - expression: "object.metadata.?labels[?'unikorn-cloud.org/network-id'].orValue('') != ''"
-    message: Resource must contain a unikorn-cloud.org/network-id label
-  - expression: "object.metadata.?annotations[?'unikorn-cloud.org/allocation-id'].orValue('') != ''"
-    message: Resource must contain a unikorn-cloud.org/allocation-id annotation
+  - expression: "object.metadata.?labels[?'resource.unikorn-cloud.org/api-version'].orValue('') != '' || object.metadata.?labels[?'unikorn-cloud.org/network-id'].orValue('') != ''"
+    message: Resource (legacy) must contain a unikorn-cloud.org/network-id label
+  - expression: "object.metadata.?labels[?'resource.unikorn-cloud.org/api-version'].orValue('') != '' || object.metadata.?annotations[?'unikorn-cloud.org/allocation-id'].orValue('') != ''"
+    message: Resource (legacy) must contain a unikorn-cloud.org/allocation-id annotation
+  - expression: "object.metadata.?labels[?'resource.unikorn-cloud.org/api-version'].orValue('') == '' || object.metadata.?labels[?'regions.unikorn-cloud.org/network-id'].orValue('') != ''"
+    message: Resource must contain a network ID label
+  - expression: "object.metadata.?labels[?'resource.unikorn-cloud.org/api-version'].orValue('') == '' ||
+object.metadata.?labels[?'regions.unikorn-cloud.org/region-id'].orValue('') != ''"
+    message: Resource must contain a region ID label
 ---
 apiVersion: admissionregistration.k8s.io/v1
 kind: ValidatingAdmissionPolicyBinding

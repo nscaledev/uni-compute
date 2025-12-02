@@ -28,6 +28,7 @@ import (
 	computev1 "github.com/unikorn-cloud/compute/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/compute/pkg/constants"
 	computeapi "github.com/unikorn-cloud/compute/pkg/openapi"
+	"github.com/unikorn-cloud/compute/pkg/server/handler/region"
 	"github.com/unikorn-cloud/compute/pkg/server/handler/util"
 	corev1 "github.com/unikorn-cloud/core/pkg/apis/unikorn/v1alpha1"
 	coreconstants "github.com/unikorn-cloud/core/pkg/constants"
@@ -51,8 +52,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type RegionAPIClientGetter func(context.Context) (regionapi.ClientWithResponsesInterface, error)
-
 type Client struct {
 	// client ia a Kubernetes client.
 	client client.Client
@@ -61,11 +60,11 @@ type Client struct {
 	// identity is a client to access the identity service.
 	identity identityclient.APIClientGetter
 	// region is a client to access regions.
-	region RegionAPIClientGetter
+	region region.ClientGetterFunc
 }
 
 // New creates a new client.
-func NewClient(client client.Client, namespace string, identity identityclient.APIClientGetter, region RegionAPIClientGetter) *Client {
+func NewClient(client client.Client, namespace string, identity identityclient.APIClientGetter, region region.ClientGetterFunc) *Client {
 	return &Client{
 		client:    client,
 		namespace: namespace,
@@ -89,7 +88,7 @@ func convertCreateToUpdateRequest(in *computeapi.InstanceCreate) (*computeapi.In
 	return out, nil
 }
 
-func convertNetworking(in *computev1.ComputeInstanceNetworking) *computeapi.InstanceNetworking {
+func ConvertNetworking(in *computev1.ComputeInstanceNetworking) *computeapi.InstanceNetworking {
 	if in == nil {
 		return nil
 	}
@@ -121,7 +120,7 @@ func convertNetworking(in *computev1.ComputeInstanceNetworking) *computeapi.Inst
 	return &out
 }
 
-func convertUserData(in []byte) *[]byte {
+func ConvertUserData(in []byte) *[]byte {
 	if in == nil {
 		return nil
 	}
@@ -154,8 +153,8 @@ func convert(in *computev1.ComputeInstance) *computeapi.InstanceRead {
 		Spec: computeapi.InstanceSpec{
 			FlavorId:   in.Spec.FlavorID,
 			ImageId:    in.Spec.ImageID,
-			Networking: convertNetworking(in.Spec.Networking),
-			UserData:   convertUserData(in.Spec.UserData),
+			Networking: ConvertNetworking(in.Spec.Networking),
+			UserData:   ConvertUserData(in.Spec.UserData),
 		},
 		Status: computeapi.InstanceStatus{
 			RegionId:   in.Labels[regionconstants.RegionLabel],
@@ -179,7 +178,7 @@ func convertList(in *computev1.ComputeInstanceList) []computeapi.InstanceRead {
 	return out
 }
 
-func generateNetworking(in *computeapi.InstanceNetworking) (*computev1.ComputeInstanceNetworking, error) {
+func GenerateNetworking(in *computeapi.InstanceNetworking) (*computev1.ComputeInstanceNetworking, error) {
 	if in == nil {
 		//nolint:nilnil
 		return nil, nil
@@ -222,7 +221,7 @@ func generateNetworking(in *computeapi.InstanceNetworking) (*computev1.ComputeIn
 	return &temp, nil
 }
 
-func generateUserdata(in *[]byte) []byte {
+func GenerateUserData(in *[]byte) []byte {
 	if in == nil || len(*in) == 0 {
 		return nil
 	}
@@ -231,7 +230,7 @@ func generateUserdata(in *[]byte) []byte {
 }
 
 func (c *Client) generate(ctx context.Context, in *computeapi.InstanceUpdate, organizationID, projectID, regionID, networkID string) (*computev1.ComputeInstance, error) {
-	networking, err := generateNetworking(in.Spec.Networking)
+	networking, err := GenerateNetworking(in.Spec.Networking)
 	if err != nil {
 		return nil, err
 	}
@@ -244,12 +243,13 @@ func (c *Client) generate(ctx context.Context, in *computeapi.InstanceUpdate, or
 			WithLabel(regionconstants.NetworkLabel, networkID).
 			Get(),
 		Spec: computev1.ComputeInstanceSpec{
+			Tags: conversion.GenerateTagList(in.Metadata.Tags),
 			MachineGeneric: corev1.MachineGeneric{
 				FlavorID: in.Spec.FlavorId,
 				ImageID:  in.Spec.ImageId,
 			},
 			Networking: networking,
-			UserData:   generateUserdata(in.Spec.UserData),
+			UserData:   GenerateUserData(in.Spec.UserData),
 		},
 	}
 
@@ -312,24 +312,63 @@ func (c *Client) List(ctx context.Context, params computeapi.GetApiV2InstancesPa
 	return convertList(result), nil
 }
 
-type createSaga struct {
-	client   *Client
-	resource *computev1.ComputeInstance
-}
-
-func newCreateSaga(client *Client, resource *computev1.ComputeInstance) *createSaga {
-	return &createSaga{
-		client:   client,
-		resource: resource,
+func (c *Client) generateAllocation(ctx context.Context, organizationID, regionID string, resource *computev1.ComputeInstance) (identityapi.ResourceAllocationList, error) {
+	flavors, err := region.New(c.region).Flavors(ctx, organizationID, regionID)
+	if err != nil {
+		return nil, err
 	}
-}
 
-func (s *createSaga) createAllocation(ctx context.Context) error {
+	matchFlavor := func(flavor regionapi.Flavor) bool {
+		return flavor.Metadata.Id == resource.Spec.FlavorID
+	}
+
+	index := slices.IndexFunc(flavors, matchFlavor)
+	if index < 0 {
+		return nil, errors.OAuth2InvalidRequest("requested flavor does not exist")
+	}
+
+	flavor := &flavors[index]
+
+	var gpus int
+
+	if flavor.Spec.Gpu != nil {
+		gpus = flavor.Spec.Gpu.PhysicalCount
+	}
+
 	required := identityapi.ResourceAllocationList{
 		{
 			Kind:      "servers",
 			Committed: 1,
 		},
+		{
+			Kind:      "gpus",
+			Committed: gpus,
+		},
+	}
+
+	return required, nil
+}
+
+type createSaga struct {
+	client         *Client
+	organizationID string
+	regionID       string
+	resource       *computev1.ComputeInstance
+}
+
+func newCreateSaga(client *Client, organizationID, regionID string, resource *computev1.ComputeInstance) *createSaga {
+	return &createSaga{
+		client:         client,
+		organizationID: organizationID,
+		regionID:       regionID,
+		resource:       resource,
+	}
+}
+
+func (s *createSaga) createAllocation(ctx context.Context) error {
+	required, err := s.client.generateAllocation(ctx, s.organizationID, s.regionID, s.resource)
+	if err != nil {
+		return err
 	}
 
 	return identityclient.NewAllocations(s.client.client, s.client.identity).Create(ctx, s.resource, required)
@@ -354,30 +393,6 @@ func (s *createSaga) Actions() []saga.Action {
 	}
 }
 
-func (c *Client) getNetwork(ctx context.Context, organizationID, projectID, networkID string) (*regionapi.NetworkV2Read, error) {
-	region, err := c.region(ctx)
-	if err != nil {
-		return nil, errors.OAuth2ServerError("failed to create region client").WithError(err)
-	}
-
-	response, err := region.GetApiV2NetworksNetworkIDWithResponse(ctx, networkID)
-	if err != nil {
-		return nil, errors.OAuth2InvalidRequest("unable to get network").WithError(err)
-	}
-
-	if response.StatusCode() != http.StatusOK {
-		return nil, errors.OAuth2InvalidRequest("unable to get network - wrong status code")
-	}
-
-	network := response.JSON200
-
-	if network.Metadata.OrganizationId != organizationID || network.Metadata.ProjectId != projectID {
-		return nil, errors.OAuth2InvalidRequest("instance network does not match requested organization/project")
-	}
-
-	return network, nil
-}
-
 func (c *Client) Create(ctx context.Context, request *computeapi.InstanceCreate) (*computeapi.InstanceRead, error) {
 	organizationID := request.Spec.OrganizationId
 	projectID := request.Spec.ProjectId
@@ -392,7 +407,7 @@ func (c *Client) Create(ctx context.Context, request *computeapi.InstanceCreate)
 	// would get the network impersonating the user principal and let the region service do
 	// the necessary ReBAC checks, but we cannot do that yet.  If we could do that we could
 	// infer the organization and project IDs too and not have to specify them in this API.
-	network, err := c.getNetwork(ctx, organizationID, projectID, request.Spec.NetworkId)
+	network, err := region.GetNetwork(ctx, c.region, organizationID, projectID, request.Spec.NetworkId)
 	if err != nil {
 		return nil, err
 	}
@@ -409,7 +424,7 @@ func (c *Client) Create(ctx context.Context, request *computeapi.InstanceCreate)
 		return nil, err
 	}
 
-	s := newCreateSaga(c, resource)
+	s := newCreateSaga(c, organizationID, regionID, resource)
 
 	if err := saga.Run(ctx, s); err != nil {
 		return nil, err
@@ -445,6 +460,57 @@ func (c *Client) Get(ctx context.Context, instanceID string) (*computeapi.Instan
 	return convert(result), nil
 }
 
+type updateSaga struct {
+	client         *Client
+	organizationID string
+	regionID       string
+	current        *computev1.ComputeInstance
+	updated        *computev1.ComputeInstance
+}
+
+func newUpdateSaga(client *Client, organizationID, regionID string, current, updated *computev1.ComputeInstance) *updateSaga {
+	return &updateSaga{
+		client:         client,
+		organizationID: organizationID,
+		regionID:       regionID,
+		current:        current,
+		updated:        updated,
+	}
+}
+
+func (s *updateSaga) updateAllocation(ctx context.Context) error {
+	required, err := s.client.generateAllocation(ctx, s.organizationID, s.regionID, s.updated)
+	if err != nil {
+		return err
+	}
+
+	return identityclient.NewAllocations(s.client.client, s.client.identity).Update(ctx, s.current, required)
+}
+
+func (s *updateSaga) revertAllocation(ctx context.Context) error {
+	required, err := s.client.generateAllocation(ctx, s.organizationID, s.regionID, s.current)
+	if err != nil {
+		return err
+	}
+
+	return identityclient.NewAllocations(s.client.client, s.client.identity).Update(ctx, s.current, required)
+}
+
+func (s *updateSaga) updateInstance(ctx context.Context) error {
+	if err := s.client.client.Patch(ctx, s.updated, client.MergeFrom(s.current)); err != nil {
+		return errors.OAuth2ServerError("unable to update instance").WithError(err)
+	}
+
+	return nil
+}
+
+func (s *updateSaga) Actions() []saga.Action {
+	return []saga.Action{
+		saga.NewAction("update quota allocation", s.updateAllocation, s.revertAllocation),
+		saga.NewAction("update instance", s.updateInstance, nil),
+	}
+}
+
 func (c *Client) Update(ctx context.Context, instanceID string, request *computeapi.InstanceUpdate) (*computeapi.InstanceRead, error) {
 	current, err := c.GetRaw(ctx, instanceID)
 	if err != nil {
@@ -469,16 +535,23 @@ func (c *Client) Update(ctx context.Context, instanceID string, request *compute
 		return nil, err
 	}
 
+	// Preserve allocation information.
+	// TODO: this is smell code, perhaps we want to rejig the interface to accept both
+	// current and updated resources, and that can transparently do the preservation.
+	required.Annotations[coreconstants.AllocationAnnotation] = current.Annotations[coreconstants.AllocationAnnotation]
+
 	updated := current.DeepCopy()
 	updated.Labels = required.Labels
 	updated.Annotations = required.Annotations
 	updated.Spec = required.Spec
 
-	if err := c.client.Patch(ctx, updated, client.MergeFrom(current)); err != nil {
-		return nil, errors.OAuth2ServerError("unable to update instance").WithError(err)
+	s := newUpdateSaga(c, organizationID, regionID, current, updated)
+
+	if err := saga.Run(ctx, s); err != nil {
+		return nil, err
 	}
 
-	return convert(updated), nil
+	return convert(s.updated), nil
 }
 
 func (c *Client) Delete(ctx context.Context, instanceID string) error {
