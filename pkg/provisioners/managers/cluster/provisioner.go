@@ -105,12 +105,9 @@ func (p *Provisioner) identityClient(ctx context.Context) (identityapi.ClientWit
 		return nil, err
 	}
 
-	token, err := identityclient.NewTokenIssuer(client, p.options.identityOptions, &p.options.clientOptions, constants.ServiceDescriptor()).Issue(ctx)
-	if err != nil {
-		return nil, err
-	}
+	issuer := identityclient.NewTokenIssuer(client, p.options.identityOptions, &p.options.clientOptions, constants.ServiceDescriptor())
 
-	return identityclient.New(client, p.options.identityOptions, &p.options.clientOptions).ControllerClient(ctx, token, &p.cluster)
+	return identityclient.New(client, p.options.identityOptions, &p.options.clientOptions).ControllerClient(ctx, issuer, &p.cluster)
 }
 
 // openstackIdentityStatus are acquired from the region controller at
@@ -251,7 +248,12 @@ func (p *Provisioner) Deprovision(ctx context.Context) error {
 		return err
 	}
 
-	if err := identityclient.NewAllocations(cli, p.identityClient).Delete(ctx, &p.cluster); err != nil {
+	api, err := p.identityClient(ctx)
+	if err != nil {
+		return err
+	}
+
+	if err := identityclient.NewAllocations(cli, api).Delete(ctx, &p.cluster); err != nil {
 		return err
 	}
 
