@@ -30,13 +30,10 @@ var _ = Describe("Discovery and Metadata", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(regions).NotTo(BeEmpty())
 				for _, region := range regions {
-					Expect(region).To(HaveKey("metadata"))
-					Expect(region).To(HaveKey("spec"))
-					metadata := region["metadata"].(map[string]interface{}) //nolint:forcetypeassert // safe: API response structure
-					Expect(metadata).To(HaveKey("id"))
-					Expect(metadata).To(HaveKey("name"))
-					Expect(metadata["id"]).NotTo(BeEmpty())
-					Expect(metadata["name"]).NotTo(BeEmpty())
+					Expect(region.Metadata).NotTo(BeNil())
+					Expect(region.Spec).NotTo(BeNil())
+					Expect(region.Metadata.Id).NotTo(BeEmpty())
+					Expect(region.Metadata.Name).NotTo(BeEmpty())
 				}
 				GinkgoWriter.Printf("Found %d regions\n", len(regions))
 			})
@@ -58,13 +55,10 @@ var _ = Describe("Discovery and Metadata", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(flavors).NotTo(BeEmpty())
 				for _, flavor := range flavors {
-					Expect(flavor).To(HaveKey("metadata"))
-					Expect(flavor).To(HaveKey("spec"))
-					metadata := flavor["metadata"].(map[string]interface{}) //nolint:forcetypeassert // safe: API response structure
-					Expect(metadata).To(HaveKey("id"))
-					Expect(metadata).To(HaveKey("name"))
-					Expect(metadata["id"]).NotTo(BeEmpty())
-					Expect(metadata["name"]).NotTo(BeEmpty())
+					Expect(flavor.Metadata).NotTo(BeNil())
+					Expect(flavor.Spec).NotTo(BeNil())
+					Expect(flavor.Metadata.Id).NotTo(BeEmpty())
+					Expect(flavor.Metadata.Name).NotTo(BeEmpty())
 				}
 				GinkgoWriter.Printf("Found %d flavors\n", len(flavors))
 			})
@@ -74,18 +68,13 @@ var _ = Describe("Discovery and Metadata", func() {
 				Expect(err).NotTo(HaveOccurred())
 				Expect(images).NotTo(BeEmpty())
 				for _, image := range images {
-					Expect(image).To(HaveKey("metadata"))
-					Expect(image).To(HaveKey("spec"))
-					metadata := image["metadata"].(map[string]interface{}) //nolint:forcetypeassert // safe: API response structure
-					spec := image["spec"].(map[string]interface{})         //nolint:forcetypeassert // safe: API response structure
-					Expect(metadata).To(HaveKey("id"))
-					Expect(metadata).To(HaveKey("name"))
-					Expect(metadata["id"]).NotTo(BeEmpty())
-					Expect(metadata["name"]).NotTo(BeEmpty())
-					Expect(spec).To(HaveKey("os"))
-					os := spec["os"].(map[string]interface{}) //nolint:forcetypeassert // safe: API response structure
-					Expect(os).To(HaveKey("distro"))
-					Expect(os).To(HaveKey("version"))
+					Expect(image.Metadata).NotTo(BeNil())
+					Expect(image.Spec).NotTo(BeNil())
+					Expect(image.Metadata.Id).NotTo(BeEmpty())
+					Expect(image.Metadata.Name).NotTo(BeEmpty())
+					Expect(image.Spec.Os).NotTo(BeNil())
+					Expect(image.Spec.Os.Distro).NotTo(BeEmpty())
+					Expect(image.Spec.Os.Version).NotTo(BeEmpty())
 				}
 				GinkgoWriter.Printf("Found %d images\n", len(images))
 			})
