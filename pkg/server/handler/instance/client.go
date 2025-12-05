@@ -58,13 +58,13 @@ type Client struct {
 	// namespace we are running in.
 	namespace string
 	// identity is a client to access the identity service.
-	identity identityclient.APIClientGetter
+	identity identityapi.ClientWithResponsesInterface
 	// region is a client to access regions.
-	region region.ClientGetterFunc
+	region regionapi.ClientWithResponsesInterface
 }
 
 // New creates a new client.
-func NewClient(client client.Client, namespace string, identity identityclient.APIClientGetter, region region.ClientGetterFunc) *Client {
+func NewClient(client client.Client, namespace string, identity identityapi.ClientWithResponsesInterface, region regionapi.ClientWithResponsesInterface) *Client {
 	return &Client{
 		client:    client,
 		namespace: namespace,
@@ -135,13 +135,13 @@ func convertPowerState(in *regionv1.InstanceLifecyclePhase) *regionapi.InstanceL
 
 	switch *in {
 	case regionv1.InstanceLifecyclePhasePending:
-		return ptr.To(regionapi.Pending)
+		return ptr.To(regionapi.InstanceLifecyclePhasePending)
 	case regionv1.InstanceLifecyclePhaseRunning:
-		return ptr.To(regionapi.Running)
+		return ptr.To(regionapi.InstanceLifecyclePhaseRunning)
 	case regionv1.InstanceLifecyclePhaseStopping:
-		return ptr.To(regionapi.Stopping)
+		return ptr.To(regionapi.InstanceLifecyclePhaseStopping)
 	case regionv1.InstanceLifecyclePhaseStopped:
-		return ptr.To(regionapi.Stopped)
+		return ptr.To(regionapi.InstanceLifecyclePhaseStopped)
 	}
 
 	return nil
@@ -579,7 +579,7 @@ func (c *Client) Delete(ctx context.Context, instanceID string) error {
 	return nil
 }
 
-func (c *Client) serverID(ctx context.Context, region regionapi.ClientWithResponsesInterface, instance *computev1.ComputeInstance) (string, error) {
+func (c *Client) serverID(ctx context.Context, instance *computev1.ComputeInstance) (string, error) {
 	// Constrain the search domain.
 	params := &regionapi.GetApiV2ServersParams{
 		OrganizationID: &computeapi.OrganizationIDQueryParameter{
@@ -599,7 +599,7 @@ func (c *Client) serverID(ctx context.Context, region regionapi.ClientWithRespon
 		},
 	}
 
-	response, err := region.GetApiV2ServersWithResponse(ctx, params)
+	response, err := c.region.GetApiV2ServersWithResponse(ctx, params)
 	if err != nil {
 		return "", errors.OAuth2ServerError("unable to query servers for instance").WithError(err)
 	}
@@ -623,17 +623,12 @@ func (c *Client) SSHKey(ctx context.Context, instanceID string) (*regionapi.SshK
 		return nil, err
 	}
 
-	region, err := c.region(ctx)
+	serverID, err := c.serverID(ctx, resource)
 	if err != nil {
 		return nil, err
 	}
 
-	serverID, err := c.serverID(ctx, region, resource)
-	if err != nil {
-		return nil, err
-	}
-
-	response, err := region.GetApiV2ServersServerIDSshkeyWithResponse(ctx, serverID)
+	response, err := c.region.GetApiV2ServersServerIDSshkeyWithResponse(ctx, serverID)
 	if err != nil {
 		return nil, errors.OAuth2ServerError("unable to fetch SSH key for instance").WithError(err)
 	}
@@ -651,17 +646,12 @@ func (c *Client) Start(ctx context.Context, instanceID string) error {
 		return err
 	}
 
-	region, err := c.region(ctx)
+	serverID, err := c.serverID(ctx, resource)
 	if err != nil {
 		return err
 	}
 
-	serverID, err := c.serverID(ctx, region, resource)
-	if err != nil {
-		return err
-	}
-
-	response, err := region.PostApiV2ServersServerIDStartWithResponse(ctx, serverID)
+	response, err := c.region.PostApiV2ServersServerIDStartWithResponse(ctx, serverID)
 	if err != nil {
 		return errors.OAuth2ServerError("unable to start server for instance").WithError(err)
 	}
@@ -679,17 +669,12 @@ func (c *Client) Stop(ctx context.Context, instanceID string) error {
 		return err
 	}
 
-	region, err := c.region(ctx)
+	serverID, err := c.serverID(ctx, resource)
 	if err != nil {
 		return err
 	}
 
-	serverID, err := c.serverID(ctx, region, resource)
-	if err != nil {
-		return err
-	}
-
-	response, err := region.PostApiV2ServersServerIDStopWithResponse(ctx, serverID)
+	response, err := c.region.PostApiV2ServersServerIDStopWithResponse(ctx, serverID)
 	if err != nil {
 		return errors.OAuth2ServerError("unable to stop server for instance").WithError(err)
 	}
@@ -707,19 +692,14 @@ func (c *Client) Reboot(ctx context.Context, instanceID string, params computeap
 		return err
 	}
 
-	region, err := c.region(ctx)
-	if err != nil {
-		return err
-	}
-
-	serverID, err := c.serverID(ctx, region, resource)
+	serverID, err := c.serverID(ctx, resource)
 	if err != nil {
 		return err
 	}
 
 	// TODO: we should just pass this through...
 	if params.Hard != nil && *params.Hard {
-		response, err := region.PostApiV2ServersServerIDHardrebootWithResponse(ctx, serverID)
+		response, err := c.region.PostApiV2ServersServerIDHardrebootWithResponse(ctx, serverID)
 		if err != nil {
 			return errors.OAuth2ServerError("unable to reboot server for instance").WithError(err)
 		}
@@ -731,7 +711,7 @@ func (c *Client) Reboot(ctx context.Context, instanceID string, params computeap
 		return nil
 	}
 
-	response, err := region.PostApiV2ServersServerIDSoftrebootWithResponse(ctx, serverID)
+	response, err := c.region.PostApiV2ServersServerIDSoftrebootWithResponse(ctx, serverID)
 	if err != nil {
 		return errors.OAuth2ServerError("unable to reboot server for instance").WithError(err)
 	}
@@ -749,12 +729,7 @@ func (c *Client) ConsoleOutput(ctx context.Context, instanceID string, params co
 		return nil, err
 	}
 
-	region, err := c.region(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	serverID, err := c.serverID(ctx, region, resource)
+	serverID, err := c.serverID(ctx, resource)
 	if err != nil {
 		return nil, err
 	}
@@ -767,7 +742,7 @@ func (c *Client) ConsoleOutput(ctx context.Context, instanceID string, params co
 		}
 	}
 
-	response, err := region.GetApiV2ServersServerIDConsoleoutputWithResponse(ctx, serverID, requestParams)
+	response, err := c.region.GetApiV2ServersServerIDConsoleoutputWithResponse(ctx, serverID, requestParams)
 	if err != nil {
 		return nil, errors.OAuth2ServerError("unable to get console output for instance").WithError(err)
 	}
@@ -785,17 +760,12 @@ func (c *Client) ConsoleSession(ctx context.Context, instanceID string) (*region
 		return nil, err
 	}
 
-	region, err := c.region(ctx)
+	serverID, err := c.serverID(ctx, resource)
 	if err != nil {
 		return nil, err
 	}
 
-	serverID, err := c.serverID(ctx, region, resource)
-	if err != nil {
-		return nil, err
-	}
-
-	response, err := region.GetApiV2ServersServerIDConsolesessionsWithResponse(ctx, serverID)
+	response, err := c.region.GetApiV2ServersServerIDConsolesessionsWithResponse(ctx, serverID)
 	if err != nil {
 		return nil, errors.OAuth2ServerError("unable to start console session for instance").WithError(err)
 	}

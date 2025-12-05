@@ -78,14 +78,14 @@ type Client struct {
 	options *Options
 
 	// identity is a client to access the identity service.
-	identity identityclient.APIClientGetter
+	identity identityapi.ClientWithResponsesInterface
 
 	// region is a client to access regions.
-	region region.ClientGetterFunc
+	region regionapi.ClientWithResponsesInterface
 }
 
 // NewClient returns a new client with required parameters.
-func NewClient(client client.Client, namespace string, options *Options, identity identityclient.APIClientGetter, region region.ClientGetterFunc) *Client {
+func NewClient(client client.Client, namespace string, options *Options, identity identityapi.ClientWithResponsesInterface, region regionapi.ClientWithResponsesInterface) *Client {
 	return &Client{
 		client:    client,
 		namespace: namespace,
@@ -240,12 +240,7 @@ func (c *Client) createIdentity(ctx context.Context, organizationID, projectID, 
 		},
 	}
 
-	client, err := region.New(c.region).Client(ctx)
-	if err != nil {
-		return nil, errors.OAuth2ServerError("unable to create region client").WithError(err)
-	}
-
-	resp, err := client.PostApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesWithResponse(ctx, organizationID, projectID, request)
+	resp, err := c.region.PostApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesWithResponse(ctx, organizationID, projectID, request)
 	if err != nil {
 		return nil, errors.OAuth2ServerError("unable to create identity").WithError(err)
 	}
@@ -283,12 +278,7 @@ func (c *Client) createNetworkOpenstack(ctx context.Context, organizationID, pro
 		},
 	}
 
-	client, err := region.New(c.region).Client(ctx)
-	if err != nil {
-		return nil, errors.OAuth2ServerError("unable to create region client").WithError(err)
-	}
-
-	resp, err := client.PostApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDNetworksWithResponse(ctx, organizationID, projectID, identity.Metadata.Id, request)
+	resp, err := c.region.PostApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDNetworksWithResponse(ctx, organizationID, projectID, identity.Metadata.Id, request)
 	if err != nil {
 		return nil, errors.OAuth2ServerError("unable to create network").WithError(err)
 	}

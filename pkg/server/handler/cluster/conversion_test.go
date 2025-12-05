@@ -57,9 +57,9 @@ func images() []regionapi.Image {
 			},
 			Spec: regionapi.ImageSpec{
 				Os: regionapi.ImageOS{
-					Kernel:  regionapi.Linux,
-					Family:  regionapi.Redhat,
-					Distro:  regionapi.Rocky,
+					Kernel:  regionapi.OsKernelLinux,
+					Family:  regionapi.OsFamilyRedhat,
+					Distro:  regionapi.OsDistroRocky,
 					Version: "8",
 				},
 			},
@@ -71,9 +71,9 @@ func images() []regionapi.Image {
 			},
 			Spec: regionapi.ImageSpec{
 				Os: regionapi.ImageOS{
-					Kernel:  regionapi.Linux,
-					Family:  regionapi.Debian,
-					Distro:  regionapi.Ubuntu,
+					Kernel:  regionapi.OsKernelLinux,
+					Family:  regionapi.OsFamilyDebian,
+					Distro:  regionapi.OsDistroUbuntu,
 					Version: "24.04",
 				},
 			},
@@ -85,9 +85,9 @@ func images() []regionapi.Image {
 			},
 			Spec: regionapi.ImageSpec{
 				Os: regionapi.ImageOS{
-					Kernel:  regionapi.Linux,
-					Family:  regionapi.Debian,
-					Distro:  regionapi.Ubuntu,
+					Kernel:  regionapi.OsKernelLinux,
+					Family:  regionapi.OsFamilyDebian,
+					Distro:  regionapi.OsDistroUbuntu,
 					Version: "24.04",
 				},
 			},
@@ -168,7 +168,7 @@ func TestImageSelectionByMetadata(t *testing.T) {
 		Machine: computeapi.MachinePool{
 			Image: computeapi.ComputeImage{
 				Selector: &computeapi.ImageSelector{
-					Distro:  regionapi.Ubuntu,
+					Distro:  regionapi.OsDistroUbuntu,
 					Version: "24.04",
 				},
 			},
@@ -186,7 +186,7 @@ func TestImageSelectionByMetadata(t *testing.T) {
 		Machine: computeapi.MachinePool{
 			Image: computeapi.ComputeImage{
 				Selector: &computeapi.ImageSelector{
-					Distro:  regionapi.Rocky,
+					Distro:  regionapi.OsDistroRocky,
 					Version: "8",
 				},
 			},
@@ -204,7 +204,7 @@ func TestImageSelectionByMetadata(t *testing.T) {
 		Machine: computeapi.MachinePool{
 			Image: computeapi.ComputeImage{
 				Selector: &computeapi.ImageSelector{
-					Distro:  regionapi.Ubuntu,
+					Distro:  regionapi.OsDistroUbuntu,
 					Version: "12.04",
 				},
 			},
@@ -251,7 +251,7 @@ func TestImageSelectionPreservation(t *testing.T) {
 		Machine: computeapi.MachinePool{
 			Image: computeapi.ComputeImage{
 				Selector: &computeapi.ImageSelector{
-					Distro:  regionapi.Ubuntu,
+					Distro:  regionapi.OsDistroUbuntu,
 					Version: "24.04",
 				},
 			},
@@ -270,7 +270,7 @@ func TestImageSelectionPreservation(t *testing.T) {
 		Machine: computeapi.MachinePool{
 			Image: computeapi.ComputeImage{
 				Selector: &computeapi.ImageSelector{
-					Distro:  regionapi.Rocky,
+					Distro:  regionapi.OsDistroRocky,
 					Version: "8",
 				},
 			},
