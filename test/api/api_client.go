@@ -131,7 +131,7 @@ func (c *APIClient) ListRegions(ctx context.Context, orgID string) (regionopenap
 		AllowNotFound:  true,
 	}
 
-	return coreclient.ListResource[regionopenapi.Regions](ctx, c.APIClient, path, config)
+	return coreclient.ListResource[regionopenapi.RegionRead](ctx, c.APIClient, path, config)
 }
 
 func (c *APIClient) ListFlavors(ctx context.Context, orgID, regionID string) (regionopenapi.Flavors, error) {
@@ -144,7 +144,7 @@ func (c *APIClient) ListFlavors(ctx context.Context, orgID, regionID string) (re
 		AllowNotFound:  true,
 	}
 
-	return coreclient.ListResource[regionopenapi.Flavors](ctx, c.APIClient, path, config)
+	return coreclient.ListResource[regionopenapi.Flavor](ctx, c.APIClient, path, config)
 }
 
 func (c *APIClient) ListImages(ctx context.Context, orgID, regionID string) (regionopenapi.Images, error) {
@@ -157,7 +157,7 @@ func (c *APIClient) ListImages(ctx context.Context, orgID, regionID string) (reg
 		AllowNotFound:  true,
 	}
 
-	return coreclient.ListResource[regionopenapi.Images](ctx, c.APIClient, path, config)
+	return coreclient.ListResource[regionopenapi.Image](ctx, c.APIClient, path, config)
 }
 
 // CreateCluster creates a new compute cluster.
