@@ -21,7 +21,6 @@ import (
 	goerrors "errors"
 	"fmt"
 	"net"
-	"net/http"
 	"slices"
 
 	unikornv1 "github.com/unikorn-cloud/compute/pkg/apis/unikorn/v1alpha1"
@@ -31,7 +30,6 @@ import (
 	coreapi "github.com/unikorn-cloud/core/pkg/openapi"
 	"github.com/unikorn-cloud/core/pkg/server/conversion"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
-	coreapiutils "github.com/unikorn-cloud/core/pkg/util/api"
 	"github.com/unikorn-cloud/identity/pkg/handler/common"
 	unikornv1region "github.com/unikorn-cloud/region/pkg/apis/unikorn/v1alpha1"
 	regionapi "github.com/unikorn-cloud/region/pkg/openapi"
@@ -222,14 +220,14 @@ func convertMachineStatusStatus(in unikornv1region.InstanceLifecyclePhase) regio
 	//nolint:exhaustive
 	switch in {
 	case unikornv1region.InstanceLifecyclePhaseRunning:
-		return regionapi.Running
+		return regionapi.InstanceLifecyclePhaseRunning
 	case unikornv1region.InstanceLifecyclePhaseStopping:
-		return regionapi.Stopping
+		return regionapi.InstanceLifecyclePhaseStopping
 	case unikornv1region.InstanceLifecyclePhaseStopped:
-		return regionapi.Stopped
+		return regionapi.InstanceLifecyclePhaseStopped
 	default:
 		// REVIEW_ME: Should we introduce an `Unknown` status or leave it as `Pending`?
-		return regionapi.Pending
+		return regionapi.InstanceLifecyclePhasePending
 	}
 }
 
@@ -634,21 +632,10 @@ func generateFirewallRules(in *openapi.FirewallRules) ([]unikornv1.FirewallRule,
 // lookupFlavor resolves the flavor from its name.
 // NOTE: It looks like garbage performance, but the provider should be memoized...
 func (g *generator) lookupFlavor(ctx context.Context, request *openapi.ComputeClusterWrite, id string) (*regionapi.Flavor, error) {
-	client, err := g.region.Client(ctx)
+	flavors, err := g.region.Flavors(ctx, g.organizationID, request.Spec.RegionId)
 	if err != nil {
 		return nil, err
 	}
-
-	resp, err := client.GetApiV1OrganizationsOrganizationIDRegionsRegionIDFlavorsWithResponse(ctx, g.organizationID, request.Spec.RegionId)
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.StatusCode() != http.StatusOK {
-		return nil, coreapiutils.ExtractError(resp.StatusCode(), resp)
-	}
-
-	flavors := *resp.JSON200
 
 	index := slices.IndexFunc(flavors, func(flavor regionapi.Flavor) bool {
 		return flavor.Metadata.Id == id

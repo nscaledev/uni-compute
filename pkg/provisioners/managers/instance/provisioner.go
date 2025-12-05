@@ -101,12 +101,9 @@ func (p *Provisioner) identityClient(ctx context.Context) (identityapi.ClientWit
 		return nil, err
 	}
 
-	token, err := identityclient.NewTokenIssuer(client, p.options.identityOptions, &p.options.clientOptions, constants.ServiceDescriptor()).Issue(ctx)
-	if err != nil {
-		return nil, err
-	}
+	issuer := identityclient.NewTokenIssuer(client, p.options.identityOptions, &p.options.clientOptions, constants.ServiceDescriptor())
 
-	return identityclient.New(client, p.options.identityOptions, &p.options.clientOptions).ControllerClient(ctx, token, &p.instance)
+	return identityclient.New(client, p.options.identityOptions, &p.options.clientOptions).ControllerClient(ctx, issuer, &p.instance)
 }
 
 func (p *Provisioner) generateServerNetworking() *regionapi.ServerV2Networking {
@@ -237,11 +234,11 @@ func convertPowerState(in *regionapi.InstanceLifecyclePhase) *regionv1.InstanceL
 
 	//nolint:exhaustive
 	switch *in {
-	case regionapi.Running:
+	case regionapi.InstanceLifecyclePhaseRunning:
 		return ptr.To(regionv1.InstanceLifecyclePhaseRunning)
-	case regionapi.Stopping:
+	case regionapi.InstanceLifecyclePhaseStopping:
 		return ptr.To(regionv1.InstanceLifecyclePhaseStopping)
-	case regionapi.Stopped:
+	case regionapi.InstanceLifecyclePhaseStopped:
 		return ptr.To(regionv1.InstanceLifecyclePhaseStopped)
 	default:
 		return ptr.To(regionv1.InstanceLifecyclePhasePending)
@@ -304,7 +301,12 @@ func (p *Provisioner) Deprovision(ctx context.Context) error {
 		return err
 	}
 
-	if err := identityclient.NewAllocations(cli, p.identityClient).Delete(ctx, &p.instance); err != nil {
+	api, err := p.identityClient(ctx)
+	if err != nil {
+		return err
+	}
+
+	if err := identityclient.NewAllocations(cli, api).Delete(ctx, &p.instance); err != nil {
 		return err
 	}
 
