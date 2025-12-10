@@ -12,9 +12,9 @@ require (
 	github.com/spf13/viper v1.21.0
 	github.com/spjmurray/go-util v0.1.3
 	github.com/stretchr/testify v1.11.1
-	github.com/unikorn-cloud/core v1.11.1-0.20251209154055-f40c79722347
-	github.com/unikorn-cloud/identity v1.11.1-0.20251210103822-d8584c983def
-	github.com/unikorn-cloud/region v1.11.1-0.20251210123010-db49a7980f9c
+	github.com/unikorn-cloud/core v1.12.0-rc1
+	github.com/unikorn-cloud/identity v1.12.0-rc1
+	github.com/unikorn-cloud/region v1.12.0-rc1
 	go.opentelemetry.io/otel/sdk v1.35.0
 	go.uber.org/mock v0.5.2
 	k8s.io/api v0.33.1
