@@ -18,7 +18,6 @@ limitations under the License.
 package handler
 
 import (
-	"context"
 	"net/http"
 	"slices"
 
@@ -27,10 +26,8 @@ import (
 	"github.com/unikorn-cloud/compute/pkg/server/handler/region"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
 	"github.com/unikorn-cloud/core/pkg/server/util"
-	identityclient "github.com/unikorn-cloud/identity/pkg/client"
 	identityapi "github.com/unikorn-cloud/identity/pkg/openapi"
 	"github.com/unikorn-cloud/identity/pkg/rbac"
-	regionclient "github.com/unikorn-cloud/region/pkg/client"
 	regionapi "github.com/unikorn-cloud/region/pkg/openapi"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -46,59 +43,23 @@ type Handler struct {
 	// options allows behaviour to be defined on the CLI.
 	options *Options
 
-	// issuer provides privilge escallation for the API so the end user doesn't
-	// have to be granted unnecessary privilige.
-	issuer *identityclient.TokenIssuer
-
 	// identity is a client to access the identity service.
-	identity *identityclient.Client
+	identity identityapi.ClientWithResponsesInterface
 
 	// region is a client to access regions.
-	region *regionclient.Client
+	region regionapi.ClientWithResponsesInterface
 }
 
-func New(client client.Client, namespace string, options *Options, issuer *identityclient.TokenIssuer, identity *identityclient.Client, region *regionclient.Client) (*Handler, error) {
+func New(client client.Client, namespace string, options *Options, identity identityapi.ClientWithResponsesInterface, region regionapi.ClientWithResponsesInterface) (*Handler, error) {
 	h := &Handler{
 		client:    client,
 		namespace: namespace,
 		options:   options,
-		issuer:    issuer,
 		identity:  identity,
 		region:    region,
 	}
 
 	return h, nil
-}
-
-// getIdentityAPIClient gets a client to talk to the identity service, this must not
-// be cached as the token is only short lived.  Said problem goes away when we use
-// SPIFFE as a workload identity layer.
-func (h *Handler) getIdentityAPIClient(ctx context.Context) (identityapi.ClientWithResponsesInterface, error) {
-	token, err := h.issuer.Issue(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	client, err := h.identity.APIClient(ctx, token)
-	if err != nil {
-		return nil, err
-	}
-
-	return client, nil
-}
-
-func (h *Handler) getRegionAPIClient(ctx context.Context) (regionapi.ClientWithResponsesInterface, error) {
-	token, err := h.issuer.Issue(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	client, err := h.region.APIClient(ctx, token)
-	if err != nil {
-		return nil, err
-	}
-
-	return client, nil
 }
 
 /*
@@ -113,7 +74,7 @@ func (h *Handler) setUncacheable(w http.ResponseWriter) {
 }
 
 func (h *Handler) regionClient() *region.Client {
-	return region.New(h.getRegionAPIClient)
+	return region.New(h.region)
 }
 
 func (h *Handler) GetApiV1OrganizationsOrganizationIDRegions(w http.ResponseWriter, r *http.Request, organizationID openapi.OrganizationIDParameter) {
@@ -168,7 +129,7 @@ func (h *Handler) GetApiV1OrganizationsOrganizationIDRegionsRegionIDImages(w htt
 }
 
 func (h *Handler) clusterClient() *cluster.Client {
-	return cluster.NewClient(h.client, h.namespace, &h.options.Cluster, h.getIdentityAPIClient, h.getRegionAPIClient)
+	return cluster.NewClient(h.client, h.namespace, &h.options.Cluster, h.identity, h.region)
 }
 
 func (h *Handler) GetApiV1OrganizationsOrganizationIDClusters(w http.ResponseWriter, r *http.Request, organizationID openapi.OrganizationIDParameter, params openapi.GetApiV1OrganizationsOrganizationIDClustersParams) {
