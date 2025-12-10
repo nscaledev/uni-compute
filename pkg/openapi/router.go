@@ -50,13 +50,13 @@ type ServerInterface interface {
 
 	// (POST /api/v1/organizations/{organizationID}/projects/{projectID}/clusters/{clusterID}/machines/{machineID}/stop)
 	PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDStop(w http.ResponseWriter, r *http.Request, organizationID OrganizationIDParameter, projectID ProjectIDParameter, clusterID ClusterIDParameter, machineID MachineIDParameter)
-
+	// List regions
 	// (GET /api/v1/organizations/{organizationID}/regions)
 	GetApiV1OrganizationsOrganizationIDRegions(w http.ResponseWriter, r *http.Request, organizationID OrganizationIDParameter)
-
+	// List flavors
 	// (GET /api/v1/organizations/{organizationID}/regions/{regionID}/flavors)
 	GetApiV1OrganizationsOrganizationIDRegionsRegionIDFlavors(w http.ResponseWriter, r *http.Request, organizationID OrganizationIDParameter, regionID RegionIDParameter)
-
+	// List images
 	// (GET /api/v1/organizations/{organizationID}/regions/{regionID}/images)
 	GetApiV1OrganizationsOrganizationIDRegionsRegionIDImages(w http.ResponseWriter, r *http.Request, organizationID OrganizationIDParameter, regionID RegionIDParameter)
 
@@ -74,37 +74,37 @@ type ServerInterface interface {
 
 	// (PUT /api/v2/clusters/{clusterID})
 	PutApiV2ClustersClusterID(w http.ResponseWriter, r *http.Request, clusterID ClusterIDParameter)
-
+	// List instances
 	// (GET /api/v2/instances)
 	GetApiV2Instances(w http.ResponseWriter, r *http.Request, params GetApiV2InstancesParams)
-
+	// Create instance
 	// (POST /api/v2/instances)
 	PostApiV2Instances(w http.ResponseWriter, r *http.Request)
-
+	// Delete instance
 	// (DELETE /api/v2/instances/{instanceID})
 	DeleteApiV2InstancesInstanceID(w http.ResponseWriter, r *http.Request, instanceID InstanceIDParameter)
-
+	// Get instance
 	// (GET /api/v2/instances/{instanceID})
 	GetApiV2InstancesInstanceID(w http.ResponseWriter, r *http.Request, instanceID InstanceIDParameter)
-
+	// Update instance
 	// (PUT /api/v2/instances/{instanceID})
 	PutApiV2InstancesInstanceID(w http.ResponseWriter, r *http.Request, instanceID InstanceIDParameter)
-
+	// Get instance console output
 	// (GET /api/v2/instances/{instanceID}/consoleoutput)
 	GetApiV2InstancesInstanceIDConsoleoutput(w http.ResponseWriter, r *http.Request, instanceID InstanceIDParameter, params GetApiV2InstancesInstanceIDConsoleoutputParams)
-
+	// Get instance console VNC
 	// (GET /api/v2/instances/{instanceID}/consolesession)
 	GetApiV2InstancesInstanceIDConsolesession(w http.ResponseWriter, r *http.Request, instanceID InstanceIDParameter)
-
+	// Reboot instance
 	// (POST /api/v2/instances/{instanceID}/reboot)
 	PostApiV2InstancesInstanceIDReboot(w http.ResponseWriter, r *http.Request, instanceID InstanceIDParameter, params PostApiV2InstancesInstanceIDRebootParams)
-
+	// Get instance SSH key
 	// (GET /api/v2/instances/{instanceID}/sshkey)
 	GetApiV2InstancesInstanceIDSshkey(w http.ResponseWriter, r *http.Request, instanceID InstanceIDParameter)
-
+	// Start instance
 	// (POST /api/v2/instances/{instanceID}/start)
 	PostApiV2InstancesInstanceIDStart(w http.ResponseWriter, r *http.Request, instanceID InstanceIDParameter)
-
+	// Stop instance
 	// (POST /api/v2/instances/{instanceID}/stop)
 	PostApiV2InstancesInstanceIDStop(w http.ResponseWriter, r *http.Request, instanceID InstanceIDParameter)
 }
@@ -173,16 +173,19 @@ func (_ Unimplemented) PostApiV1OrganizationsOrganizationIDProjectsProjectIDClus
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// List regions
 // (GET /api/v1/organizations/{organizationID}/regions)
 func (_ Unimplemented) GetApiV1OrganizationsOrganizationIDRegions(w http.ResponseWriter, r *http.Request, organizationID OrganizationIDParameter) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// List flavors
 // (GET /api/v1/organizations/{organizationID}/regions/{regionID}/flavors)
 func (_ Unimplemented) GetApiV1OrganizationsOrganizationIDRegionsRegionIDFlavors(w http.ResponseWriter, r *http.Request, organizationID OrganizationIDParameter, regionID RegionIDParameter) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// List images
 // (GET /api/v1/organizations/{organizationID}/regions/{regionID}/images)
 func (_ Unimplemented) GetApiV1OrganizationsOrganizationIDRegionsRegionIDImages(w http.ResponseWriter, r *http.Request, organizationID OrganizationIDParameter, regionID RegionIDParameter) {
 	w.WriteHeader(http.StatusNotImplemented)
@@ -213,56 +216,67 @@ func (_ Unimplemented) PutApiV2ClustersClusterID(w http.ResponseWriter, r *http.
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// List instances
 // (GET /api/v2/instances)
 func (_ Unimplemented) GetApiV2Instances(w http.ResponseWriter, r *http.Request, params GetApiV2InstancesParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// Create instance
 // (POST /api/v2/instances)
 func (_ Unimplemented) PostApiV2Instances(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// Delete instance
 // (DELETE /api/v2/instances/{instanceID})
 func (_ Unimplemented) DeleteApiV2InstancesInstanceID(w http.ResponseWriter, r *http.Request, instanceID InstanceIDParameter) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// Get instance
 // (GET /api/v2/instances/{instanceID})
 func (_ Unimplemented) GetApiV2InstancesInstanceID(w http.ResponseWriter, r *http.Request, instanceID InstanceIDParameter) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// Update instance
 // (PUT /api/v2/instances/{instanceID})
 func (_ Unimplemented) PutApiV2InstancesInstanceID(w http.ResponseWriter, r *http.Request, instanceID InstanceIDParameter) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// Get instance console output
 // (GET /api/v2/instances/{instanceID}/consoleoutput)
 func (_ Unimplemented) GetApiV2InstancesInstanceIDConsoleoutput(w http.ResponseWriter, r *http.Request, instanceID InstanceIDParameter, params GetApiV2InstancesInstanceIDConsoleoutputParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// Get instance console VNC
 // (GET /api/v2/instances/{instanceID}/consolesession)
 func (_ Unimplemented) GetApiV2InstancesInstanceIDConsolesession(w http.ResponseWriter, r *http.Request, instanceID InstanceIDParameter) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// Reboot instance
 // (POST /api/v2/instances/{instanceID}/reboot)
 func (_ Unimplemented) PostApiV2InstancesInstanceIDReboot(w http.ResponseWriter, r *http.Request, instanceID InstanceIDParameter, params PostApiV2InstancesInstanceIDRebootParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// Get instance SSH key
 // (GET /api/v2/instances/{instanceID}/sshkey)
 func (_ Unimplemented) GetApiV2InstancesInstanceIDSshkey(w http.ResponseWriter, r *http.Request, instanceID InstanceIDParameter) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// Start instance
 // (POST /api/v2/instances/{instanceID}/start)
 func (_ Unimplemented) PostApiV2InstancesInstanceIDStart(w http.ResponseWriter, r *http.Request, instanceID InstanceIDParameter) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// Stop instance
 // (POST /api/v2/instances/{instanceID}/stop)
 func (_ Unimplemented) PostApiV2InstancesInstanceIDStop(w http.ResponseWriter, r *http.Request, instanceID InstanceIDParameter) {
 	w.WriteHeader(http.StatusNotImplemented)

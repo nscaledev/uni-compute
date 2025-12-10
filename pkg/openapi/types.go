@@ -551,7 +551,7 @@ type InstanceUpdateRequest = InstanceUpdate
 // GetApiV1OrganizationsOrganizationIDClustersParams defines parameters for GetApiV1OrganizationsOrganizationIDClusters.
 type GetApiV1OrganizationsOrganizationIDClustersParams struct {
 	// Tag A set of tags to match against resources in the form "name=value",
-	// thus when encoded you get "?tag=foo%3Dcat&bar%3Ddog".
+	// thus when encoded you get "?tag=foo%3Dcat&tag=bar%3Ddog".
 	Tag *externalRef0.TagSelectorParameter `form:"tag,omitempty" json:"tag,omitempty"`
 }
 
@@ -564,7 +564,7 @@ type GetApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachin
 // GetApiV2ClustersParams defines parameters for GetApiV2Clusters.
 type GetApiV2ClustersParams struct {
 	// Tag A set of tags to match against resources in the form "name=value",
-	// thus when encoded you get "?tag=foo%3Dcat&bar%3Ddog".
+	// thus when encoded you get "?tag=foo%3Dcat&tag=bar%3Ddog".
 	Tag *externalRef0.TagSelectorParameter `form:"tag,omitempty" json:"tag,omitempty"`
 
 	// OrganizationID Allows resources to be filtered by organization.
@@ -583,7 +583,7 @@ type GetApiV2ClustersParams struct {
 // GetApiV2InstancesParams defines parameters for GetApiV2Instances.
 type GetApiV2InstancesParams struct {
 	// Tag A set of tags to match against resources in the form "name=value",
-	// thus when encoded you get "?tag=foo%3Dcat&bar%3Ddog".
+	// thus when encoded you get "?tag=foo%3Dcat&tag=bar%3Ddog".
 	Tag *externalRef0.TagSelectorParameter `form:"tag,omitempty" json:"tag,omitempty"`
 
 	// OrganizationID Allows resources to be filtered by organization.

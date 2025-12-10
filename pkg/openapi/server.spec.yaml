@@ -14,6 +14,7 @@ paths:
     get:
       description: |-
         Lists compute service compatible regions.
+      summary: List regions
       security:
       - oauth2Authentication: []
       responses:
@@ -34,6 +35,7 @@ paths:
     get:
       description: |-
         Lists all compute compatible flavors that the user has access to.
+      summary: List flavors
       security:
       - oauth2Authentication: []
       responses:
@@ -54,6 +56,7 @@ paths:
     get:
       description: |-
         Lists all compute compatible images that the user has access to.
+      summary: List images
       security:
       - oauth2Authentication: []
       responses:
@@ -71,6 +74,7 @@ paths:
     - $ref: '#/components/parameters/organizationIDParameter'
     - $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/parameters/tagSelectorParameter'
     get:
+      x-hidden: true
       description: |-
         List all clusters within the organization.
       security:
@@ -94,6 +98,7 @@ paths:
     - $ref: '#/components/parameters/organizationIDParameter'
     - $ref: '#/components/parameters/projectIDParameter'
     post:
+      x-hidden: true
       description: |-
         Creates a new cluster.
       security:
@@ -120,6 +125,7 @@ paths:
     - $ref: '#/components/parameters/projectIDParameter'
     - $ref: '#/components/parameters/clusterIDParameter'
     get:
+      x-hidden: true
       description: |-
         Get a detailed view of the cluster.
       security:
@@ -136,6 +142,7 @@ paths:
         '500':
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
     put:
+      x-hidden: true
       description: |-
         Update a cluster within the selected cluster manager.
       security:
@@ -156,6 +163,7 @@ paths:
         '500':
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
     delete:
+      x-hidden: true
       description: |-
         Delete a cluster.
       security:
@@ -180,6 +188,7 @@ paths:
     - $ref: '#/components/parameters/projectIDParameter'
     - $ref: '#/components/parameters/clusterIDParameter'
     post:
+      x-hidden: true
       description: |-
         Delete a set of machines from a cluster.  This will implicitly scale down the
         workload pools those machines were part of.
@@ -208,6 +217,7 @@ paths:
     - $ref: '#/components/parameters/clusterIDParameter'
     - $ref: '#/components/parameters/machineIDParameter'
     post:
+      x-hidden: true
       x-no-body: true
       description: |-
         Start a stopped machine within a cluster.
@@ -234,6 +244,7 @@ paths:
     - $ref: '#/components/parameters/clusterIDParameter'
     - $ref: '#/components/parameters/machineIDParameter'
     post:
+      x-hidden: true
       x-no-body: true
       description: |-
         Stop a running machine within a cluster.
@@ -260,6 +271,7 @@ paths:
     - $ref: '#/components/parameters/clusterIDParameter'
     - $ref: '#/components/parameters/machineIDParameter'
     post:
+      x-hidden: true
       x-no-body: true
       description: |-
         Soft reboot a machine within a cluster.
@@ -286,6 +298,7 @@ paths:
     - $ref: '#/components/parameters/clusterIDParameter'
     - $ref: '#/components/parameters/machineIDParameter'
     post:
+      x-hidden: true
       x-no-body: true
       description: |-
         Hard reboot a machine within a cluster.
@@ -314,6 +327,7 @@ paths:
     get:
       description: |-
         Create a new console session for a machine.
+      x-hidden: true
       security:
       - oauth2Authentication: []
       responses:
@@ -338,6 +352,7 @@ paths:
     - $ref: '#/components/parameters/machineIDParameter'
     - $ref: '#/components/parameters/lengthParameter'
     get:
+      x-hidden: true
       description: |-
         Get the console output for a machine.
       security:
@@ -359,6 +374,7 @@ paths:
     description: Compute instance services.
     get:
       description: List compute instances.
+      summary: List instances
       security:
       - oauth2Authentication: []
       parameters:
@@ -382,6 +398,7 @@ paths:
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
     post:
       description: Create an instance.
+      summary: Create instance
       security:
       - oauth2Authentication: []
       requestBody:
@@ -403,6 +420,7 @@ paths:
     - $ref: '#/components/parameters/instanceIDParameter'
     get:
       description: Get an instance.
+      summary: Get instance
       security:
       - oauth2Authentication: []
       responses:
@@ -418,6 +436,7 @@ paths:
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
     put:
       description: Update an instance.
+      summary: Update instance
       security:
       - oauth2Authentication: []
       requestBody:
@@ -435,6 +454,7 @@ paths:
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
     delete:
       description: Delete an instance.
+      summary: Delete instance
       security:
       - oauth2Authentication: []
       responses:
@@ -458,6 +478,7 @@ paths:
       description: |-
         Reboot an instance.  By default this will perform a software ACPI reboot.
         You can specifiy a hard power cycle as a query parameter.
+      summary: Reboot instance
       security:
       - oauth2Authentication: []
       responses:
@@ -479,6 +500,7 @@ paths:
     - $ref: '#/components/parameters/instanceIDParameter'
     get:
       description: Retrieve the SSH key for an instance.
+      summary: Get instance SSH key
       security:
       - oauth2Authentication: []
       responses:
@@ -500,6 +522,7 @@ paths:
       x-no-body: true
       description: |-
         Start a stopped instance.
+      summary: Start instance
       security:
       - oauth2Authentication: []
       responses:
@@ -523,6 +546,7 @@ paths:
       x-no-body: true
       description: |-
         Stop a running instnace.
+      summary: Stop instance
       security:
       - oauth2Authentication: []
       responses:
@@ -545,6 +569,7 @@ paths:
     get:
       description: |-
         Create a new console session for an instance.
+      summary: Get instance console VNC
       security:
       - oauth2Authentication: []
       responses:
@@ -568,6 +593,7 @@ paths:
     get:
       description: |-
         Get the console output for an instance.
+      summary: Get instance console output
       security:
       - oauth2Authentication: []
       responses:
@@ -586,6 +612,7 @@ paths:
   /api/v2/clusters:
     description: Compute cluster services.
     get:
+      x-hidden: true
       description: List compute clusters.
       security:
       - oauth2Authentication: []
@@ -609,6 +636,7 @@ paths:
         '500':
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
     post:
+      x-hidden: true
       description: Create a cluster.
       security:
       - oauth2Authentication: []
@@ -630,6 +658,7 @@ paths:
     parameters:
     - $ref: '#/components/parameters/clusterIDParameter'
     get:
+      x-hidden: true
       description: Get a cluster.
       security:
       - oauth2Authentication: []
@@ -645,6 +674,7 @@ paths:
         '500':
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
     put:
+      x-hidden: true
       description: Update a cluster.
       security:
       - oauth2Authentication: []
@@ -662,6 +692,7 @@ paths:
         '500':
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
     delete:
+      x-hidden: true
       description: Delete a cluster.
       security:
       - oauth2Authentication: []
@@ -676,7 +707,6 @@ paths:
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/forbiddenResponse'
         '500':
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
-
 components:
   parameters:
     organizationIDParameter:
