@@ -66,9 +66,13 @@ func GetWorkloadPoolTag(tags *coreapi.TagList) (string, error) {
 	return t[index].Value, nil
 }
 
-func convertMachineStatusStatus(in regionapi.InstanceLifecyclePhase) unikornv1region.InstanceLifecyclePhase {
+func convertMachineStatusStatus(in *regionapi.InstanceLifecyclePhase) unikornv1region.InstanceLifecyclePhase {
+	if in == nil {
+		return unikornv1region.InstanceLifecyclePhasePending
+	}
+
 	//nolint:exhaustive
-	switch in {
+	switch *in {
 	case regionapi.InstanceLifecyclePhaseRunning:
 		return unikornv1region.InstanceLifecyclePhaseRunning
 	case regionapi.InstanceLifecyclePhaseStopping:
