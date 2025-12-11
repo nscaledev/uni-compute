@@ -15,6 +15,8 @@ paths:
       description: |-
         Lists compute service compatible regions.
       summary: List regions
+      tags:
+      - Regions
       security:
       - oauth2Authentication: []
       responses:
@@ -36,6 +38,8 @@ paths:
       description: |-
         Lists all compute compatible flavors that the user has access to.
       summary: List flavors
+      tags:
+      - Flavors
       security:
       - oauth2Authentication: []
       responses:
@@ -57,6 +61,8 @@ paths:
       description: |-
         Lists all compute compatible images that the user has access to.
       summary: List images
+      tags:
+      - Images
       security:
       - oauth2Authentication: []
       responses:
@@ -375,6 +381,8 @@ paths:
     get:
       description: List compute instances.
       summary: List instances
+      tags:
+      - Instances
       security:
       - oauth2Authentication: []
       parameters:
@@ -399,6 +407,8 @@ paths:
     post:
       description: Create an instance.
       summary: Create instance
+      tags:
+      - Instances
       security:
       - oauth2Authentication: []
       requestBody:
@@ -421,6 +431,8 @@ paths:
     get:
       description: Get an instance.
       summary: Get instance
+      tags:
+      - Instances
       security:
       - oauth2Authentication: []
       responses:
@@ -437,6 +449,8 @@ paths:
     put:
       description: Update an instance.
       summary: Update instance
+      tags:
+      - Instances
       security:
       - oauth2Authentication: []
       requestBody:
@@ -455,6 +469,8 @@ paths:
     delete:
       description: Delete an instance.
       summary: Delete instance
+      tags:
+      - Instances
       security:
       - oauth2Authentication: []
       responses:
@@ -479,6 +495,8 @@ paths:
         Reboot an instance.  By default this will perform a software ACPI reboot.
         You can specifiy a hard power cycle as a query parameter.
       summary: Reboot instance
+      tags:
+      - Instances
       security:
       - oauth2Authentication: []
       responses:
@@ -501,6 +519,8 @@ paths:
     get:
       description: Retrieve the SSH key for an instance.
       summary: Get instance SSH key
+      tags:
+      - Instances
       security:
       - oauth2Authentication: []
       responses:
@@ -523,6 +543,8 @@ paths:
       description: |-
         Start a stopped instance.
       summary: Start instance
+      tags:
+      - Instances
       security:
       - oauth2Authentication: []
       responses:
@@ -547,6 +569,8 @@ paths:
       description: |-
         Stop a running instnace.
       summary: Stop instance
+      tags:
+      - Instances
       security:
       - oauth2Authentication: []
       responses:
@@ -570,6 +594,8 @@ paths:
       description: |-
         Create a new console session for an instance.
       summary: Get instance console VNC
+      tags:
+      - Instances
       security:
       - oauth2Authentication: []
       responses:
@@ -594,6 +620,8 @@ paths:
       description: |-
         Get the console output for an instance.
       summary: Get instance console output
+      tags:
+      - Instances
       security:
       - oauth2Authentication: []
       responses:
