@@ -747,7 +747,7 @@ func (c *Client) ConsoleOutput(ctx context.Context, instanceID string, params co
 		return nil, errors.OAuth2ServerError("unable to get console output for instance").WithError(err)
 	}
 
-	if response.StatusCode() != http.StatusAccepted {
+	if response.StatusCode() != http.StatusOK {
 		return nil, errors.OAuth2ServerError("unable to get console output for instance - incorrect status code")
 	}
 
