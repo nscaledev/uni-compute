@@ -168,6 +168,64 @@ test-api-setup:
 test-api-clean:
 	@rm -f test/api/test-results.json test/api/junit.xml
 
+# Contract testing targets
+# Pact Broker Configuration
+PACT_BROKER_URL ?= http://localhost:9292
+PACT_BROKER_USERNAME ?= pact
+PACT_BROKER_PASSWORD ?= pact
+SERVICE_NAME ?= uni-compute
+BRANCH ?= $(shell git rev-parse --abbrev-ref HEAD)
+
+# Run consumer contract tests
+.PHONY: test-contracts-consumer
+test-contracts-consumer:
+	CGO_LDFLAGS="-L$(HOME)/Library/pact -Wl,-rpath,$(HOME)/Library/pact" \
+	DYLD_LIBRARY_PATH="$(HOME)/Library/pact:$$DYLD_LIBRARY_PATH" \
+	go test ./test/contracts/consumer/... -v -count=1
+
+# Publish pacts to broker
+.PHONY: publish-pacts
+publish-pacts:
+	docker run --rm \
+		--network host \
+		-v $(PWD)/test/contracts/consumer/pacts:/pacts \
+		-w /pacts \
+		pactfoundation/pact-cli:latest \
+		publish \
+		--broker-base-url="$(PACT_BROKER_URL)" \
+		--broker-username="$(PACT_BROKER_USERNAME)" \
+		--broker-password="$(PACT_BROKER_PASSWORD)" \
+		--consumer-app-version="$(REVISION)" \
+		--branch="$(BRANCH)" \
+		/pacts
+
+# Can-I-Deploy check
+.PHONY: can-i-deploy
+can-i-deploy:
+	pact-broker can-i-deploy \
+		--pacticipant="$(SERVICE_NAME)" \
+		--version="$(REVISION)" \
+		--to-environment="production" \
+		--broker-base-url="$(PACT_BROKER_URL)" \
+		--broker-username="$(PACT_BROKER_USERNAME)" \
+		--broker-password="$(PACT_BROKER_PASSWORD)"
+
+# Record deployment
+.PHONY: record-deployment
+record-deployment:
+	pact-broker record-deployment \
+		--pacticipant="$(SERVICE_NAME)" \
+		--version="$(REVISION)" \
+		--environment="production" \
+		--broker-base-url="$(PACT_BROKER_URL)" \
+		--broker-username="$(PACT_BROKER_USERNAME)" \
+		--broker-password="$(PACT_BROKER_PASSWORD)"
+
+# Clean contract test artifacts
+.PHONY: clean-contracts
+clean-contracts:
+	rm -rf ./test/contracts/consumer/pacts/*.json
+
 # Build a binary and install it.
 $(PREFIX)/%: $(BINDIR)/%
 	install -m 750 $< $@
