@@ -10,7 +10,6 @@ on:
         options:
         - 'All'
         - 'Core Cluster Management'
-        - 'Discovery and Metadata'
         - 'Security and Authentication'
         - 'Machine Operations'
         - 'Scaling Resource Management'
