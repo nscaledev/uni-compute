@@ -27,7 +27,7 @@ import (
 )
 
 func (h *Handler) instanceClient() *instance.Client {
-	return instance.NewClient(h.client, h.namespace, h.getIdentityAPIClient, h.getRegionAPIClient)
+	return instance.NewClient(h.client, h.namespace, h.identity, h.region)
 }
 
 func (h *Handler) GetApiV2Instances(w http.ResponseWriter, r *http.Request, params openapi.GetApiV2InstancesParams) {

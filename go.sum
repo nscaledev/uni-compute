@@ -191,11 +191,12 @@ github.com/stretchr/testify v1.11.1 h1:7s2iGBzp5EwR7/aIZr8ao5+dra3wiQyKjjFuvgVKu
 github.com/stretchr/testify v1.11.1/go.mod h1:wZwfW3scLgRK+23gO65QZefKpKQRnfz6sD981Nm4B6U=
 github.com/ugorji/go/codec v1.2.12 h1:9LC83zGrHhuUA9l16C9AHXAqEV/2wBQ4nkvumAE65EE=
 github.com/ugorji/go/codec v1.2.12/go.mod h1:UNopzCgEMSXjBc6AOMqYvWC1ktqTAfzJZUZgYf6w6lg=
-github.com/unikorn-cloud/core v1.11.0 h1:WAb0ZHiN8Xw+oxTCp8XVloDAAimrAKZvcENRUFByZBQ=
-github.com/unikorn-cloud/identity v1.11.0 h1:EV6n1dlLyk8PuVeuTvO6mdMASHQBniNq6S2DEOy/e7M=
-github.com/unikorn-cloud/identity v1.11.0/go.mod h1:YCpwyzxxOqcDaGgL+qXxFFnbxipHuoX4dMu2ySQOZLg=
-github.com/unikorn-cloud/region v1.11.0 h1:RVV2D8TBqO6qs2HgC48uxvP7p+2jEXczeQxHAGlzIag=
-github.com/unikorn-cloud/region v1.11.0/go.mod h1:naErWmyd+DvCI/l6fnLNUW+o51ek6DImfORXvdKbMQ8=
+github.com/unikorn-cloud/core v1.12.0 h1:lv3XeDZjwTNCAehBtajb8hnPlvum9Zn+FnPPKWhDNTw=
+github.com/unikorn-cloud/core v1.12.0/go.mod h1:P6II1W5i4KwAz1xdcTKnA9qrq9kDRgoxWIqfW8iYQOE=
+github.com/unikorn-cloud/identity v1.12.0 h1:b2bumDL1nRyk3TzIgjKm4Hn59cO1fZTf7LdwuO6WbgY=
+github.com/unikorn-cloud/identity v1.12.0/go.mod h1:qN/86tmN1+eyp00GA+ZWaDmqpDdY9+LFII7ecWR+9Us=
+github.com/unikorn-cloud/region v1.12.0 h1:eZMptN9BoBHV3Cl/96/hYcbB0qJFXZWZSLGN3XbLEEc=
+github.com/unikorn-cloud/region v1.12.0/go.mod h1:Fh7MCCmOPCPC23jv/hDomRbbUOYhB2GZc6IOtpp44Js=
 github.com/vmware-labs/yaml-jsonpath v0.3.2 h1:/5QKeCBGdsInyDCyVNLbXyilb61MXGi9NP674f9Hobk=
 github.com/vmware-labs/yaml-jsonpath v0.3.2/go.mod h1:U6whw1z03QyqgWdgXxvVnQ90zN1BWz5V+51Ewf8k+rQ=
 github.com/x448/float16 v0.8.4 h1:qLwI1I70+NjRFUR3zs1JPUCgaCXSh3SW62uAKT1mSBM=

@@ -66,14 +66,18 @@ func GetWorkloadPoolTag(tags *coreapi.TagList) (string, error) {
 	return t[index].Value, nil
 }
 
-func convertMachineStatusStatus(in regionapi.InstanceLifecyclePhase) unikornv1region.InstanceLifecyclePhase {
+func convertMachineStatusStatus(in *regionapi.InstanceLifecyclePhase) unikornv1region.InstanceLifecyclePhase {
+	if in == nil {
+		return unikornv1region.InstanceLifecyclePhasePending
+	}
+
 	//nolint:exhaustive
-	switch in {
-	case regionapi.Running:
+	switch *in {
+	case regionapi.InstanceLifecyclePhaseRunning:
 		return unikornv1region.InstanceLifecyclePhaseRunning
-	case regionapi.Stopping:
+	case regionapi.InstanceLifecyclePhaseStopping:
 		return unikornv1region.InstanceLifecyclePhaseStopping
-	case regionapi.Stopped:
+	case regionapi.InstanceLifecyclePhaseStopped:
 		return unikornv1region.InstanceLifecyclePhaseStopped
 	default:
 		// REVIEW_ME: Should we introduce an `Unknown` status or leave it as `Pending`?

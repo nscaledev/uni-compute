@@ -40,16 +40,9 @@ func (p *Provisioner) getRegionClient(ctx context.Context) (regionapi.ClientWith
 		return nil, err
 	}
 
-	tokenIssuer := identityclient.NewTokenIssuer(cli, p.options.identityOptions, &p.options.clientOptions, constants.ServiceDescriptor())
+	issuer := identityclient.NewTokenIssuer(cli, p.options.identityOptions, &p.options.clientOptions, constants.ServiceDescriptor())
 
-	token, err := tokenIssuer.Issue(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	getter := regionclient.New(cli, p.options.regionOptions, &p.options.clientOptions)
-
-	client, err := getter.ControllerClient(ctx, token, &p.instance)
+	client, err := regionclient.New(cli, p.options.regionOptions, &p.options.clientOptions).ControllerClient(ctx, issuer, &p.instance)
 	if err != nil {
 		return nil, err
 	}

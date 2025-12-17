@@ -28,40 +28,21 @@ import (
 	regionapi "github.com/unikorn-cloud/region/pkg/openapi"
 )
 
-// ClientGetterFunc allows us to lazily instantiate a client only when needed to
-// avoid the TLS handshake and token exchange.
-type ClientGetterFunc func(context.Context) (regionapi.ClientWithResponsesInterface, error)
-
 // Client provides a caching layer for retrieval of region assets, and lazy population.
 type Client struct {
-	clientGetter ClientGetterFunc
+	client regionapi.ClientWithResponsesInterface
 }
 
 // New returns a new client.
-func New(clientGetter ClientGetterFunc) *Client {
+func New(client regionapi.ClientWithResponsesInterface) *Client {
 	return &Client{
-		clientGetter: clientGetter,
+		client: client,
 	}
-}
-
-// Client returns a client.
-func (c *Client) Client(ctx context.Context) (regionapi.ClientWithResponsesInterface, error) {
-	client, err := c.clientGetter(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	return client, nil
 }
 
 // List lists all regions.
 func (c *Client) List(ctx context.Context, organizationID string) ([]regionapi.RegionRead, error) {
-	client, err := c.Client(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := client.GetApiV1OrganizationsOrganizationIDRegionsWithResponse(ctx, organizationID)
+	resp, err := c.client.GetApiV1OrganizationsOrganizationIDRegionsWithResponse(ctx, organizationID)
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +54,7 @@ func (c *Client) List(ctx context.Context, organizationID string) ([]regionapi.R
 	regions := *resp.JSON200
 
 	filter := func(x regionapi.RegionRead) bool {
-		return x.Spec.Type == regionapi.Kubernetes
+		return x.Spec.Type == regionapi.RegionTypeKubernetes
 	}
 
 	filtered := slices.DeleteFunc(regions, filter)
@@ -83,12 +64,7 @@ func (c *Client) List(ctx context.Context, organizationID string) ([]regionapi.R
 
 // Flavors returns all compute compatible flavors.
 func (c *Client) Flavors(ctx context.Context, organizationID, regionID string) ([]regionapi.Flavor, error) {
-	client, err := c.Client(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := client.GetApiV1OrganizationsOrganizationIDRegionsRegionIDFlavorsWithResponse(ctx, organizationID, regionID)
+	resp, err := c.client.GetApiV1OrganizationsOrganizationIDRegionsRegionIDFlavorsWithResponse(ctx, organizationID, regionID)
 	if err != nil {
 		return nil, err
 	}
@@ -105,12 +81,7 @@ func (c *Client) Flavors(ctx context.Context, organizationID, regionID string) (
 
 // Images returns all compute compatible images.
 func (c *Client) Images(ctx context.Context, organizationID, regionID string) ([]regionapi.Image, error) {
-	client, err := c.Client(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := client.GetApiV1OrganizationsOrganizationIDRegionsRegionIDImagesWithResponse(ctx, organizationID, regionID)
+	resp, err := c.client.GetApiV1OrganizationsOrganizationIDRegionsRegionIDImagesWithResponse(ctx, organizationID, regionID)
 	if err != nil {
 		return nil, err
 	}
@@ -130,16 +101,11 @@ func (c *Client) Images(ctx context.Context, organizationID, regionID string) ([
 }
 
 func (c *Client) Servers(ctx context.Context, organizationID string, cluster *unikornv1.ComputeCluster) ([]regionapi.ServerRead, error) {
-	client, err := c.Client(ctx)
-	if err != nil {
-		return nil, err
-	}
-
 	params := &regionapi.GetApiV1OrganizationsOrganizationIDServersParams{
 		Tag: util.ClusterTagSelector(cluster),
 	}
 
-	resp, err := client.GetApiV1OrganizationsOrganizationIDServersWithResponse(ctx, organizationID, params)
+	resp, err := c.client.GetApiV1OrganizationsOrganizationIDServersWithResponse(ctx, organizationID, params)
 	if err != nil {
 		return nil, err
 	}
@@ -154,12 +120,7 @@ func (c *Client) Servers(ctx context.Context, organizationID string, cluster *un
 }
 
 func (c *Client) DeleteServer(ctx context.Context, organizationID, projectID, identityID, serverID string) error {
-	client, err := c.Client(ctx)
-	if err != nil {
-		return err
-	}
-
-	resp, err := client.DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDServersServerIDWithResponse(ctx, organizationID, projectID, identityID, serverID)
+	resp, err := c.client.DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDServersServerIDWithResponse(ctx, organizationID, projectID, identityID, serverID)
 	if err != nil {
 		return err
 	}
@@ -172,12 +133,7 @@ func (c *Client) DeleteServer(ctx context.Context, organizationID, projectID, id
 }
 
 func (c *Client) HardRebootServer(ctx context.Context, organizationID, projectID, identityID, serverID string) error {
-	client, err := c.Client(ctx)
-	if err != nil {
-		return err
-	}
-
-	resp, err := client.PostApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDServersServerIDHardrebootWithResponse(ctx, organizationID, projectID, identityID, serverID)
+	resp, err := c.client.PostApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDServersServerIDHardrebootWithResponse(ctx, organizationID, projectID, identityID, serverID)
 	if err != nil {
 		return err
 	}
@@ -191,12 +147,7 @@ func (c *Client) HardRebootServer(ctx context.Context, organizationID, projectID
 }
 
 func (c *Client) SoftRebootServer(ctx context.Context, organizationID, projectID, identityID, serverID string) error {
-	client, err := c.Client(ctx)
-	if err != nil {
-		return err
-	}
-
-	resp, err := client.PostApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDServersServerIDSoftrebootWithResponse(ctx, organizationID, projectID, identityID, serverID)
+	resp, err := c.client.PostApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDServersServerIDSoftrebootWithResponse(ctx, organizationID, projectID, identityID, serverID)
 	if err != nil {
 		return err
 	}
@@ -210,12 +161,7 @@ func (c *Client) SoftRebootServer(ctx context.Context, organizationID, projectID
 }
 
 func (c *Client) StartServer(ctx context.Context, organizationID, projectID, identityID, serverID string) error {
-	client, err := c.Client(ctx)
-	if err != nil {
-		return err
-	}
-
-	resp, err := client.PostApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDServersServerIDStartWithResponse(ctx, organizationID, projectID, identityID, serverID)
+	resp, err := c.client.PostApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDServersServerIDStartWithResponse(ctx, organizationID, projectID, identityID, serverID)
 	if err != nil {
 		return err
 	}
@@ -229,12 +175,7 @@ func (c *Client) StartServer(ctx context.Context, organizationID, projectID, ide
 }
 
 func (c *Client) StopServer(ctx context.Context, organizationID, projectID, identityID, serverID string) error {
-	client, err := c.Client(ctx)
-	if err != nil {
-		return err
-	}
-
-	resp, err := client.PostApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDServersServerIDStopWithResponse(ctx, organizationID, projectID, identityID, serverID)
+	resp, err := c.client.PostApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDServersServerIDStopWithResponse(ctx, organizationID, projectID, identityID, serverID)
 	if err != nil {
 		return err
 	}
@@ -248,12 +189,7 @@ func (c *Client) StopServer(ctx context.Context, organizationID, projectID, iden
 }
 
 func (c *Client) CreateConsoleSession(ctx context.Context, organizationID, projectID, identityID, serverID string) (*regionapi.ConsoleSessionResponse, error) {
-	client, err := c.Client(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := client.GetApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDServersServerIDConsolesessionsWithResponse(ctx, organizationID, projectID, identityID, serverID)
+	resp, err := c.client.GetApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDServersServerIDConsolesessionsWithResponse(ctx, organizationID, projectID, identityID, serverID)
 	if err != nil {
 		return nil, err
 	}
@@ -266,12 +202,7 @@ func (c *Client) CreateConsoleSession(ctx context.Context, organizationID, proje
 }
 
 func (c *Client) GetConsoleOutput(ctx context.Context, organizationID, projectID, identityID, serverID string, params *regionapi.GetApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDServersServerIDConsoleoutputParams) (*regionapi.ConsoleOutputResponse, error) {
-	client, err := c.Client(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := client.GetApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDServersServerIDConsoleoutputWithResponse(ctx, organizationID, projectID, identityID, serverID, params)
+	resp, err := c.client.GetApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDServersServerIDConsoleoutputWithResponse(ctx, organizationID, projectID, identityID, serverID, params)
 	if err != nil {
 		return nil, err
 	}
@@ -283,12 +214,7 @@ func (c *Client) GetConsoleOutput(ctx context.Context, organizationID, projectID
 	return resp.JSON200, nil
 }
 
-func GetNetwork(ctx context.Context, region ClientGetterFunc, organizationID, projectID, networkID string) (*regionapi.NetworkV2Read, error) {
-	client, err := region(ctx)
-	if err != nil {
-		return nil, errors.OAuth2ServerError("failed to create region client").WithError(err)
-	}
-
+func GetNetwork(ctx context.Context, client regionapi.ClientWithResponsesInterface, organizationID, projectID, networkID string) (*regionapi.NetworkV2Read, error) {
 	response, err := client.GetApiV2NetworksNetworkIDWithResponse(ctx, networkID)
 	if err != nil {
 		return nil, errors.OAuth2InvalidRequest("unable to get network").WithError(err)
