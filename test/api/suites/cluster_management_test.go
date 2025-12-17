@@ -52,11 +52,9 @@ var _ = Describe("Core Cluster Management", func() {
 						BuildTyped())
 
 				Expect(err).To(HaveOccurred())
-				//TODO: Backend currently returns 500 instead of 400 for missing required fields
-				Expect(err.Error()).To(ContainSubstring("500"))
-				Expect(err.Error()).To(ContainSubstring("unhandled error"))
+				Expect(err.Error()).To(ContainSubstring("400"))
+				Expect(err.Error()).To(ContainSubstring("invalid path/query element"))
 			})
-			//TODO: this is currently returning an ungraceful error, should be handled better, will update this test when that is fixed
 			It("should reject cluster creation with invalid flavor", func() {
 				_, err := client.CreateCluster(ctx, config.OrgID, config.ProjectID,
 					api.NewClusterPayload().
@@ -65,8 +63,7 @@ var _ = Describe("Core Cluster Management", func() {
 						BuildTyped())
 
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("500"))
-				Expect(err.Error()).To(ContainSubstring("unhandled error"))
+				Expect(err.Error()).To(ContainSubstring("400"))
 			})
 
 			It("should reject cluster creation with invalid image", func() {
@@ -77,10 +74,8 @@ var _ = Describe("Core Cluster Management", func() {
 						BuildTyped())
 
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("500"))
-				Expect(err.Error()).To(ContainSubstring("unable to select an image"))
+				Expect(err.Error()).To(ContainSubstring("400"))
 			})
-			//TODO: this is currently returning an ungraceful error, should be handled better, will update this test when that is fixed
 			It("should reject cluster creation with invalid region", func() {
 				_, err := client.CreateCluster(ctx, config.OrgID, config.ProjectID,
 					api.NewClusterPayload().
@@ -88,8 +83,7 @@ var _ = Describe("Core Cluster Management", func() {
 						BuildTyped())
 
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("500"))
-				Expect(err.Error()).To(ContainSubstring("unhandled error"))
+				Expect(err.Error()).To(ContainSubstring("400"))
 			})
 		})
 	})
