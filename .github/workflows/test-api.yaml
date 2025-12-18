@@ -12,6 +12,7 @@ on:
         - 'Core Cluster Management'
         - 'Security and Authentication'
         - 'Machine Operations'
+        - 'Instance Operations'
         - 'Scaling Resource Management'
 
 permissions:

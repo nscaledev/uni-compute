@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/onsi/ginkgo/v2"
@@ -433,4 +434,110 @@ func (c *APIClient) CheckClusterQuota(ctx context.Context, orgID string) error {
 	}
 
 	return fmt.Errorf("clusters quota not found in response")
+}
+
+// CreateInstance creates a new instance.
+func (c *APIClient) CreateInstance(ctx context.Context, payload openapi.InstanceCreate) (openapi.InstanceRead, error) {
+	path := c.endpoints.CreateInstance()
+
+	bodyBytes, err := json.Marshal(payload)
+	if err != nil {
+		return openapi.InstanceRead{}, fmt.Errorf("marshaling instance body: %w", err)
+	}
+
+	//nolint:bodyclose // response body is closed in DoRequest
+	resp, respBody, err := c.DoRequest(ctx, http.MethodPost, path, strings.NewReader(string(bodyBytes)), 0)
+	if err != nil {
+		return openapi.InstanceRead{}, fmt.Errorf("creating instance: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusCreated {
+		return openapi.InstanceRead{}, fmt.Errorf("unexpected status code: expected %d, got %d, body: %s", http.StatusCreated, resp.StatusCode, string(respBody))
+	}
+
+	var instance openapi.InstanceRead
+	if err := json.Unmarshal(respBody, &instance); err != nil {
+		return openapi.InstanceRead{}, fmt.Errorf("unmarshaling instance response: %w", err)
+	}
+
+	return instance, nil
+}
+
+// GetInstance retrieves a specific instance.
+func (c *APIClient) GetInstance(ctx context.Context, instanceID string) (openapi.InstanceRead, error) {
+	path := c.endpoints.GetInstance(instanceID)
+
+	//nolint:bodyclose // response body is closed in DoRequest
+	resp, respBody, err := c.DoRequest(ctx, http.MethodGet, path, nil, 0)
+	if err != nil {
+		return openapi.InstanceRead{}, fmt.Errorf("getting instance: %w", err)
+	}
+
+	switch resp.StatusCode {
+	case http.StatusOK:
+		var instance openapi.InstanceRead
+		if err := json.Unmarshal(respBody, &instance); err != nil {
+			return openapi.InstanceRead{}, fmt.Errorf("unmarshaling instance response: %w", err)
+		}
+
+		return instance, nil
+	case http.StatusNotFound:
+		return openapi.InstanceRead{}, fmt.Errorf("instance '%s' not found (status: %d)", instanceID, resp.StatusCode)
+	case http.StatusForbidden:
+		return openapi.InstanceRead{}, fmt.Errorf("instance '%s' access denied (status: %d)", instanceID, resp.StatusCode)
+	default:
+		return openapi.InstanceRead{}, fmt.Errorf("unexpected status code: %d, body: %s", resp.StatusCode, string(respBody))
+	}
+}
+
+// DeleteInstance deletes an instance.
+func (c *APIClient) DeleteInstance(ctx context.Context, instanceID string) error {
+	path := c.endpoints.DeleteInstance(instanceID)
+
+	//nolint:bodyclose // response body is closed in DoRequest
+	resp, _, err := c.DoRequest(ctx, http.MethodDelete, path, nil, 0)
+	if err != nil {
+		return fmt.Errorf("deleting instance: %w", err)
+	}
+
+	// Accept both 202 (deletion in progress) and 404 (already deleted/never existed)
+	if resp.StatusCode != http.StatusAccepted && resp.StatusCode != http.StatusNotFound {
+		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	return nil
+}
+
+// GetInstanceConsoleOutput retrieves console output for an instance.
+func (c *APIClient) GetInstanceConsoleOutput(ctx context.Context, instanceID string, length *int) (*regionopenapi.ConsoleOutputResponse, error) {
+	path := c.endpoints.GetInstanceConsoleOutput(instanceID)
+
+	if length != nil {
+		u, err := url.Parse(path)
+		if err != nil {
+			return nil, fmt.Errorf("parsing path: %w", err)
+		}
+
+		q := u.Query()
+		q.Set("length", fmt.Sprintf("%d", *length))
+		u.RawQuery = q.Encode()
+		path = u.String()
+	}
+
+	//nolint:bodyclose // response body is closed in DoRequest
+	resp, respBody, err := c.DoRequest(ctx, http.MethodGet, path, nil, 0)
+	if err != nil {
+		return nil, fmt.Errorf("getting console output for instance: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status code: expected %d, got %d, body: %s", http.StatusOK, resp.StatusCode, string(respBody))
+	}
+
+	var consoleOutput regionopenapi.ConsoleOutputResponse
+	if err := json.Unmarshal(respBody, &consoleOutput); err != nil {
+		return nil, fmt.Errorf("unmarshaling console output response: %w", err)
+	}
+
+	return &consoleOutput, nil
 }
