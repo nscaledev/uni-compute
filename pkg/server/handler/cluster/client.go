@@ -346,7 +346,7 @@ func metadataMutator(required, current metav1.Object) error {
 	return nil
 }
 
-// Create creates the implicit cluster indentified by the JTW claims.
+// Create creates the implicit cluster identified by the JWT claims.
 func (c *Client) Create(ctx context.Context, organizationID, projectID string, request *openapi.ComputeClusterWrite) (*openapi.ComputeClusterRead, error) {
 	cluster, err := newGenerator(c.client, c.options, region.New(c.region), c.namespace, organizationID, projectID, nil).generate(ctx, request)
 	if err != nil {
@@ -379,7 +379,7 @@ func (c *Client) Create(ctx context.Context, organizationID, projectID string, r
 	return newGenerator(c.client, c.options, region.New(c.region), "", organizationID, "", nil).convert(cluster), nil
 }
 
-// Delete deletes the implicit cluster indentified by the JTW claims.
+// Delete deletes the implicit cluster identified by the JWT claims.
 func (c *Client) Delete(ctx context.Context, organizationID, projectID, clusterID string) error {
 	cluster, err := c.get(ctx, organizationID, projectID, clusterID)
 	if err != nil {

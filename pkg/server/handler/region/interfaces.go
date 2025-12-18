@@ -25,6 +25,7 @@ import (
 )
 
 type ClientInterface interface {
+	List(ctx context.Context, organizationID string) ([]regionapi.RegionRead, error)
 	Flavors(ctx context.Context, organizationID, regionID string) ([]regionapi.Flavor, error)
 	Images(ctx context.Context, organizationID, regionID string) ([]regionapi.Image, error)
 }

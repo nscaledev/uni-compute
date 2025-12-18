@@ -68,3 +68,18 @@ func (mr *MockClientInterfaceMockRecorder) Images(ctx, organizationID, regionID 
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Images", reflect.TypeOf((*MockClientInterface)(nil).Images), ctx, organizationID, regionID)
 }
+
+// List mocks base method.
+func (m *MockClientInterface) List(ctx context.Context, organizationID string) ([]openapi.RegionRead, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "List", ctx, organizationID)
+	ret0, _ := ret[0].([]openapi.RegionRead)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// List indicates an expected call of List.
+func (mr *MockClientInterfaceMockRecorder) List(ctx, organizationID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockClientInterface)(nil).List), ctx, organizationID)
+}
