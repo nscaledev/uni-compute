@@ -53,7 +53,7 @@ var _ = Describe("Core Cluster Management", func() {
 
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("400"))
-				Expect(err.Error()).To(ContainSubstring("invalid path/query element"))
+				Expect(err.Error()).To(ContainSubstring("region ID is invalid or cannot be resolved"))
 			})
 			It("should reject cluster creation with invalid flavor", func() {
 				_, err := client.CreateCluster(ctx, config.OrgID, config.ProjectID,
@@ -165,7 +165,6 @@ var _ = Describe("Core Cluster Management", func() {
 				api.VerifyWorkloadPoolUpdate(updatedCluster, 1)
 			})
 		})
-		//TODO: this is currently returning an ungraceful error, should be handled better, will update this test when that is fixed
 		Describe("Given invalid update parameters", func() {
 			It("should reject updates to immutable fields", func() {
 				invalidPayload := api.NewClusterPayload().
@@ -175,7 +174,8 @@ var _ = Describe("Core Cluster Management", func() {
 
 				err := client.UpdateCluster(ctx, config.OrgID, config.ProjectID, fixture.ClusterID, invalidPayload)
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("server_error"))
+				Expect(err.Error()).To(ContainSubstring("400"))
+				Expect(err.Error()).To(ContainSubstring("region ID is invalid or cannot be resolved"))
 			})
 		})
 	})
