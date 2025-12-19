@@ -19,28 +19,34 @@ package api
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/onsi/ginkgo/v2"
 
 	"github.com/unikorn-cloud/compute/pkg/openapi"
+	coreclient "github.com/unikorn-cloud/core/pkg/testing/client"
+	regionopenapi "github.com/unikorn-cloud/region/pkg/openapi"
 )
 
+// GinkgoLogger implements the Logger interface for Ginkgo tests.
+type GinkgoLogger struct{}
+
+func (g *GinkgoLogger) Printf(format string, args ...interface{}) {
+	ginkgo.GinkgoWriter.Printf(format, args...)
+}
+
+// APIClient wraps the core API client with compute-specific methods.
 type APIClient struct {
-	baseURL   string
-	client    *http.Client
-	authToken string
+	*coreclient.APIClient
 	config    *TestConfig
 	endpoints *Endpoints
 }
 
+// NewAPIClient creates a new Compute API client.
 func NewAPIClient(baseURL string) (*APIClient, error) {
 	config, err := LoadTestConfig()
 	if err != nil {
@@ -54,164 +60,28 @@ func NewAPIClient(baseURL string) (*APIClient, error) {
 	return newAPIClientWithConfig(config, baseURL), nil
 }
 
+// NewAPIClientWithConfig creates a new Compute API client with the given config.
 func NewAPIClientWithConfig(config *TestConfig) *APIClient {
 	return newAPIClientWithConfig(config, config.BaseURL)
 }
 
 // common constructor logic.
 func newAPIClientWithConfig(config *TestConfig, baseURL string) *APIClient {
+	coreClient := coreclient.NewAPIClient(baseURL, config.AuthToken, config.RequestTimeout, &GinkgoLogger{})
+	coreClient.SetLogRequests(config.LogRequests)
+	coreClient.SetLogResponses(config.LogResponses)
+
 	return &APIClient{
-		baseURL: strings.TrimSuffix(baseURL, "/"),
-		client: &http.Client{
-			Timeout: config.RequestTimeout,
-		},
-		authToken: config.AuthToken,
+		APIClient: coreClient,
 		config:    config,
 		endpoints: NewEndpoints(),
 	}
 }
 
-func (c *APIClient) SetAuthToken(token string) {
-	c.authToken = token
-}
-
-// logError logs a generic error with trace context.
-func (c *APIClient) logError(method, path string, duration time.Duration, traceParent string, err error, context string) {
-	ginkgo.GinkgoWriter.Printf("[%s %s] ERROR %s duration=%s traceparent=%s error=%v\n", method, path, context, duration, traceParent, err)
-	c.logTraceContext(traceParent)
-}
-
-// logErrorWithStatus logs an error with HTTP status code.
-func (c *APIClient) logErrorWithStatus(method, path string, duration time.Duration, statusCode int, traceParent string, err error, context string) {
-	ginkgo.GinkgoWriter.Printf("[%s %s] ERROR %s duration=%s status=%d traceparent=%s error=%v\n", method, path, context, duration, statusCode, traceParent, err)
-	c.logTraceContext(traceParent)
-}
-
-// logUnexpectedStatus logs an unexpected HTTP status code.
-func (c *APIClient) logUnexpectedStatus(method, path string, expectedStatus, actualStatus int, body, traceParent string) {
-	ginkgo.GinkgoWriter.Printf("[%s %s] UNEXPECTED STATUS expected=%d got=%d body=%s traceparent=%s\n", method, path, expectedStatus, actualStatus, body, traceParent)
-	c.logTraceContext(traceParent)
-}
-
-// logTraceContext logs the trace context information.
-func (c *APIClient) logTraceContext(traceParent string) {
-	ginkgo.GinkgoWriter.Printf("TRACE CONTEXT: Use trace ID '%s' to search logs for this request\n", extractTraceID(traceParent))
-}
-
-// generateTraceID creates a new W3C trace ID.
-// we are using this to create a new trace ID for each request so if an error occurs we can find the request in the logs.
-func generateTraceID() string {
-	bytes := make([]byte, 16)
-	_, _ = rand.Read(bytes)
-
-	return hex.EncodeToString(bytes)
-}
-
-// generateSpanID creates a new W3C span ID.
-func generateSpanID() string {
-	bytes := make([]byte, 8)
-	_, _ = rand.Read(bytes)
-
-	return hex.EncodeToString(bytes)
-}
-
-// createTraceParent creates a W3C traceparent header value.
-func createTraceParent() string {
-	traceID := generateTraceID()
-	spanID := generateSpanID()
-
-	return fmt.Sprintf("00-%s-%s-01", traceID, spanID)
-}
-
-// extractTraceID extracts the trace ID from a traceparent header value.
-func extractTraceID(traceParent string) string {
-	parts := strings.Split(traceParent, "-")
-	if len(parts) >= 2 {
-		return parts[1]
-	}
-
-	return traceParent
-}
-
-//nolint:cyclop // test code complexity is acceptable
-func (c *APIClient) doRequest(ctx context.Context, method, path string, body io.Reader, expectedStatus int) (*http.Response, []byte, error) {
-	fullURL := c.baseURL + path
-
-	req, err := http.NewRequestWithContext(ctx, method, fullURL, body)
-	if err != nil {
-		return nil, nil, fmt.Errorf("creating request: %w", err)
-	}
-
-	// Add W3C Trace Context headers
-	traceParent := createTraceParent()
-	req.Header.Set("Traceparent", traceParent)
-	req.Header.Set("Tracestate", "test-automation=ginkgo")
-
-	if body != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
-
-	if c.authToken != "" {
-		req.Header.Set("Authorization", "Bearer "+c.authToken)
-	}
-
-	start := time.Now()
-	resp, err := c.client.Do(req)
-	duration := time.Since(start)
-
-	if err != nil {
-		c.logError(method, path, duration, traceParent, err, "http request failed")
-		return nil, nil, fmt.Errorf("http request failed: %w", err)
-	}
-
-	defer resp.Body.Close()
-
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		c.logErrorWithStatus(method, path, duration, resp.StatusCode, traceParent, err, "reading response body")
-		return resp, nil, fmt.Errorf("reading response body: %w", err)
-	}
-
-	if c.config.LogRequests {
-		ginkgo.GinkgoWriter.Printf("[%s %s] status=%d duration=%s traceparent=%s\n", method, path, resp.StatusCode, duration, traceParent)
-	}
-
-	if c.config.LogResponses && len(respBody) > 0 {
-		ginkgo.GinkgoWriter.Printf("[%s %s] response body: %s\n", method, path, string(respBody))
-	}
-
-	if expectedStatus > 0 && resp.StatusCode != expectedStatus {
-		c.logUnexpectedStatus(method, path, expectedStatus, resp.StatusCode, string(respBody), traceParent)
-		return resp, respBody, fmt.Errorf("unexpected status code: expected %d, got %d, body: %s (trace ID: %s)", expectedStatus, resp.StatusCode, string(respBody), extractTraceID(traceParent))
-	}
-
-	return resp, respBody, nil
-}
-
-// ResponseHandlerConfig configures how different status codes should be handled.
-type ResponseHandlerConfig struct {
-	ResourceType   string
-	ResourceID     string
-	ResourceIDType string
-	AllowForbidden bool
-	AllowNotFound  bool
-}
-
-// listResource is a generic helper for list operations (for non-typed resources).
-func (c *APIClient) listResource(ctx context.Context, path string, config ResponseHandlerConfig) ([]map[string]interface{}, error) {
-	//nolint:bodyclose // response body is closed in doRequest
-	resp, respBody, err := c.doRequest(ctx, http.MethodGet, path, nil, 0)
-	if err != nil {
-		return nil, fmt.Errorf("listing %s: %w", config.ResourceType, err)
-	}
-
-	return c.handleResourceListResponse(resp, respBody, config)
-}
-
 // listClusters is a typed helper for listing clusters.
-func (c *APIClient) listClusters(ctx context.Context, path string, config ResponseHandlerConfig) ([]openapi.ComputeClusterRead, error) {
-	//nolint:bodyclose // response body is closed in doRequest
-	resp, respBody, err := c.doRequest(ctx, http.MethodGet, path, nil, 0)
+func (c *APIClient) listClusters(ctx context.Context, path string, config coreclient.ResponseHandlerConfig) ([]openapi.ComputeClusterRead, error) {
+	//nolint:bodyclose // response body is closed in DoRequest
+	resp, respBody, err := c.DoRequest(ctx, http.MethodGet, path, nil, 0)
 	if err != nil {
 		return nil, fmt.Errorf("listing %s: %w", config.ResourceType, err)
 	}
@@ -220,7 +90,7 @@ func (c *APIClient) listClusters(ctx context.Context, path string, config Respon
 }
 
 // handleClusterListResponse handles typed cluster list responses.
-func (c *APIClient) handleClusterListResponse(resp *http.Response, respBody []byte, config ResponseHandlerConfig) ([]openapi.ComputeClusterRead, error) {
+func (c *APIClient) handleClusterListResponse(resp *http.Response, respBody []byte, config coreclient.ResponseHandlerConfig) ([]openapi.ComputeClusterRead, error) {
 	switch resp.StatusCode {
 	case http.StatusOK:
 		var clusters []openapi.ComputeClusterRead
@@ -251,41 +121,9 @@ func (c *APIClient) handleClusterListResponse(resp *http.Response, respBody []by
 	}
 }
 
-// handleResourceListResponse handles common response patterns for resource listing endpoints.
-func (c *APIClient) handleResourceListResponse(resp *http.Response, respBody []byte, config ResponseHandlerConfig) ([]map[string]interface{}, error) {
-	switch resp.StatusCode {
-	case http.StatusOK:
-		var resources []map[string]interface{}
-		if err := json.Unmarshal(respBody, &resources); err != nil {
-			return nil, fmt.Errorf("unmarshaling %s response: %w", config.ResourceType, err)
-		}
-
-		return resources, nil
-	case http.StatusNotFound:
-		if config.AllowNotFound {
-			// Return empty list with error for test scenarios (as sometimes we want to test the error case)
-			return []map[string]interface{}{}, fmt.Errorf("%s '%s' not found (status: %d)", config.ResourceIDType, config.ResourceID, resp.StatusCode)
-		}
-		// Return error without empty list
-		return nil, fmt.Errorf("%s '%s' not found (status: %d)", config.ResourceIDType, config.ResourceID, resp.StatusCode)
-	case http.StatusForbidden:
-		if config.AllowForbidden {
-			// Return empty list with error for test scenarios
-			return []map[string]interface{}{}, fmt.Errorf("%s '%s' access denied (status: %d)", config.ResourceIDType, config.ResourceID, resp.StatusCode)
-		}
-		// Return error without empty list
-		return nil, fmt.Errorf("%s '%s' access denied (status: %d)", config.ResourceIDType, config.ResourceID, resp.StatusCode)
-	case http.StatusInternalServerError:
-		// Server error - always return empty list and error for test scenarios
-		return []map[string]interface{}{}, fmt.Errorf("server error reading %s for %s '%s' (status: %d): %s", config.ResourceType, config.ResourceIDType, config.ResourceID, resp.StatusCode, string(respBody))
-	default:
-		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
-	}
-}
-
-func (c *APIClient) ListRegions(ctx context.Context, orgID string) ([]map[string]interface{}, error) {
+func (c *APIClient) ListRegions(ctx context.Context, orgID string) (regionopenapi.Regions, error) {
 	path := c.endpoints.ListRegions(orgID)
-	config := ResponseHandlerConfig{
+	config := coreclient.ResponseHandlerConfig{
 		ResourceType:   "regions",
 		ResourceID:     orgID,
 		ResourceIDType: "organization",
@@ -293,12 +131,12 @@ func (c *APIClient) ListRegions(ctx context.Context, orgID string) ([]map[string
 		AllowNotFound:  true,
 	}
 
-	return c.listResource(ctx, path, config)
+	return coreclient.ListResource[regionopenapi.RegionRead](ctx, c.APIClient, path, config)
 }
 
-func (c *APIClient) ListFlavors(ctx context.Context, orgID, regionID string) ([]map[string]interface{}, error) {
+func (c *APIClient) ListFlavors(ctx context.Context, orgID, regionID string) (regionopenapi.Flavors, error) {
 	path := c.endpoints.ListFlavors(orgID, regionID)
-	config := ResponseHandlerConfig{
+	config := coreclient.ResponseHandlerConfig{
 		ResourceType:   "flavors",
 		ResourceID:     regionID,
 		ResourceIDType: "region",
@@ -306,12 +144,12 @@ func (c *APIClient) ListFlavors(ctx context.Context, orgID, regionID string) ([]
 		AllowNotFound:  true,
 	}
 
-	return c.listResource(ctx, path, config)
+	return coreclient.ListResource[regionopenapi.Flavor](ctx, c.APIClient, path, config)
 }
 
-func (c *APIClient) ListImages(ctx context.Context, orgID, regionID string) ([]map[string]interface{}, error) {
+func (c *APIClient) ListImages(ctx context.Context, orgID, regionID string) (regionopenapi.Images, error) {
 	path := c.endpoints.ListImages(orgID, regionID)
-	config := ResponseHandlerConfig{
+	config := coreclient.ResponseHandlerConfig{
 		ResourceType:   "images",
 		ResourceID:     regionID,
 		ResourceIDType: "region",
@@ -319,7 +157,7 @@ func (c *APIClient) ListImages(ctx context.Context, orgID, regionID string) ([]m
 		AllowNotFound:  true,
 	}
 
-	return c.listResource(ctx, path, config)
+	return coreclient.ListResource[regionopenapi.Image](ctx, c.APIClient, path, config)
 }
 
 // CreateCluster creates a new compute cluster.
@@ -332,15 +170,15 @@ func (c *APIClient) CreateCluster(ctx context.Context, orgID, projectID string, 
 		return openapi.ComputeClusterRead{}, fmt.Errorf("marshaling cluster body: %w", err)
 	}
 
-	//nolint:bodyclose // response body is closed in doRequest
-	resp, respBody, err := c.doRequest(ctx, http.MethodPost, path, strings.NewReader(string(bodyBytes)), 0)
+	//nolint:bodyclose // response body is closed in DoRequest
+	resp, respBody, err := c.DoRequest(ctx, http.MethodPost, path, strings.NewReader(string(bodyBytes)), 0)
 	if err != nil {
 		return openapi.ComputeClusterRead{}, fmt.Errorf("creating cluster: %w", err)
 	}
 
 	// Check for quota allocation errors (500 with specific message)
 	if resp.StatusCode == http.StatusInternalServerError && strings.Contains(string(respBody), "failed to create quota allocation") {
-		return openapi.ComputeClusterRead{}, fmt.Errorf("insufficient resources: failed to create quota allocation - environment may not have enough capacity (trace ID: %s)", extractTraceID(resp.Header.Get("Traceparent")))
+		return openapi.ComputeClusterRead{}, fmt.Errorf("insufficient resources: failed to create quota allocation - environment may not have enough capacity (trace ID: %s)", coreclient.ExtractTraceID(resp.Header.Get("Traceparent")))
 	}
 
 	if resp.StatusCode != http.StatusAccepted {
@@ -360,8 +198,8 @@ func (c *APIClient) CreateCluster(ctx context.Context, orgID, projectID string, 
 func (c *APIClient) GetCluster(ctx context.Context, orgID, projectID, clusterID string) (openapi.ComputeClusterRead, error) {
 	path := c.endpoints.GetCluster(orgID, projectID, clusterID)
 
-	//nolint:bodyclose // response body is closed in doRequest
-	resp, respBody, err := c.doRequest(ctx, http.MethodGet, path, nil, 0)
+	//nolint:bodyclose // response body is closed in DoRequest
+	resp, respBody, err := c.DoRequest(ctx, http.MethodGet, path, nil, 0)
 	if err != nil {
 		return openapi.ComputeClusterRead{}, fmt.Errorf("getting cluster: %w", err)
 	}
@@ -386,7 +224,7 @@ func (c *APIClient) GetCluster(ctx context.Context, orgID, projectID, clusterID 
 // ListClusters lists all clusters for a project.
 func (c *APIClient) ListClusters(ctx context.Context, orgID, projectID string) ([]openapi.ComputeClusterRead, error) {
 	path := c.endpoints.ListClusters(orgID, projectID)
-	config := ResponseHandlerConfig{
+	config := coreclient.ResponseHandlerConfig{
 		ResourceType:   "clusters",
 		ResourceID:     projectID,
 		ResourceIDType: "project",
@@ -400,7 +238,7 @@ func (c *APIClient) ListClusters(ctx context.Context, orgID, projectID string) (
 // ListOrganizationClusters lists all clusters for an organization across all projects.
 func (c *APIClient) ListOrganizationClusters(ctx context.Context, orgID string) ([]openapi.ComputeClusterRead, error) {
 	path := c.endpoints.ListOrganizationClusters(orgID)
-	config := ResponseHandlerConfig{
+	config := coreclient.ResponseHandlerConfig{
 		ResourceType:   "clusters",
 		ResourceID:     orgID,
 		ResourceIDType: "organization",
@@ -421,8 +259,8 @@ func (c *APIClient) UpdateCluster(ctx context.Context, orgID, projectID, cluster
 		return fmt.Errorf("marshaling request body: %w", err)
 	}
 
-	//nolint:bodyclose // response body is closed in doRequest
-	_, _, err = c.doRequest(ctx, http.MethodPut, path, strings.NewReader(string(jsonBody)), http.StatusAccepted)
+	//nolint:bodyclose // response body is closed in DoRequest
+	_, _, err = c.DoRequest(ctx, http.MethodPut, path, strings.NewReader(string(jsonBody)), http.StatusAccepted)
 	if err != nil {
 		return fmt.Errorf("updating cluster: %w", err)
 	}
@@ -433,8 +271,8 @@ func (c *APIClient) UpdateCluster(ctx context.Context, orgID, projectID, cluster
 func (c *APIClient) DeleteCluster(ctx context.Context, orgID, projectID, clusterID string) error {
 	path := c.endpoints.DeleteCluster(orgID, projectID, clusterID)
 
-	//nolint:bodyclose // response body is closed in doRequest
-	resp, _, err := c.doRequest(ctx, http.MethodDelete, path, nil, 0)
+	//nolint:bodyclose // response body is closed in DoRequest
+	resp, _, err := c.DoRequest(ctx, http.MethodDelete, path, nil, 0)
 	if err != nil {
 		return fmt.Errorf("deleting cluster: %w", err)
 	}
@@ -451,8 +289,8 @@ func (c *APIClient) DeleteCluster(ctx context.Context, orgID, projectID, cluster
 func (c *APIClient) StartMachine(ctx context.Context, orgID, projectID, clusterID, machineID string) error {
 	path := c.endpoints.StartMachine(orgID, projectID, clusterID, machineID)
 
-	//nolint:bodyclose // response body is closed in doRequest
-	_, _, err := c.doRequest(ctx, http.MethodPost, path, nil, http.StatusAccepted)
+	//nolint:bodyclose // response body is closed in DoRequest
+	_, _, err := c.DoRequest(ctx, http.MethodPost, path, nil, http.StatusAccepted)
 	if err != nil {
 		return fmt.Errorf("starting machine: %w", err)
 	}
@@ -464,8 +302,8 @@ func (c *APIClient) StartMachine(ctx context.Context, orgID, projectID, clusterI
 func (c *APIClient) StopMachine(ctx context.Context, orgID, projectID, clusterID, machineID string) error {
 	path := c.endpoints.StopMachine(orgID, projectID, clusterID, machineID)
 
-	//nolint:bodyclose // response body is closed in doRequest
-	_, _, err := c.doRequest(ctx, http.MethodPost, path, nil, http.StatusAccepted)
+	//nolint:bodyclose // response body is closed in DoRequest
+	_, _, err := c.DoRequest(ctx, http.MethodPost, path, nil, http.StatusAccepted)
 	if err != nil {
 		return fmt.Errorf("stopping machine: %w", err)
 	}
@@ -477,8 +315,8 @@ func (c *APIClient) StopMachine(ctx context.Context, orgID, projectID, clusterID
 func (c *APIClient) SoftRebootMachine(ctx context.Context, orgID, projectID, clusterID, machineID string) error {
 	path := c.endpoints.SoftRebootMachine(orgID, projectID, clusterID, machineID)
 
-	//nolint:bodyclose // response body is closed in doRequest
-	_, _, err := c.doRequest(ctx, http.MethodPost, path, nil, http.StatusAccepted)
+	//nolint:bodyclose // response body is closed in DoRequest
+	_, _, err := c.DoRequest(ctx, http.MethodPost, path, nil, http.StatusAccepted)
 	if err != nil {
 		return fmt.Errorf("soft rebooting machine: %w", err)
 	}
@@ -490,8 +328,8 @@ func (c *APIClient) SoftRebootMachine(ctx context.Context, orgID, projectID, clu
 func (c *APIClient) HardRebootMachine(ctx context.Context, orgID, projectID, clusterID, machineID string) error {
 	path := c.endpoints.HardRebootMachine(orgID, projectID, clusterID, machineID)
 
-	//nolint:bodyclose // response body is closed in doRequest
-	_, _, err := c.doRequest(ctx, http.MethodPost, path, nil, http.StatusAccepted)
+	//nolint:bodyclose // response body is closed in DoRequest
+	_, _, err := c.DoRequest(ctx, http.MethodPost, path, nil, http.StatusAccepted)
 	if err != nil {
 		return fmt.Errorf("hard rebooting machine: %w", err)
 	}
@@ -513,8 +351,8 @@ func (c *APIClient) EvictMachines(ctx context.Context, orgID, projectID, cluster
 		return fmt.Errorf("marshaling eviction request: %w", err)
 	}
 
-	//nolint:bodyclose // response body is closed in doRequest
-	_, _, err = c.doRequest(ctx, http.MethodPost, path, strings.NewReader(string(bodyBytes)), http.StatusAccepted)
+	//nolint:bodyclose // response body is closed in DoRequest
+	_, _, err = c.DoRequest(ctx, http.MethodPost, path, strings.NewReader(string(bodyBytes)), http.StatusAccepted)
 	if err != nil {
 		return fmt.Errorf("evicting machines: %w", err)
 	}
@@ -552,14 +390,17 @@ func (c *APIClient) CheckClusterQuota(ctx context.Context, orgID string) error {
 	}
 
 	// Add auth token
-	if c.authToken != "" {
-		req.Header.Set("Authorization", "Bearer "+c.authToken)
+	if c.config.AuthToken != "" {
+		req.Header.Set("Authorization", "Bearer "+c.config.AuthToken)
 	}
 
-	resp, err := c.client.Do(req)
+	client := &http.Client{Timeout: c.config.RequestTimeout}
+
+	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("checking quota: %w", err)
 	}
+
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
