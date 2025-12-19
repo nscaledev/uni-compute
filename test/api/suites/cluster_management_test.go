@@ -175,7 +175,7 @@ var _ = Describe("Core Cluster Management", func() {
 				err := client.UpdateCluster(ctx, config.OrgID, config.ProjectID, fixture.ClusterID, invalidPayload)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("400"))
-				Expect(err.Error()).To(ContainSubstring("region ID is invalid or cannot be resolved"))
+				Expect(err.Error()).To(ContainSubstring("invalid_request"))
 			})
 		})
 	})
