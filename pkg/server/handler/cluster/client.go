@@ -346,7 +346,7 @@ func metadataMutator(required, current metav1.Object) error {
 	return nil
 }
 
-// Create creates the implicit cluster indentified by the JTW claims.
+// Create creates the implicit cluster identified by the JWT claims.
 func (c *Client) Create(ctx context.Context, organizationID, projectID string, request *openapi.ComputeClusterWrite) (*openapi.ComputeClusterRead, error) {
 	cluster, err := newGenerator(c.client, c.options, region.New(c.region), c.namespace, organizationID, projectID, nil).generate(ctx, request)
 	if err != nil {
@@ -379,7 +379,7 @@ func (c *Client) Create(ctx context.Context, organizationID, projectID string, r
 	return newGenerator(c.client, c.options, region.New(c.region), "", organizationID, "", nil).convert(cluster), nil
 }
 
-// Delete deletes the implicit cluster indentified by the JTW claims.
+// Delete deletes the implicit cluster identified by the JWT claims.
 func (c *Client) Delete(ctx context.Context, organizationID, projectID, clusterID string) error {
 	cluster, err := c.get(ctx, organizationID, projectID, clusterID)
 	if err != nil {
@@ -529,7 +529,7 @@ func (c *Client) HardRebootMachine(ctx context.Context, organizationID, projectI
 	}
 
 	if err := region.New(c.region).HardRebootServer(ctx, organizationID, projectID, cluster.Annotations[constants.IdentityAnnotation], machineID); err != nil {
-		return errors.OAuth2ServerError("failed to hard reboot machine").WithError(err)
+		return err
 	}
 
 	return nil
@@ -546,7 +546,7 @@ func (c *Client) SoftRebootMachine(ctx context.Context, organizationID, projectI
 	}
 
 	if err := region.New(c.region).SoftRebootServer(ctx, organizationID, projectID, cluster.Annotations[constants.IdentityAnnotation], machineID); err != nil {
-		return errors.OAuth2ServerError("failed to soft reboot machine").WithError(err)
+		return err
 	}
 
 	return nil
@@ -563,7 +563,7 @@ func (c *Client) StartMachine(ctx context.Context, organizationID, projectID, cl
 	}
 
 	if err := region.New(c.region).StartServer(ctx, organizationID, projectID, cluster.Annotations[constants.IdentityAnnotation], machineID); err != nil {
-		return errors.OAuth2ServerError("failed to start machine").WithError(err)
+		return err
 	}
 
 	return nil
@@ -580,7 +580,7 @@ func (c *Client) StopMachine(ctx context.Context, organizationID, projectID, clu
 	}
 
 	if err := region.New(c.region).StopServer(ctx, organizationID, projectID, cluster.Annotations[constants.IdentityAnnotation], machineID); err != nil {
-		return errors.OAuth2ServerError("failed to stop machine").WithError(err)
+		return err
 	}
 
 	return nil
@@ -598,11 +598,10 @@ func (c *Client) CreateConsoleSession(ctx context.Context, organizationID, proje
 
 	resp, err := region.New(c.region).CreateConsoleSession(ctx, organizationID, projectID, cluster.Annotations[constants.IdentityAnnotation], machineID)
 	if err != nil {
-		// REVIEW_ME: Is there a way to check if the underlying error is a 404 not found?
-		return nil, errors.OAuth2ServerError("failed to create console session").WithError(err)
+		return nil, err
 	}
 
-	return resp, err
+	return resp, nil
 }
 
 func (c *Client) GetConsoleOutput(ctx context.Context, organizationID, projectID, clusterID, machineID string, params *openapi.GetApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDConsoleoutputParams) (*regionapi.ConsoleOutputResponse, error) {
@@ -621,9 +620,8 @@ func (c *Client) GetConsoleOutput(ctx context.Context, organizationID, projectID
 
 	resp, err := region.New(c.region).GetConsoleOutput(ctx, organizationID, projectID, cluster.Annotations[constants.IdentityAnnotation], machineID, p)
 	if err != nil {
-		// REVIEW_ME: Is there a way to check if the underlying error is a 404 not found?
-		return nil, errors.OAuth2ServerError("failed to get console output").WithError(err)
+		return nil, err
 	}
 
-	return resp, err
+	return resp, nil
 }
