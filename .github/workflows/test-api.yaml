@@ -32,6 +32,7 @@ jobs:
       TEST_SECONDARY_REGION_ID: ${{ secrets.TEST_SECONDARY_REGION_ID }}
       TEST_FLAVOR_ID: ${{ secrets.TEST_FLAVOR_ID }}
       TEST_IMAGE_ID: ${{ secrets.TEST_IMAGE_ID }}
+      TEST_NETWORK_ID: ${{ secrets.TEST_NETWORK_ID }}
     steps:
     - name: Checkout
       uses: actions/checkout@v4
