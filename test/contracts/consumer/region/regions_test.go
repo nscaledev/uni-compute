@@ -19,11 +19,12 @@ package region_test
 import (
 	"context"
 	"fmt"
+	"net"
 	"testing"
 	"time"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
+	. "github.com/onsi/ginkgo/v2" //nolint:revive
+	. "github.com/onsi/gomega"    //nolint:revive
 	"github.com/pact-foundation/pact-go/v2/consumer"
 	"github.com/pact-foundation/pact-go/v2/matchers"
 
@@ -32,12 +33,40 @@ import (
 	regionapi "github.com/unikorn-cloud/region/pkg/openapi"
 )
 
-var testingT *testing.T
+var testingT *testing.T //nolint:gochecknoglobals
 
-func TestContracts(t *testing.T) {
+func TestContracts(t *testing.T) { //nolint:paralleltest
 	testingT = t
+
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Region Consumer Contract Suite")
+}
+
+// createRegionClient creates a region client for the mock server.
+func createRegionClient(config consumer.MockServerConfig) (*regionapi.ClientWithResponses, error) {
+	url := fmt.Sprintf("http://%s", net.JoinHostPort(config.Host, fmt.Sprintf("%d", config.Port)))
+
+	return regionapi.NewClientWithResponses(url)
+}
+
+// testEmptyRegionsList is a helper for testing empty regions list responses.
+func testEmptyRegionsList(ctx context.Context, config consumer.MockServerConfig, organizationID string) error {
+	regionClient, err := createRegionClient(config)
+
+	if err != nil {
+		return err
+	}
+
+	client := regionclient.New(regionClient)
+	regions, err := client.List(ctx, organizationID)
+
+	if err != nil {
+		return err
+	}
+
+	Expect(regions).To(BeEmpty())
+
+	return nil
 }
 
 var _ = Describe("Region Service Contract", func() {
@@ -82,15 +111,11 @@ var _ = Describe("Region Service Contract", func() {
 
 				// Execute the test
 				test := func(config consumer.MockServerConfig) error {
-					// Create the region client with the mock server URL
-					regionClient, err := regionapi.NewClientWithResponses(
-						fmt.Sprintf("http://%s:%d", config.Host, config.Port),
-					)
+					regionClient, err := createRegionClient(config)
 					if err != nil {
 						return fmt.Errorf("creating region client: %w", err)
 					}
 
-					// Use the actual client code to make the request
 					client := regionclient.New(regionClient)
 					regions, err := client.List(ctx, organizationID)
 					if err != nil {
@@ -122,21 +147,7 @@ var _ = Describe("Region Service Contract", func() {
 					})
 
 				test := func(config consumer.MockServerConfig) error {
-					regionClient, err := regionapi.NewClientWithResponses(
-						fmt.Sprintf("http://%s:%d", config.Host, config.Port),
-					)
-					if err != nil {
-						return err
-					}
-
-					client := regionclient.New(regionClient)
-					regions, err := client.List(ctx, organizationID)
-					if err != nil {
-						return err
-					}
-
-					Expect(regions).To(BeEmpty())
-					return nil
+					return testEmptyRegionsList(ctx, config, organizationID)
 				}
 
 				Expect(pact.ExecuteTest(testingT, test)).To(Succeed())
@@ -156,23 +167,7 @@ var _ = Describe("Region Service Contract", func() {
 					})
 
 				test := func(config consumer.MockServerConfig) error {
-					regionClient, err := regionapi.NewClientWithResponses(
-						fmt.Sprintf("http://%s:%d", config.Host, config.Port),
-					)
-					if err != nil {
-						return err
-					}
-
-					client := regionclient.New(regionClient)
-					regions, err := client.List(ctx, organizationID)
-					if err != nil {
-						return err
-					}
-
-					// Regions are global resources, so even for nonexistent orgs,
-					// we get an empty array (not an error) if authorization passes
-					Expect(regions).To(BeEmpty())
-					return nil
+					return testEmptyRegionsList(ctx, config, organizationID)
 				}
 
 				Expect(pact.ExecuteTest(testingT, test)).To(Succeed())
@@ -219,9 +214,7 @@ var _ = Describe("Region Service Contract", func() {
 					})
 
 				test := func(config consumer.MockServerConfig) error {
-					regionClient, err := regionapi.NewClientWithResponses(
-						fmt.Sprintf("http://%s:%d", config.Host, config.Port),
-					)
+					regionClient, err := createRegionClient(config)
 					if err != nil {
 						return err
 					}
@@ -261,9 +254,7 @@ var _ = Describe("Region Service Contract", func() {
 					})
 
 				test := func(config consumer.MockServerConfig) error {
-					regionClient, err := regionapi.NewClientWithResponses(
-						fmt.Sprintf("http://%s:%d", config.Host, config.Port),
-					)
+					regionClient, err := createRegionClient(config)
 					if err != nil {
 						return err
 					}
