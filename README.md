@@ -210,3 +210,102 @@ After each run, test results are uploaded as artifacts:
 ```bash
 make test-api-clean
 ```
+
+### Contract Testing
+
+The compute service uses consumer-driven contract testing to validate interactions with dependent services (e.g., uni-region, uni-identity) without requiring full service deployments.
+
+#### Prerequisites
+
+**Install Pact FFI Library:**
+
+Consumer contract tests require the Pact FFI library to be installed locally.
+
+**macOS:**
+```bash
+brew tap pact-foundation/pact-ruby-standalone
+brew install pact-ruby-standalone
+mkdir -p $HOME/Library/pact
+cp /usr/local/opt/pact-ruby-standalone/libexec/lib/*.dylib $HOME/Library/pact/
+```
+
+**Start Pact Broker:**
+
+The Pact Broker is required for publishing and managing contracts. Reference the uni-core repository's make target for starting a local broker instance, or run:
+
+```bash
+docker run -d --name pact-broker \
+  -p 9292:9292 \
+  -e PACT_BROKER_DATABASE_URL=sqlite:///pact_broker.sqlite \
+  pactfoundation/pact-broker:latest
+```
+
+#### Running Consumer Contract Tests
+
+**Run all consumer tests:**
+```bash
+make test-contracts-consumer
+```
+
+**Publish pacts to broker:**
+```bash
+make publish-pacts
+```
+
+**Available make targets:**
+- `test-contracts-consumer` - Run consumer contract tests
+- `publish-pacts` - Publish generated pacts to Pact Broker
+- `can-i-deploy` - Check if service version is safe to deploy
+- `record-deployment` - Record deployment to an environment
+- `clean-contracts` - Clean generated pact files
+
+**Configuration:**
+
+Broker settings can be configured via environment variables or Makefile defaults:
+- `PACT_BROKER_URL` - Broker base URL (default: `http://localhost:9292`)
+- `PACT_BROKER_USERNAME` - Broker username (default: `pact`)
+- `PACT_BROKER_PASSWORD` - Broker password (default: `pact`)
+
+#### Writing Consumer Tests
+
+Consumer tests follow a standard pattern:
+
+1. Create a Pact mock provider using `contract.NewV4Pact()`
+2. Define interactions with `Given()`, `UponReceiving()`, `WithRequest()`, `WillRespondWith()`
+3. Execute the test using your actual client code against the mock server
+4. Verify expectations using Gomega matchers
+(you can and should use the OpenAPI spec as a guide here for building tests)
+
+**Example structure:**
+```go
+var _ = Describe("Provider Service Contract", func() {
+    var pact *consumer.V4HTTPMockProvider
+
+    BeforeEach(func() {
+        pact, _ = contract.NewV4Pact(contract.PactConfig{
+            Consumer: "uni-compute",
+            Provider: "uni-region",
+            PactDir:  "../pacts",
+        })
+    })
+
+    It("returns expected response", func() {
+        pact.AddInteraction().
+            GivenWithParameter(...).
+            UponReceiving("a request").
+            WithRequest("GET", "/api/v1/endpoint").
+            WillRespondWith(200, func(b *consumer.V4ResponseBuilder) {
+                b.JSONBody(...)
+            })
+
+        test := func(config consumer.MockServerConfig) error {
+            // Use actual client code here
+            return nil
+        }
+
+        Expect(pact.ExecuteTest(testingT, test)).To(Succeed())
+    })
+})
+```
+
+For complete examples, see `test/contracts/consumer/region/regions_test.go`.
