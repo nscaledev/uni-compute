@@ -106,9 +106,7 @@ func (p *Provisioner) identityClient(ctx context.Context) (identityapi.ClientWit
 		return nil, err
 	}
 
-	issuer := identityclient.NewTokenIssuer(client, p.options.identityOptions, &p.options.clientOptions, constants.ServiceDescriptor())
-
-	return identityclient.New(client, p.options.identityOptions, &p.options.clientOptions).ControllerClient(ctx, issuer, &p.cluster)
+	return identityclient.New(client, p.options.identityOptions, &p.options.clientOptions).ControllerClient(ctx, &p.cluster)
 }
 
 // openstackIdentityStatus are acquired from the region controller at
