@@ -27,6 +27,7 @@ import (
 	. "github.com/onsi/gomega"    //nolint:revive
 	"github.com/pact-foundation/pact-go/v2/consumer"
 	"github.com/pact-foundation/pact-go/v2/matchers"
+	"github.com/pact-foundation/pact-go/v2/models"
 
 	regionclient "github.com/unikorn-cloud/compute/pkg/server/handler/region"
 	contract "github.com/unikorn-cloud/core/pkg/testing/contract"
@@ -71,13 +72,13 @@ func testEmptyRegionsList(ctx context.Context, config consumer.MockServerConfig,
 
 var _ = Describe("Region Service Contract", func() {
 	var (
-		pact *consumer.V2HTTPMockProvider
+		pact *consumer.V4HTTPMockProvider
 		ctx  context.Context
 	)
 
 	BeforeEach(func() {
 		var err error
-		pact, err = contract.NewPact(contract.PactConfig{
+		pact, err = contract.NewV4Pact(contract.PactConfig{
 			Consumer: "uni-compute",
 			Provider: "uni-region",
 			PactDir:  "../pacts",
@@ -93,10 +94,16 @@ var _ = Describe("Region Service Contract", func() {
 
 				// Define the expected interaction
 				pact.AddInteraction().
-					Given("organization test-org-123 exists with OpenStack regions").
+					GivenWithParameter(models.ProviderState{
+						Name: "organization has regions",
+						Parameters: map[string]interface{}{
+							"organizationID": organizationID,
+							"regionType":     "openstack",
+						},
+					}).
 					UponReceiving("a request for regions").
 					WithRequest("GET", fmt.Sprintf("/api/v1/organizations/%s/regions", organizationID)).
-					WillRespondWith(200, func(b *consumer.V2ResponseBuilder) {
+					WillRespondWith(200, func(b *consumer.V4ResponseBuilder) {
 						b.JSONBody(matchers.EachLike(map[string]interface{}{
 							"metadata": map[string]interface{}{
 								"id":           matchers.UUID(),
@@ -139,10 +146,15 @@ var _ = Describe("Region Service Contract", func() {
 				organizationID := "test-org-empty"
 
 				pact.AddInteraction().
-					Given("organization test-org-empty exists with no regions").
+					GivenWithParameter(models.ProviderState{
+						Name: "organization has no regions",
+						Parameters: map[string]interface{}{
+							"organizationID": organizationID,
+						},
+					}).
 					UponReceiving("a request for regions from organization with no regions").
 					WithRequest("GET", fmt.Sprintf("/api/v1/organizations/%s/regions", organizationID)).
-					WillRespondWith(200, func(b *consumer.V2ResponseBuilder) {
+					WillRespondWith(200, func(b *consumer.V4ResponseBuilder) {
 						b.JSONBody([]interface{}{})
 					})
 
@@ -159,10 +171,15 @@ var _ = Describe("Region Service Contract", func() {
 				organizationID := "nonexistent-org"
 
 				pact.AddInteraction().
-					Given("organization nonexistent-org does not exist").
+					GivenWithParameter(models.ProviderState{
+						Name: "organization does not exist",
+						Parameters: map[string]interface{}{
+							"organizationID": organizationID,
+						},
+					}).
 					UponReceiving("a request for regions from nonexistent organization").
 					WithRequest("GET", fmt.Sprintf("/api/v1/organizations/%s/regions", organizationID)).
-					WillRespondWith(200, func(b *consumer.V2ResponseBuilder) {
+					WillRespondWith(200, func(b *consumer.V4ResponseBuilder) {
 						b.JSONBody([]interface{}{})
 					})
 
@@ -179,10 +196,16 @@ var _ = Describe("Region Service Contract", func() {
 				organizationID := "test-org-mixed"
 
 				pact.AddInteraction().
-					Given("organization test-org-mixed exists with mixed region types").
+					GivenWithParameter(models.ProviderState{
+						Name: "organization has mixed regions",
+						Parameters: map[string]interface{}{
+							"organizationID": organizationID,
+							"regionType":     "mixed",
+						},
+					}).
 					UponReceiving("a request for regions with mixed types").
 					WithRequest("GET", fmt.Sprintf("/api/v1/organizations/%s/regions", organizationID)).
-					WillRespondWith(200, func(b *consumer.V2ResponseBuilder) {
+					WillRespondWith(200, func(b *consumer.V4ResponseBuilder) {
 						// Note: The OpenAPI spec does not specify ordering for the regions list endpoint.
 						// The provider may return regions in any order (e.g., as Kubernetes provides them).
 						// This pact specifies a particular order for the mock server, but provider verification
@@ -246,10 +269,15 @@ var _ = Describe("Region Service Contract", func() {
 				defer cancel()
 
 				pact.AddInteraction().
-					Given("organization test-org-timeout exists").
+					GivenWithParameter(models.ProviderState{
+						Name: "organization exists",
+						Parameters: map[string]interface{}{
+							"organizationID": organizationID,
+						},
+					}).
 					UponReceiving("a request for regions that will timeout").
 					WithRequest("GET", fmt.Sprintf("/api/v1/organizations/%s/regions", organizationID)).
-					WillRespondWith(200, func(b *consumer.V2ResponseBuilder) {
+					WillRespondWith(200, func(b *consumer.V4ResponseBuilder) {
 						b.JSONBody([]interface{}{})
 					})
 
