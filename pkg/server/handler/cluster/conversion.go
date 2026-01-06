@@ -1,5 +1,6 @@
 /*
 Copyright 2024-2025 the Unikorn Authors.
+Copyright 2026 Nscale.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,8 +19,6 @@ package cluster
 
 import (
 	"context"
-	goerrors "errors"
-	"fmt"
 	"net"
 	"slices"
 
@@ -35,10 +34,6 @@ import (
 	regionapi "github.com/unikorn-cloud/region/pkg/openapi"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
-)
-
-var (
-	ErrResourceLookup = goerrors.New("could not find the requested resource")
 )
 
 // generator wraps up the myriad things we need to pass around as an object
@@ -368,7 +363,7 @@ func (g *generator) chooseImage(ctx context.Context, regionID string, pool *open
 	})
 
 	if len(images) == 0 {
-		return nil, errors.OAuth2ServerError("unable to select an image")
+		return nil, errors.OAuth2InvalidRequest("no images available for the specified selector")
 	}
 
 	// Preserve existing image to prevent unexpected rebuilds.
@@ -629,6 +624,23 @@ func generateFirewallRules(in *openapi.FirewallRules) ([]unikornv1.FirewallRule,
 	return out, nil
 }
 
+func (g *generator) lookupRegion(ctx context.Context, id string) (*regionapi.RegionRead, error) {
+	regions, err := g.region.List(ctx, g.organizationID)
+	if err != nil {
+		return nil, err
+	}
+
+	isTargetRegion := func(region regionapi.RegionRead) bool {
+		return region.Metadata.Id == id
+	}
+
+	if index := slices.IndexFunc(regions, isTargetRegion); index >= 0 {
+		return &regions[index], nil
+	}
+
+	return nil, errors.OAuth2InvalidRequest("region ID is invalid or cannot be resolved")
+}
+
 // lookupFlavor resolves the flavor from its name.
 // NOTE: It looks like garbage performance, but the provider should be memoized...
 func (g *generator) lookupFlavor(ctx context.Context, request *openapi.ComputeClusterWrite, id string) (*regionapi.Flavor, error) {
@@ -637,19 +649,23 @@ func (g *generator) lookupFlavor(ctx context.Context, request *openapi.ComputeCl
 		return nil, err
 	}
 
-	index := slices.IndexFunc(flavors, func(flavor regionapi.Flavor) bool {
+	isTargetFlavor := func(flavor regionapi.Flavor) bool {
 		return flavor.Metadata.Id == id
-	})
-
-	if index < 0 {
-		return nil, fmt.Errorf("%w: flavor %s", ErrResourceLookup, id)
 	}
 
-	return &flavors[index], nil
+	if index := slices.IndexFunc(flavors, isTargetFlavor); index >= 0 {
+		return &flavors[index], nil
+	}
+
+	return nil, errors.OAuth2InvalidRequest("flavor ID is invalid or cannot be resolved")
 }
 
 // generate generates the full cluster custom resource.
 func (g *generator) generate(ctx context.Context, request *openapi.ComputeClusterWrite) (*unikornv1.ComputeCluster, error) {
+	if _, err := g.lookupRegion(ctx, request.Spec.RegionId); err != nil {
+		return nil, err
+	}
+
 	computeWorkloadPools, err := g.generateWorkloadPools(ctx, request)
 	if err != nil {
 		return nil, err

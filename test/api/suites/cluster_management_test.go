@@ -1,5 +1,6 @@
 /*
 Copyright 2024-2025 the Unikorn Authors.
+Copyright 2026 Nscale.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -52,11 +53,9 @@ var _ = Describe("Core Cluster Management", func() {
 						BuildTyped())
 
 				Expect(err).To(HaveOccurred())
-				//TODO: Backend currently returns 500 instead of 400 for missing required fields
-				Expect(err.Error()).To(ContainSubstring("500"))
-				Expect(err.Error()).To(ContainSubstring("unhandled error"))
+				Expect(err.Error()).To(ContainSubstring("400"))
+				Expect(err.Error()).To(ContainSubstring("region ID is invalid or cannot be resolved"))
 			})
-			//TODO: this is currently returning an ungraceful error, should be handled better, will update this test when that is fixed
 			It("should reject cluster creation with invalid flavor", func() {
 				_, err := client.CreateCluster(ctx, config.OrgID, config.ProjectID,
 					api.NewClusterPayload().
@@ -65,8 +64,7 @@ var _ = Describe("Core Cluster Management", func() {
 						BuildTyped())
 
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("500"))
-				Expect(err.Error()).To(ContainSubstring("unhandled error"))
+				Expect(err.Error()).To(ContainSubstring("400"))
 			})
 
 			It("should reject cluster creation with invalid image", func() {
@@ -77,10 +75,8 @@ var _ = Describe("Core Cluster Management", func() {
 						BuildTyped())
 
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("500"))
-				Expect(err.Error()).To(ContainSubstring("unable to select an image"))
+				Expect(err.Error()).To(ContainSubstring("400"))
 			})
-			//TODO: this is currently returning an ungraceful error, should be handled better, will update this test when that is fixed
 			It("should reject cluster creation with invalid region", func() {
 				_, err := client.CreateCluster(ctx, config.OrgID, config.ProjectID,
 					api.NewClusterPayload().
@@ -88,8 +84,7 @@ var _ = Describe("Core Cluster Management", func() {
 						BuildTyped())
 
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("500"))
-				Expect(err.Error()).To(ContainSubstring("unhandled error"))
+				Expect(err.Error()).To(ContainSubstring("400"))
 			})
 		})
 	})
@@ -171,7 +166,6 @@ var _ = Describe("Core Cluster Management", func() {
 				api.VerifyWorkloadPoolUpdate(updatedCluster, 1)
 			})
 		})
-		//TODO: this is currently returning an ungraceful error, should be handled better, will update this test when that is fixed
 		Describe("Given invalid update parameters", func() {
 			It("should reject updates to immutable fields", func() {
 				invalidPayload := api.NewClusterPayload().
@@ -181,7 +175,8 @@ var _ = Describe("Core Cluster Management", func() {
 
 				err := client.UpdateCluster(ctx, config.OrgID, config.ProjectID, fixture.ClusterID, invalidPayload)
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("server_error"))
+				Expect(err.Error()).To(ContainSubstring("400"))
+				Expect(err.Error()).To(ContainSubstring("invalid_request"))
 			})
 		})
 	})

@@ -1,5 +1,6 @@
 /*
 Copyright 2025 the Unikorn Authors.
+Copyright 2026 Nscale.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -25,6 +26,7 @@ import (
 )
 
 type ClientInterface interface {
+	List(ctx context.Context, organizationID string) ([]regionapi.RegionRead, error)
 	Flavors(ctx context.Context, organizationID, regionID string) ([]regionapi.Flavor, error)
 	Images(ctx context.Context, organizationID, regionID string) ([]regionapi.Image, error)
 }

@@ -1,5 +1,6 @@
 /*
 Copyright 2025 the Unikorn Authors.
+Copyright 2026 Nscale.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -747,7 +748,7 @@ func (c *Client) ConsoleOutput(ctx context.Context, instanceID string, params co
 		return nil, errors.OAuth2ServerError("unable to get console output for instance").WithError(err)
 	}
 
-	if response.StatusCode() != http.StatusAccepted {
+	if response.StatusCode() != http.StatusOK {
 		return nil, errors.OAuth2ServerError("unable to get console output for instance - incorrect status code")
 	}
 

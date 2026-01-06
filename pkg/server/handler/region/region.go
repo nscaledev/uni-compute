@@ -1,5 +1,6 @@
 /*
 Copyright 2024-2025 the Unikorn Authors.
+Copyright 2026 Nscale.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -138,7 +139,7 @@ func (c *Client) HardRebootServer(ctx context.Context, organizationID, projectID
 		return err
 	}
 
-	// REVIEW_ME: The endpoint doesn't seem to return 404 when the server is not found. Maybe we should remove the check and update the OpenAPI spec?
+	// FIXME: We should rethrow the not found error.
 	if resp.StatusCode() != http.StatusAccepted && resp.StatusCode() != http.StatusNotFound {
 		return coreapiutils.ExtractError(resp.StatusCode(), resp)
 	}
@@ -152,7 +153,7 @@ func (c *Client) SoftRebootServer(ctx context.Context, organizationID, projectID
 		return err
 	}
 
-	// REVIEW_ME: The endpoint doesn't seem to return 404 when the server is not found. Maybe we should remove the check and update the OpenAPI spec?
+	// FIXME: We should rethrow the not found error.
 	if resp.StatusCode() != http.StatusAccepted && resp.StatusCode() != http.StatusNotFound {
 		return coreapiutils.ExtractError(resp.StatusCode(), resp)
 	}
@@ -166,7 +167,7 @@ func (c *Client) StartServer(ctx context.Context, organizationID, projectID, ide
 		return err
 	}
 
-	// REVIEW_ME: The endpoint doesn't seem to return 404 when the server is not found. Maybe we should remove the check and update the OpenAPI spec?
+	// FIXME: We should rethrow the not found error.
 	if resp.StatusCode() != http.StatusAccepted && resp.StatusCode() != http.StatusNotFound {
 		return coreapiutils.ExtractError(resp.StatusCode(), resp)
 	}
@@ -180,7 +181,7 @@ func (c *Client) StopServer(ctx context.Context, organizationID, projectID, iden
 		return err
 	}
 
-	// REVIEW_ME: The endpoint doesn't seem to return 404 when the server is not found. Maybe we should remove the check and update the OpenAPI spec?
+	// FIXME: We should rethrow the not found error.
 	if resp.StatusCode() != http.StatusAccepted && resp.StatusCode() != http.StatusNotFound {
 		return coreapiutils.ExtractError(resp.StatusCode(), resp)
 	}
