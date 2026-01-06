@@ -34,6 +34,7 @@ type TestConfig struct {
 	SecondaryRegionID  string
 	FlavorID           string
 	ImageID            string
+	NetworkID          string
 }
 
 // LoadTestConfig loads configuration from environment variables and .env files using viper.
@@ -81,6 +82,7 @@ func LoadTestConfig() (*TestConfig, error) {
 		SecondaryRegionID:  v.GetString("TEST_SECONDARY_REGION_ID"),
 		FlavorID:           v.GetString("TEST_FLAVOR_ID"),
 		ImageID:            v.GetString("TEST_IMAGE_ID"),
+		NetworkID:          v.GetString("TEST_NETWORK_ID"),
 	}
 
 	// Validate required fields
@@ -94,6 +96,7 @@ func LoadTestConfig() (*TestConfig, error) {
 		"TEST_SECONDARY_REGION_ID":  config.SecondaryRegionID,
 		"TEST_FLAVOR_ID":            config.FlavorID,
 		"TEST_IMAGE_ID":             config.ImageID,
+		"TEST_NETWORK_ID":           config.NetworkID,
 	}
 
 	if err := coreconfig.ValidateRequiredFields(required); err != nil {
