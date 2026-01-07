@@ -66,3 +66,34 @@ jobs:
       uses: codecov/codecov-action@v5
       env:
         CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+  ContractTests:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    - name: Setup Go
+      uses: actions/setup-go@v6
+      with:
+        go-version-file: go.mod
+    - name: Touch
+      run: make touch
+    - name: Install Pact FFI Library
+      run: |
+        PACT_FFI_VERSION="0.4.28"
+        curl -LO https://github.com/pact-foundation/pact-reference/releases/download/libpact_ffi-v${PACT_FFI_VERSION}/libpact_ffi-linux-x86_64.so.gz
+        gunzip libpact_ffi-linux-x86_64.so.gz
+        sudo mkdir -p /usr/local/lib
+        sudo mv libpact_ffi-linux-x86_64.so /usr/local/lib/libpact_ffi.so
+        sudo ldconfig
+    - name: Run Consumer Contract Tests
+      run: make test-contracts-consumer
+      env:
+        CGO_LDFLAGS: "-L/usr/local/lib"
+        LD_LIBRARY_PATH: "/usr/local/lib"
+    - name: Publish Pacts to Dev Broker
+      if: success()
+      run: make publish-pacts
+      env:
+        PACT_BROKER_URL: ${{ secrets.PACT_BROKER_URL_DEV }}
+        PACT_BROKER_USERNAME: ${{ secrets.PACT_BROKER_USERNAME }}
+        PACT_BROKER_PASSWORD: ${{ secrets.PACT_BROKER_PASSWORD }}
