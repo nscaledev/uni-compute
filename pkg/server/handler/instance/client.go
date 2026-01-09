@@ -313,23 +313,7 @@ func (c *Client) List(ctx context.Context, params computeapi.GetApiV2InstancesPa
 	return convertList(result), nil
 }
 
-func (c *Client) generateAllocation(ctx context.Context, organizationID, regionID string, resource *computev1.ComputeInstance) (identityapi.ResourceAllocationList, error) {
-	flavors, err := region.New(c.region).Flavors(ctx, organizationID, regionID)
-	if err != nil {
-		return nil, err
-	}
-
-	matchFlavor := func(flavor regionapi.Flavor) bool {
-		return flavor.Metadata.Id == resource.Spec.FlavorID
-	}
-
-	index := slices.IndexFunc(flavors, matchFlavor)
-	if index < 0 {
-		return nil, errors.OAuth2InvalidRequest("requested flavor does not exist")
-	}
-
-	flavor := &flavors[index]
-
+func (c *Client) generateAllocation(flavor *regionapi.Flavor) identityapi.ResourceAllocationList {
 	var gpus int
 
 	if flavor.Spec.Gpu != nil {
@@ -347,30 +331,84 @@ func (c *Client) generateAllocation(ctx context.Context, organizationID, regionI
 		},
 	}
 
-	return required, nil
+	return required
+}
+
+func (c *Client) getFlavor(ctx context.Context, organizationID, regionID, id string) (*regionapi.Flavor, error) {
+	resources, err := region.New(c.region).Flavors(ctx, organizationID, regionID)
+	if err != nil {
+		return nil, err
+	}
+
+	match := func(resource regionapi.Flavor) bool {
+		return resource.Metadata.Id == id
+	}
+
+	index := slices.IndexFunc(resources, match)
+	if index < 0 {
+		return nil, errors.OAuth2InvalidRequest("requested flavor does not exist or is not accessible")
+	}
+
+	return &resources[index], nil
+}
+
+func (c *Client) getImage(ctx context.Context, organizationID, regionID, id string) (*regionapi.Image, error) {
+	resources, err := region.New(c.region).Images(ctx, organizationID, regionID)
+	if err != nil {
+		return nil, err
+	}
+
+	match := func(resource regionapi.Image) bool {
+		return resource.Metadata.Id == id
+	}
+
+	index := slices.IndexFunc(resources, match)
+	if index < 0 {
+		return nil, errors.OAuth2InvalidRequest("requested image does not exist or is not accessible")
+	}
+
+	return &resources[index], nil
+}
+
+//nolint:unparam
+func (c *Client) getAndValidateFlavorAndImage(ctx context.Context, organizationID, regionID, flavorID, imageID string) (*regionapi.Flavor, *regionapi.Image, error) {
+	flavor, err := c.getFlavor(ctx, organizationID, regionID, flavorID)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	image, err := c.getImage(ctx, organizationID, regionID, imageID)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if flavor.Spec.Architecture != image.Spec.Architecture {
+		return nil, nil, errors.OAuth2InvalidRequest("CPU architecture of flavor (", flavor.Spec.Architecture, ") does not match that of the image (", image.Spec.Architecture, "}")
+	}
+
+	if flavor.Spec.Disk < image.Spec.SizeGiB {
+		return nil, nil, errors.OAuth2InvalidRequest("Flavor disk (", flavor.Spec.Disk, " GIB) is too small for the image (", image.Spec.SizeGiB, " GiB)")
+	}
+
+	return flavor, image, nil
 }
 
 type createSaga struct {
-	client         *Client
-	organizationID string
-	regionID       string
-	resource       *computev1.ComputeInstance
+	client   *Client
+	resource *computev1.ComputeInstance
+	flavor   *regionapi.Flavor
 }
 
-func newCreateSaga(client *Client, organizationID, regionID string, resource *computev1.ComputeInstance) *createSaga {
+func newCreateSaga(client *Client, resource *computev1.ComputeInstance, flavor *regionapi.Flavor) *createSaga {
 	return &createSaga{
-		client:         client,
-		organizationID: organizationID,
-		regionID:       regionID,
-		resource:       resource,
+		client:   client,
+		resource: resource,
+		flavor:   flavor,
 	}
 }
 
 func (s *createSaga) createAllocation(ctx context.Context) error {
-	required, err := s.client.generateAllocation(ctx, s.organizationID, s.regionID, s.resource)
-	if err != nil {
-		return err
-	}
+	required := s.client.generateAllocation(s.flavor)
 
 	return identityclient.NewAllocations(s.client.client, s.client.identity).Create(ctx, s.resource, required)
 }
@@ -415,6 +453,11 @@ func (c *Client) Create(ctx context.Context, request *computeapi.InstanceCreate)
 
 	regionID := network.Status.RegionId
 
+	flavor, _, err := c.getAndValidateFlavorAndImage(ctx, organizationID, regionID, request.Spec.FlavorId, request.Spec.ImageId)
+	if err != nil {
+		return nil, err
+	}
+
 	updateRequest, err := convertCreateToUpdateRequest(request)
 	if err != nil {
 		return nil, err
@@ -425,7 +468,7 @@ func (c *Client) Create(ctx context.Context, request *computeapi.InstanceCreate)
 		return nil, err
 	}
 
-	s := newCreateSaga(c, organizationID, regionID, resource)
+	s := newCreateSaga(c, resource, flavor)
 
 	if err := saga.Run(ctx, s); err != nil {
 		return nil, err
@@ -462,37 +505,29 @@ func (c *Client) Get(ctx context.Context, instanceID string) (*computeapi.Instan
 }
 
 type updateSaga struct {
-	client         *Client
-	organizationID string
-	regionID       string
-	current        *computev1.ComputeInstance
-	updated        *computev1.ComputeInstance
+	client  *Client
+	current *computev1.ComputeInstance
+	updated *computev1.ComputeInstance
+	flavor  *regionapi.Flavor
 }
 
-func newUpdateSaga(client *Client, organizationID, regionID string, current, updated *computev1.ComputeInstance) *updateSaga {
+func newUpdateSaga(client *Client, current, updated *computev1.ComputeInstance, flavor *regionapi.Flavor) *updateSaga {
 	return &updateSaga{
-		client:         client,
-		organizationID: organizationID,
-		regionID:       regionID,
-		current:        current,
-		updated:        updated,
+		client:  client,
+		current: current,
+		updated: updated,
+		flavor:  flavor,
 	}
 }
 
 func (s *updateSaga) updateAllocation(ctx context.Context) error {
-	required, err := s.client.generateAllocation(ctx, s.organizationID, s.regionID, s.updated)
-	if err != nil {
-		return err
-	}
+	required := s.client.generateAllocation(s.flavor)
 
 	return identityclient.NewAllocations(s.client.client, s.client.identity).Update(ctx, s.current, required)
 }
 
 func (s *updateSaga) revertAllocation(ctx context.Context) error {
-	required, err := s.client.generateAllocation(ctx, s.organizationID, s.regionID, s.current)
-	if err != nil {
-		return err
-	}
+	required := s.client.generateAllocation(s.flavor)
 
 	return identityclient.NewAllocations(s.client.client, s.client.identity).Update(ctx, s.current, required)
 }
@@ -531,6 +566,11 @@ func (c *Client) Update(ctx context.Context, instanceID string, request *compute
 		return nil, errors.OAuth2InvalidRequest("server is being deleted")
 	}
 
+	flavor, _, err := c.getAndValidateFlavorAndImage(ctx, organizationID, regionID, request.Spec.FlavorId, request.Spec.ImageId)
+	if err != nil {
+		return nil, err
+	}
+
 	required, err := c.generate(ctx, request, organizationID, projectID, regionID, networkID)
 	if err != nil {
 		return nil, err
@@ -546,7 +586,7 @@ func (c *Client) Update(ctx context.Context, instanceID string, request *compute
 	updated.Annotations = required.Annotations
 	updated.Spec = required.Spec
 
-	s := newUpdateSaga(c, organizationID, regionID, current, updated)
+	s := newUpdateSaga(c, current, updated, flavor)
 
 	if err := saga.Run(ctx, s); err != nil {
 		return nil, err
