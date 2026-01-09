@@ -382,6 +382,10 @@ func (c *Client) getAndValidateFlavorAndImage(ctx context.Context, organizationI
 		return nil, nil, err
 	}
 
+	if image.Status.State != regionapi.ImageStateReady {
+		return nil, nil, errors.OAuth2InvalidRequest("Image is not in a ready state")
+	}
+
 	if flavor.Spec.Architecture != image.Spec.Architecture {
 		return nil, nil, errors.OAuth2InvalidRequest("CPU architecture of flavor (", flavor.Spec.Architecture, ") does not match that of the image (", image.Spec.Architecture, "}")
 	}
