@@ -32,6 +32,7 @@ jobs:
       TEST_SECONDARY_REGION_ID: ${{ secrets.TEST_SECONDARY_REGION_ID }}
       TEST_FLAVOR_ID: ${{ secrets.TEST_FLAVOR_ID }}
       TEST_IMAGE_ID: ${{ secrets.TEST_IMAGE_ID }}
+      TEST_NETWORK_ID: ${{ secrets.TEST_NETWORK_ID }}
     steps:
     - name: Checkout
       uses: actions/checkout@v4
@@ -59,12 +60,22 @@ jobs:
     
     - name: Archive API Test Results
       uses: actions/upload-artifact@v4
+      if: always()
       with:
         name: api-test-results
-        path: test/api/test-results.json
-    
+        path: test/api/suites/test-results.json
+
     - name: Archive API Test JUnit Report
       uses: actions/upload-artifact@v4
+      if: always()
       with:
         name: api-test-junit
-        path: test/api/junit.xml
+        path: test/api/suites/junit.xml
+
+    - name: Send Slack Notification
+      if: always()
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      run: |
+        WORKFLOW_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        go run test/api/suites/scripts/slack-notify.go test/api/suites/test-results.json "$WORKFLOW_URL"

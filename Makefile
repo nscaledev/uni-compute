@@ -166,7 +166,7 @@ test-api-setup:
 # Clean test artifacts
 .PHONY: test-api-clean
 test-api-clean:
-	@rm -f test/api/test-results.json test/api/junit.xml
+	@rm -f test/api/suites/test-results.json test/api/suites/junit.xml
 
 # Build a binary and install it.
 $(PREFIX)/%: $(BINDIR)/%
