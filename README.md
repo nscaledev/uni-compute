@@ -177,8 +177,9 @@ The API tests can be triggered manually via GitHub Actions using `workflow_dispa
 
 | Input | Type | Description | Default |
 |-------|------|-------------|---------|
+| `run_dev` | boolean | Run Dev environment tests | `true` |
+| `run_uat` | boolean | Run UAT environment tests | `false` |
 | `focus` | choice | Test suite to run | `All` |
-| `parallel` | boolean | Run tests in parallel | `false` |
 
 **Available Test Suite Options:**
 - `All` - Run all test suites
@@ -192,18 +193,47 @@ The API tests can be triggered manually via GitHub Actions using `workflow_dispa
 1. Navigate to **Actions** tab in GitHub
 2. Select **API Tests** workflow
 3. Click **Run workflow**
-4. Choose test suite
-5. Click **Run workflow**
+4. Select which environments to test:
+   - **Run Dev tests** (checked by default)
+   - **Run UAT tests** (unchecked by default)
+5. Choose test suite from the **focus** dropdown
+6. Click **Run workflow**
 
-**Automatic Triggers:**
+**Required GitHub Secrets:**
 
-Tests automatically run on pushes to `main` branch
+The workflow requires environment-specific secrets to be configured in repository settings:
+
+**Dev Environment:**
+- `DEV_API_BASE_URL` - Dev Compute API server URL
+- `DEV_IDENTITY_BASE_URL` - Dev Identity API server URL
+- `DEV_API_AUTH_TOKEN` - Dev service authentication token
+- `DEV_TEST_ORG_ID` - Dev organization ID
+- `DEV_TEST_PROJECT_ID` - Dev project ID
+- `DEV_TEST_SECONDARY_PROJECT_ID` - Dev secondary project ID
+- `DEV_TEST_REGION_ID` - Dev region ID
+- `DEV_TEST_SECONDARY_REGION_ID` - Dev secondary region ID
+- `DEV_TEST_NETWORK_ID` - Dev network ID
+
+**UAT Environment:**
+- `UAT_API_BASE_URL` - UAT Compute API server URL
+- `UAT_IDENTITY_BASE_URL` - UAT Identity API server URL
+- `UAT_API_AUTH_TOKEN` - UAT service authentication token
+- `UAT_TEST_ORG_ID` - UAT organization ID
+- `UAT_TEST_PROJECT_ID` - UAT project ID
+- `UAT_TEST_SECONDARY_PROJECT_ID` - UAT secondary project ID
+- `UAT_TEST_REGION_ID` - UAT region ID
+- `UAT_TEST_SECONDARY_REGION_ID` - UAT secondary region ID
+- `UAT_TEST_NETWORK_ID` - UAT network ID
+
+**Shared (not environment-specific):**
+- `TEST_FLAVOR_ID` - Flavor ID for tests
+- `TEST_IMAGE_ID` - Image ID for tests
 
 **Test Artifacts:**
 
-After each run, test results are uploaded as artifacts:
-- `api-test-results` - JSON format test results
-- `api-test-junit` - JUnit XML format for CI integration
+After each run, test results are uploaded as artifacts per environment:
+- `api-test-results-dev` / `api-test-results-uat` - JSON format test results
+- `api-test-junit-dev` / `api-test-junit-uat` - JUnit XML format for CI integration
 
 #### Cleaning Up Test Artifacts locally.
 
