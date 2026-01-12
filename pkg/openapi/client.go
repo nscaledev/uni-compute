@@ -189,6 +189,11 @@ type ClientInterface interface {
 	// PostApiV2InstancesInstanceIDReboot request
 	PostApiV2InstancesInstanceIDReboot(ctx context.Context, instanceID InstanceIDParameter, params *PostApiV2InstancesInstanceIDRebootParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// PostApiV2InstancesInstanceIDSnapshotWithBody request with any body
+	PostApiV2InstancesInstanceIDSnapshotWithBody(ctx context.Context, instanceID InstanceIDParameter, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PostApiV2InstancesInstanceIDSnapshot(ctx context.Context, instanceID InstanceIDParameter, body PostApiV2InstancesInstanceIDSnapshotJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetApiV2InstancesInstanceIDSshkey request
 	GetApiV2InstancesInstanceIDSshkey(ctx context.Context, instanceID InstanceIDParameter, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -609,6 +614,30 @@ func (c *Client) GetApiV2InstancesInstanceIDConsolesession(ctx context.Context, 
 
 func (c *Client) PostApiV2InstancesInstanceIDReboot(ctx context.Context, instanceID InstanceIDParameter, params *PostApiV2InstancesInstanceIDRebootParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPostApiV2InstancesInstanceIDRebootRequest(c.Server, instanceID, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostApiV2InstancesInstanceIDSnapshotWithBody(ctx context.Context, instanceID InstanceIDParameter, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiV2InstancesInstanceIDSnapshotRequestWithBody(c.Server, instanceID, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PostApiV2InstancesInstanceIDSnapshot(ctx context.Context, instanceID InstanceIDParameter, body PostApiV2InstancesInstanceIDSnapshotJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostApiV2InstancesInstanceIDSnapshotRequest(c.Server, instanceID, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2133,6 +2162,53 @@ func NewPostApiV2InstancesInstanceIDRebootRequest(server string, instanceID Inst
 	return req, nil
 }
 
+// NewPostApiV2InstancesInstanceIDSnapshotRequest calls the generic PostApiV2InstancesInstanceIDSnapshot builder with application/json body
+func NewPostApiV2InstancesInstanceIDSnapshotRequest(server string, instanceID InstanceIDParameter, body PostApiV2InstancesInstanceIDSnapshotJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPostApiV2InstancesInstanceIDSnapshotRequestWithBody(server, instanceID, "application/json", bodyReader)
+}
+
+// NewPostApiV2InstancesInstanceIDSnapshotRequestWithBody generates requests for PostApiV2InstancesInstanceIDSnapshot with any type of body
+func NewPostApiV2InstancesInstanceIDSnapshotRequestWithBody(server string, instanceID InstanceIDParameter, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "instanceID", runtime.ParamLocationPath, instanceID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v2/instances/%s/snapshot", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewGetApiV2InstancesInstanceIDSshkeyRequest generates requests for GetApiV2InstancesInstanceIDSshkey
 func NewGetApiV2InstancesInstanceIDSshkeyRequest(server string, instanceID InstanceIDParameter) (*http.Request, error) {
 	var err error
@@ -2375,6 +2451,11 @@ type ClientWithResponsesInterface interface {
 
 	// PostApiV2InstancesInstanceIDRebootWithResponse request
 	PostApiV2InstancesInstanceIDRebootWithResponse(ctx context.Context, instanceID InstanceIDParameter, params *PostApiV2InstancesInstanceIDRebootParams, reqEditors ...RequestEditorFn) (*PostApiV2InstancesInstanceIDRebootResponse, error)
+
+	// PostApiV2InstancesInstanceIDSnapshotWithBodyWithResponse request with any body
+	PostApiV2InstancesInstanceIDSnapshotWithBodyWithResponse(ctx context.Context, instanceID InstanceIDParameter, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV2InstancesInstanceIDSnapshotResponse, error)
+
+	PostApiV2InstancesInstanceIDSnapshotWithResponse(ctx context.Context, instanceID InstanceIDParameter, body PostApiV2InstancesInstanceIDSnapshotJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiV2InstancesInstanceIDSnapshotResponse, error)
 
 	// GetApiV2InstancesInstanceIDSshkeyWithResponse request
 	GetApiV2InstancesInstanceIDSshkeyWithResponse(ctx context.Context, instanceID InstanceIDParameter, reqEditors ...RequestEditorFn) (*GetApiV2InstancesInstanceIDSshkeyResponse, error)
@@ -3126,6 +3207,33 @@ func (r PostApiV2InstancesInstanceIDRebootResponse) StatusCode() int {
 	return 0
 }
 
+type PostApiV2InstancesInstanceIDSnapshotResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *externalRef1.ImageResponse
+	JSON400      *externalRef0.BadRequestResponse
+	JSON401      *externalRef0.UnauthorizedResponse
+	JSON403      *externalRef0.ForbiddenResponse
+	JSON404      *externalRef0.NotFoundResponse
+	JSON500      *externalRef0.InternalServerErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r PostApiV2InstancesInstanceIDSnapshotResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostApiV2InstancesInstanceIDSnapshotResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type GetApiV2InstancesInstanceIDSshkeyResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -3511,6 +3619,23 @@ func (c *ClientWithResponses) PostApiV2InstancesInstanceIDRebootWithResponse(ctx
 		return nil, err
 	}
 	return ParsePostApiV2InstancesInstanceIDRebootResponse(rsp)
+}
+
+// PostApiV2InstancesInstanceIDSnapshotWithBodyWithResponse request with arbitrary body returning *PostApiV2InstancesInstanceIDSnapshotResponse
+func (c *ClientWithResponses) PostApiV2InstancesInstanceIDSnapshotWithBodyWithResponse(ctx context.Context, instanceID InstanceIDParameter, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostApiV2InstancesInstanceIDSnapshotResponse, error) {
+	rsp, err := c.PostApiV2InstancesInstanceIDSnapshotWithBody(ctx, instanceID, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostApiV2InstancesInstanceIDSnapshotResponse(rsp)
+}
+
+func (c *ClientWithResponses) PostApiV2InstancesInstanceIDSnapshotWithResponse(ctx context.Context, instanceID InstanceIDParameter, body PostApiV2InstancesInstanceIDSnapshotJSONRequestBody, reqEditors ...RequestEditorFn) (*PostApiV2InstancesInstanceIDSnapshotResponse, error) {
+	rsp, err := c.PostApiV2InstancesInstanceIDSnapshot(ctx, instanceID, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostApiV2InstancesInstanceIDSnapshotResponse(rsp)
 }
 
 // GetApiV2InstancesInstanceIDSshkeyWithResponse request returning *GetApiV2InstancesInstanceIDSshkeyResponse
@@ -5096,6 +5221,67 @@ func ParsePostApiV2InstancesInstanceIDRebootResponse(rsp *http.Response) (*PostA
 	}
 
 	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest externalRef0.BadRequestResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest externalRef0.UnauthorizedResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest externalRef0.ForbiddenResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.NotFoundResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.InternalServerErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePostApiV2InstancesInstanceIDSnapshotResponse parses an HTTP response from a PostApiV2InstancesInstanceIDSnapshotWithResponse call
+func ParsePostApiV2InstancesInstanceIDSnapshotResponse(rsp *http.Response) (*PostApiV2InstancesInstanceIDSnapshotResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostApiV2InstancesInstanceIDSnapshotResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest externalRef1.ImageResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest externalRef0.BadRequestResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {

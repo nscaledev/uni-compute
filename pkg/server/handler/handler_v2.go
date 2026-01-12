@@ -131,6 +131,10 @@ func (h *Handler) PostApiV2InstancesInstanceIDReboot(w http.ResponseWriter, r *h
 	w.WriteHeader(http.StatusAccepted)
 }
 
+func (h *Handler) PostApiV2InstancesInstanceIDSnapshot(w http.ResponseWriter, r *http.Request, instanceID openapi.InstanceIDParameter) {
+	errors.HandleError(w, r, errors.HTTPUnprocessableContent("not implemented"))
+}
+
 func (h *Handler) GetApiV2InstancesInstanceIDConsoleoutput(w http.ResponseWriter, r *http.Request, instanceID openapi.InstanceIDParameter, params openapi.GetApiV2InstancesInstanceIDConsoleoutputParams) {
 	result, err := h.instanceClient().ConsoleOutput(r.Context(), instanceID, params)
 	if err != nil {
