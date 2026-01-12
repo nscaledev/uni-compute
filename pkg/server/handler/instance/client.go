@@ -768,6 +768,34 @@ func (c *Client) Reboot(ctx context.Context, instanceID string, params computeap
 	return nil
 }
 
+func (c *Client) Snapshot(ctx context.Context, instanceID string, params computeapi.InstanceSnapshotCreate) (*regionapi.ImageResponse, error) {
+	// This implicitly checks read permission on the instance in question.
+	resource, err := c.GetRaw(ctx, instanceID)
+	if err != nil {
+		return nil, err
+	}
+
+	serverID, err := c.serverID(ctx, resource)
+	if err != nil {
+		return nil, err
+	}
+
+	var requestBody regionapi.SnapshotCreate
+	requestBody.Metadata = params.Metadata
+	requestBody.Spec = regionapi.SnapshotCreateSpec{}
+
+	response, err := c.region.PostApiV2ServersServerIDSnapshotWithResponse(ctx, serverID, requestBody)
+	if err != nil {
+		return nil, err
+	}
+
+	if response.StatusCode() != http.StatusCreated {
+		return nil, errors.OAuth2ServerError("unable to create snapshot for instance - incorrect status code")
+	}
+
+	return response.JSON201, nil
+}
+
 func (c *Client) ConsoleOutput(ctx context.Context, instanceID string, params computeapi.GetApiV2InstancesInstanceIDConsoleoutputParams) (*regionapi.ConsoleOutputResponse, error) {
 	resource, err := c.GetRaw(ctx, instanceID)
 	if err != nil {
