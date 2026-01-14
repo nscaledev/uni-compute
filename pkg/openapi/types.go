@@ -340,6 +340,12 @@ type InstanceRead struct {
 	Status InstanceStatus `json:"status"`
 }
 
+// InstanceSnapshotCreate A compute instance snapshot request.
+type InstanceSnapshotCreate struct {
+	// Metadata Metadata required for all API resource reads and writes.
+	Metadata externalRef0.ResourceWriteMetadata `json:"metadata"`
+}
+
 // InstanceSpec A compute instance.
 type InstanceSpec struct {
 	// FlavorId The flavor CPU/RAM of a compute instance.
@@ -545,6 +551,9 @@ type EvictionRequest = EvictionWrite
 // InstanceCreateRequest A compute instance creation request.
 type InstanceCreateRequest = InstanceCreate
 
+// InstanceSnapshotRequest A compute instance snapshot request.
+type InstanceSnapshotRequest = InstanceSnapshotCreate
+
 // InstanceUpdateRequest A compute instance update request.
 type InstanceUpdateRequest = InstanceUpdate
 
@@ -631,6 +640,9 @@ type PostApiV2InstancesJSONRequestBody = InstanceCreate
 
 // PutApiV2InstancesInstanceIDJSONRequestBody defines body for PutApiV2InstancesInstanceID for application/json ContentType.
 type PutApiV2InstancesInstanceIDJSONRequestBody = InstanceUpdate
+
+// PostApiV2InstancesInstanceIDSnapshotJSONRequestBody defines body for PostApiV2InstancesInstanceIDSnapshot for application/json ContentType.
+type PostApiV2InstancesInstanceIDSnapshotJSONRequestBody = InstanceSnapshotCreate
 
 // AsComputeImage0 returns the union data inside the ComputeImage as a ComputeImage0
 func (t ComputeImage) AsComputeImage0() (ComputeImage0, error) {

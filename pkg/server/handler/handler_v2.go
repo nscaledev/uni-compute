@@ -131,6 +131,22 @@ func (h *Handler) PostApiV2InstancesInstanceIDReboot(w http.ResponseWriter, r *h
 	w.WriteHeader(http.StatusAccepted)
 }
 
+func (h *Handler) PostApiV2InstancesInstanceIDSnapshot(w http.ResponseWriter, r *http.Request, instanceID openapi.InstanceIDParameter) {
+	var body openapi.InstanceSnapshotCreate
+	if err := util.ReadJSONBody(r, &body); err != nil {
+		errors.HandleError(w, r, errors.OAuth2InvalidRequest("unable to parse request body").WithError(err))
+		return
+	}
+
+	result, err := h.instanceClient().Snapshot(r.Context(), instanceID, body)
+	if err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	util.WriteJSONResponse(w, r, http.StatusCreated, result)
+}
+
 func (h *Handler) GetApiV2InstancesInstanceIDConsoleoutput(w http.ResponseWriter, r *http.Request, instanceID openapi.InstanceIDParameter, params openapi.GetApiV2InstancesInstanceIDConsoleoutputParams) {
 	result, err := h.instanceClient().ConsoleOutput(r.Context(), instanceID, params)
 	if err != nil {
