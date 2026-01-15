@@ -4,7 +4,7 @@ info:
   description: |-
     The Compute Service API provides services that allows provisioning and life cycle
     management of Compute clusters.
-  version: 1.12.0
+  version: 1.13.0
 paths:
   /api/v1/organizations/{organizationID}/regions:
     description: |-
@@ -53,6 +53,8 @@ paths:
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
         '403':
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/forbiddenResponse'
+        '404':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/notFoundResponse'
         '500':
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
   /api/v1/organizations/{organizationID}/regions/{regionID}/images:
@@ -78,6 +80,8 @@ paths:
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
         '403':
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/forbiddenResponse'
+        '404':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/notFoundResponse'
         '500':
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
   /api/v1/organizations/{organizationID}/clusters:
@@ -590,6 +594,33 @@ paths:
       responses:
         '202':
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/acceptedResponse'
+        '400':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/badRequestResponse'
+        '401':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/unauthorizedResponse'
+        '403':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/forbiddenResponse'
+        '404':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/notFoundResponse'
+        '500':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/internalServerErrorResponse'
+  /api/v2/instances/{instanceID}/snapshot:
+    description: Create an image from a compute instance.
+    parameters:
+    - $ref: '#/components/parameters/instanceIDParameter'
+    post:
+      description: |-
+        Take a snapshot of an instance and create an image from it.
+      summary: Snapshot instance
+      tags:
+      - Instances
+      security:
+      - oauth2Authentication: []
+      requestBody:
+        $ref: '#/components/requestBodies/instanceSnapshotRequest'
+      responses:
+        '201':
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/region/main/pkg/openapi/server.spec.yaml#/components/responses/imageResponse'
         '400':
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/responses/badRequestResponse'
         '401':
@@ -1128,6 +1159,14 @@ components:
         version:
           description: The operating system version to use.
           type: string
+    instanceSnapshotCreate:
+      description: A compute instance snapshot request.
+      type: object
+      required:
+      - metadata
+      properties:
+        metadata:
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/main/pkg/openapi/common.spec.yaml#/components/schemas/resourceWriteMetadata'
     computeClusterWorkloadPool:
       description: A Compute cluster workload pool.
       type: object
@@ -1443,6 +1482,16 @@ components:
               networking:
                 securityGroups:
                 - dd5954af-1d71-4abf-bb16-5729c7163886
+    instanceSnapshotRequest:
+      description: A request to snapshot an instance.
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/instanceSnapshotCreate'
+          example:
+            metadata:
+              name: my-instance-snapshot
     createComputeClusterRequest:
       description: Compute cluster request parameters.
       required: true

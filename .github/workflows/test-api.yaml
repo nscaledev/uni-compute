@@ -33,17 +33,17 @@ jobs:
     if: github.event.inputs.run_dev == 'true'
     env:
       ENVIRONMENT: dev
-      API_BASE_URL: ${{ secrets.DEV_API_BASE_URL }}
-      IDENTITY_BASE_URL: ${{ secrets.DEV_IDENTITY_BASE_URL }}
+      API_BASE_URL: ${{ vars.DEV_API_BASE_URL }}
+      IDENTITY_BASE_URL: ${{ vars.DEV_IDENTITY_BASE_URL }}
       API_AUTH_TOKEN: ${{ secrets.DEV_API_AUTH_TOKEN }}
-      TEST_ORG_ID: ${{ secrets.DEV_TEST_ORG_ID }}
-      TEST_PROJECT_ID: ${{ secrets.DEV_TEST_PROJECT_ID }}
-      TEST_SECONDARY_PROJECT_ID: ${{ secrets.DEV_TEST_SECONDARY_PROJECT_ID }}
-      TEST_REGION_ID: ${{ secrets.DEV_TEST_REGION_ID }}
-      TEST_SECONDARY_REGION_ID: ${{ secrets.DEV_TEST_SECONDARY_REGION_ID }}
-      TEST_FLAVOR_ID: ${{ secrets.TEST_FLAVOR_ID }}
-      TEST_IMAGE_ID: ${{ secrets.TEST_IMAGE_ID }}
-      TEST_NETWORK_ID: ${{ secrets.DEV_TEST_NETWORK_ID }}
+      TEST_ORG_ID: ${{ vars.DEV_TEST_ORG_ID }}
+      TEST_PROJECT_ID: ${{ vars.DEV_TEST_PROJECT_ID }}
+      TEST_SECONDARY_PROJECT_ID: ${{ vars.DEV_TEST_SECONDARY_PROJECT_ID }}
+      TEST_REGION_ID: ${{ vars.DEV_TEST_REGION_ID }}
+      TEST_SECONDARY_REGION_ID: ${{ vars.DEV_TEST_SECONDARY_REGION_ID }}
+      TEST_FLAVOR_ID: ${{ vars.DEV_TEST_FLAVOR_ID }}
+      TEST_IMAGE_ID: ${{ vars.DEV_TEST_IMAGE_ID }}
+      TEST_NETWORK_ID: ${{ vars.DEV_TEST_NETWORK_ID }}
 
     steps:
     - name: Checkout
@@ -94,17 +94,17 @@ jobs:
     if: github.event.inputs.run_uat == 'true'
     env:
       ENVIRONMENT: uat
-      API_BASE_URL: ${{ secrets.UAT_API_BASE_URL }}
-      IDENTITY_BASE_URL: ${{ secrets.UAT_IDENTITY_BASE_URL }}
+      API_BASE_URL: ${{ vars.UAT_API_BASE_URL }}
+      IDENTITY_BASE_URL: ${{ vars.UAT_IDENTITY_BASE_URL }}
       API_AUTH_TOKEN: ${{ secrets.UAT_API_AUTH_TOKEN }}
-      TEST_ORG_ID: ${{ secrets.UAT_TEST_ORG_ID }}
-      TEST_PROJECT_ID: ${{ secrets.UAT_TEST_PROJECT_ID }}
-      TEST_SECONDARY_PROJECT_ID: ${{ secrets.UAT_TEST_SECONDARY_PROJECT_ID }}
-      TEST_REGION_ID: ${{ secrets.UAT_TEST_REGION_ID }}
-      TEST_SECONDARY_REGION_ID: ${{ secrets.UAT_TEST_SECONDARY_REGION_ID }}
-      TEST_FLAVOR_ID: ${{ secrets.TEST_FLAVOR_ID }}
-      TEST_IMAGE_ID: ${{ secrets.TEST_IMAGE_ID }}
-      TEST_NETWORK_ID: ${{ secrets.UAT_TEST_NETWORK_ID }}
+      TEST_ORG_ID: ${{ vars.UAT_TEST_ORG_ID }}
+      TEST_PROJECT_ID: ${{ vars.UAT_TEST_PROJECT_ID }}
+      TEST_SECONDARY_PROJECT_ID: ${{ vars.UAT_TEST_SECONDARY_PROJECT_ID }}
+      TEST_REGION_ID: ${{ vars.UAT_TEST_REGION_ID }}
+      TEST_SECONDARY_REGION_ID: ${{ vars.UAT_TEST_SECONDARY_REGION_ID }}
+      TEST_FLAVOR_ID: ${{ vars.UAT_TEST_FLAVOR_ID }}
+      TEST_IMAGE_ID: ${{ vars.UAT_TEST_IMAGE_ID }}
+      TEST_NETWORK_ID: ${{ vars.UAT_TEST_NETWORK_ID }}
 
     steps:
     - name: Checkout

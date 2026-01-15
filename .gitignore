@@ -6,5 +6,6 @@
 cover.out
 cover.html
 test/.env
+test/.env.*
 go.work
 go.work.sum

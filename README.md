@@ -101,34 +101,42 @@ The compute service includes comprehensive API integration tests that validate c
 
 #### Test Configuration
 
-Tests are configured via environment variables. It's recommended you create a `.env` file in the `test/` directory; there is a template `.env.example` you can copy and adapt.
+Tests are configured via environment variables using a `.env` file in the `test/` directory.
 
-**Required Environment Variables:**
+**Setup:**
 
-```bash
-# API endpoints
-API_BASE_URL=https://compute.your-domain.org
-IDENTITY_BASE_URL=https://identity.your-domain.org
+1. **Set up your environment configuration:**
 
-# Authentication
-API_AUTH_TOKEN=your-auth-token-here
+   Copy the example config and update with your values:
+   ```bash
+   cp test/.env.example test/.env
+   ```
 
-# Test resources
-TEST_ORG_ID=your-organization-id
-TEST_PROJECT_ID=your-project-id
-TEST_SECONDARY_PROJECT_ID=secondary-project-id
-TEST_REGION_ID=your-region-id
-TEST_SECONDARY_REGION_ID=secondary-region-id
-TEST_FLAVOR_ID=your-flavor-id
-TEST_IMAGE_ID=your-image-id
+   Or create environment-specific files (not tracked in git):
+   ```bash
+   # Create .env.dev with your dev credentials
+   cp test/.env.example test/.env.dev
+   # Edit test/.env.dev with dev values
 
-# Optional configuration
-REQUEST_TIMEOUT=30s           # Default: 30s
-TEST_TIMEOUT=20m              # Default: 20m
-DEBUG_LOGGING=false           # Default: false
-LOG_REQUESTS=false            # Default: false
-LOG_RESPONSES=false           # Default: false
-```
+   # Create .env.uat with your UAT credentials
+   cp test/.env.example test/.env.uat
+   # Edit test/.env.uat with UAT values
+
+   # Use the appropriate environment
+   cp test/.env.dev test/.env    # For dev environment
+   cp test/.env.uat test/.env    # For UAT environment
+   ```
+
+2. **Configure the required values in `test/.env`:**
+   - `API_BASE_URL` - Compute API server URL
+   - `IDENTITY_BASE_URL` - Identity API server URL
+   - `API_AUTH_TOKEN` - Service token from console
+   - `TEST_ORG_ID`, `TEST_PROJECT_ID`, `TEST_SECONDARY_PROJECT_ID` - Test organization and project IDs
+   - `TEST_REGION_ID`, `TEST_SECONDARY_REGION_ID` - Test region IDs
+   - `TEST_NETWORK_ID` - Test network ID
+   - `TEST_FLAVOR_ID`, `TEST_IMAGE_ID` - Test flavor and image IDs
+
+**Note:** All `test/.env` and `test/.env.*` files are gitignored and contain sensitive credentials. They should never be committed to the repository. You can use either `test/.env` directly or create environment-specific files like `test/.env.dev`, `test/.env.uat`, etc.
 
 #### Running Tests Locally (run from project root)
 
@@ -198,36 +206,6 @@ The API tests can be triggered manually via GitHub Actions using `workflow_dispa
    - **Run UAT tests** (unchecked by default)
 5. Choose test suite from the **focus** dropdown
 6. Click **Run workflow**
-
-**Required GitHub Secrets:**
-
-The workflow requires environment-specific secrets to be configured in repository settings:
-
-**Dev Environment:**
-- `DEV_API_BASE_URL` - Dev Compute API server URL
-- `DEV_IDENTITY_BASE_URL` - Dev Identity API server URL
-- `DEV_API_AUTH_TOKEN` - Dev service authentication token
-- `DEV_TEST_ORG_ID` - Dev organization ID
-- `DEV_TEST_PROJECT_ID` - Dev project ID
-- `DEV_TEST_SECONDARY_PROJECT_ID` - Dev secondary project ID
-- `DEV_TEST_REGION_ID` - Dev region ID
-- `DEV_TEST_SECONDARY_REGION_ID` - Dev secondary region ID
-- `DEV_TEST_NETWORK_ID` - Dev network ID
-
-**UAT Environment:**
-- `UAT_API_BASE_URL` - UAT Compute API server URL
-- `UAT_IDENTITY_BASE_URL` - UAT Identity API server URL
-- `UAT_API_AUTH_TOKEN` - UAT service authentication token
-- `UAT_TEST_ORG_ID` - UAT organization ID
-- `UAT_TEST_PROJECT_ID` - UAT project ID
-- `UAT_TEST_SECONDARY_PROJECT_ID` - UAT secondary project ID
-- `UAT_TEST_REGION_ID` - UAT region ID
-- `UAT_TEST_SECONDARY_REGION_ID` - UAT secondary region ID
-- `UAT_TEST_NETWORK_ID` - UAT network ID
-
-**Shared (not environment-specific):**
-- `TEST_FLAVOR_ID` - Flavor ID for tests
-- `TEST_IMAGE_ID` - Image ID for tests
 
 **Test Artifacts:**
 

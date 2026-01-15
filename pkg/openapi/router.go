@@ -98,6 +98,9 @@ type ServerInterface interface {
 	// Reboot instance
 	// (POST /api/v2/instances/{instanceID}/reboot)
 	PostApiV2InstancesInstanceIDReboot(w http.ResponseWriter, r *http.Request, instanceID InstanceIDParameter, params PostApiV2InstancesInstanceIDRebootParams)
+	// Snapshot instance
+	// (POST /api/v2/instances/{instanceID}/snapshot)
+	PostApiV2InstancesInstanceIDSnapshot(w http.ResponseWriter, r *http.Request, instanceID InstanceIDParameter)
 	// Get instance SSH key
 	// (GET /api/v2/instances/{instanceID}/sshkey)
 	GetApiV2InstancesInstanceIDSshkey(w http.ResponseWriter, r *http.Request, instanceID InstanceIDParameter)
@@ -261,6 +264,12 @@ func (_ Unimplemented) GetApiV2InstancesInstanceIDConsolesession(w http.Response
 // Reboot instance
 // (POST /api/v2/instances/{instanceID}/reboot)
 func (_ Unimplemented) PostApiV2InstancesInstanceIDReboot(w http.ResponseWriter, r *http.Request, instanceID InstanceIDParameter, params PostApiV2InstancesInstanceIDRebootParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// Snapshot instance
+// (POST /api/v2/instances/{instanceID}/snapshot)
+func (_ Unimplemented) PostApiV2InstancesInstanceIDSnapshot(w http.ResponseWriter, r *http.Request, instanceID InstanceIDParameter) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1510,6 +1519,37 @@ func (siw *ServerInterfaceWrapper) PostApiV2InstancesInstanceIDReboot(w http.Res
 	handler.ServeHTTP(w, r)
 }
 
+// PostApiV2InstancesInstanceIDSnapshot operation middleware
+func (siw *ServerInterfaceWrapper) PostApiV2InstancesInstanceIDSnapshot(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "instanceID" -------------
+	var instanceID InstanceIDParameter
+
+	err = runtime.BindStyledParameterWithOptions("simple", "instanceID", chi.URLParam(r, "instanceID"), &instanceID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "instanceID", Err: err})
+		return
+	}
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, Oauth2AuthenticationScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostApiV2InstancesInstanceIDSnapshot(w, r, instanceID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetApiV2InstancesInstanceIDSshkey operation middleware
 func (siw *ServerInterfaceWrapper) GetApiV2InstancesInstanceIDSshkey(w http.ResponseWriter, r *http.Request) {
 
@@ -1799,6 +1839,9 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/v2/instances/{instanceID}/reboot", wrapper.PostApiV2InstancesInstanceIDReboot)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v2/instances/{instanceID}/snapshot", wrapper.PostApiV2InstancesInstanceIDSnapshot)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v2/instances/{instanceID}/sshkey", wrapper.GetApiV2InstancesInstanceIDSshkey)
