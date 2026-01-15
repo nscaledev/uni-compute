@@ -27,6 +27,7 @@ import (
 type TestConfig struct {
 	coreconfig.BaseConfig
 	IdentityBaseURL    string
+	RegionBaseURL      string
 	OrgID              string
 	ProjectID          string
 	SecondaryProjectID string
@@ -75,6 +76,7 @@ func LoadTestConfig() (*TestConfig, error) {
 			LogResponses:    v.GetBool("LOG_RESPONSES"),
 		},
 		IdentityBaseURL:    v.GetString("IDENTITY_BASE_URL"),
+		RegionBaseURL:      v.GetString("REGION_BASE_URL"),
 		OrgID:              v.GetString("TEST_ORG_ID"),
 		ProjectID:          v.GetString("TEST_PROJECT_ID"),
 		SecondaryProjectID: v.GetString("TEST_SECONDARY_PROJECT_ID"),
@@ -89,6 +91,7 @@ func LoadTestConfig() (*TestConfig, error) {
 	required := map[string]string{
 		"API_BASE_URL":              config.BaseURL,
 		"IDENTITY_BASE_URL":         config.IdentityBaseURL,
+		"REGION_BASE_URL":           config.RegionBaseURL,
 		"TEST_ORG_ID":               config.OrgID,
 		"TEST_PROJECT_ID":           config.ProjectID,
 		"TEST_SECONDARY_PROJECT_ID": config.SecondaryProjectID,

@@ -125,4 +125,62 @@ var _ = Describe("Instance Operations", func() {
 			})
 		})
 	})
+
+	Context("When requesting a snapshot for an instance", func() {
+		Describe("Given a valid instance exists", func() {
+			var (
+				instanceID string
+			)
+
+			BeforeEach(func() {
+				// Create an instance to snapshot
+				_, iID := api.CreateInstanceWithCleanup(client, ctx, config,
+					api.NewInstancePayload().Build())
+
+				instanceID = iID
+
+				// Wait for instance to be running so it can be snapshotted
+				api.WaitForInstanceActive(client, ctx, config, instanceID)
+
+				GinkgoWriter.Printf("Using instance %s for snapshot tests\n", instanceID)
+			})
+
+			It("should successfully request a snapshot for instance", func() {
+				image, err := client.SnapshotInstance(ctx, instanceID, "snapshot-for-test")
+
+				DeferCleanup(func() {
+					if image != nil {
+						GinkgoWriter.Printf("Attempting to delete snapshot image %s\n", image.Metadata.Id)
+						regionClient, err := api.NewRegionClient("") // let it get the base URL from config
+						if err != nil {
+							GinkgoWriter.Printf("Warning: Failed to create region client, to delete image %s: %v\n", image.Metadata.Id, err)
+						}
+
+						if err = regionClient.DeleteImage(ctx, config.OrgID, config.RegionID, image.Metadata.Id); err != nil {
+							GinkgoWriter.Printf("Warning: Failed to delete image %s: %v\n", image.Metadata.Id, err)
+						}
+					}
+				})
+
+				Expect(err).NotTo(HaveOccurred(), "Should successfully request the snapshot (HTTP 201)")
+				Expect(image).NotTo(BeNil(), "Image record in response should not be nil")
+				Expect(image.Metadata.Name).To(Equal("snapshot-for-test"), "snapshot image should have name as given")
+
+				GinkgoWriter.Printf("Successfully created snapshot image for instance %s (image ID: %s)\n",
+					instanceID, image.Metadata.Id)
+			})
+		})
+
+		Describe("Given an invalid instance ID", func() {
+			It("should return appropriate error for non-existent instance", func() {
+				invalidInstanceID := "non-existent-instance-12345"
+				image, err := client.SnapshotInstance(ctx, invalidInstanceID, "snapshot-image")
+
+				Expect(err).To(HaveOccurred(), "Should return error for non-existent instance (expected HTTP 404)")
+				Expect(image).To(BeNil(), "Image response should be nil for non-existent instance")
+				Expect(err.Error()).To(ContainSubstring("404"), "Error should indicate HTTP 404 Not Found")
+				GinkgoWriter.Printf("Expected HTTP 404 error for non-existent instance: %v\n", err)
+			})
+		})
+	})
 })

@@ -19,6 +19,7 @@ limitations under the License.
 package api
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -540,4 +541,75 @@ func (c *APIClient) GetInstanceConsoleOutput(ctx context.Context, instanceID str
 	}
 
 	return &consoleOutput, nil
+}
+
+func (c *APIClient) SnapshotInstance(ctx context.Context, instanceID string, name string) (*regionopenapi.Image, error) {
+	path := c.endpoints.GetInstanceSnapshot(instanceID)
+
+	body := fmt.Sprintf(`{
+		"metadata": {"name": %q}
+	}`, name)
+
+	//nolint:bodyclose // response body is closed in DoRequest
+	_, respBody, err := c.DoRequest(ctx, http.MethodPost, path, bytes.NewBufferString(body), http.StatusCreated)
+	if err != nil {
+		return nil, fmt.Errorf("requesting snapshot for instance: %w", err)
+	}
+
+	var image regionopenapi.Image
+	if err := json.Unmarshal(respBody, &image); err != nil {
+		return nil, fmt.Errorf("unmarshaling snapshot response: %w", err)
+	}
+
+	return &image, nil
+}
+
+// APIClient wraps the core API client with compute-specific methods.
+type RegionAPIClient struct {
+	*coreclient.APIClient
+	config    *TestConfig
+	endpoints *RegionEndpoints
+}
+
+func NewRegionClient(baseURL string) (*RegionAPIClient, error) {
+	config, err := LoadTestConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to load test configuration: %w", err)
+	}
+
+	if baseURL == "" {
+		baseURL = config.RegionBaseURL
+	}
+
+	return newRegionAPIClientWithConfig(baseURL, config), nil
+}
+
+func newRegionAPIClientWithConfig(baseURL string, config *TestConfig) *RegionAPIClient {
+	coreClient := coreclient.NewAPIClient(baseURL, config.AuthToken, config.RequestTimeout, &GinkgoLogger{})
+	coreClient.SetLogRequests(config.LogRequests)
+	coreClient.SetLogResponses(config.LogResponses)
+
+	return &RegionAPIClient{
+		APIClient: coreClient,
+		config:    config,
+		endpoints: &RegionEndpoints{},
+	}
+}
+
+func (c *RegionAPIClient) DeleteImage(ctx context.Context, organizationID, regionID, imageID string) error {
+	path := c.endpoints.DeleteImage(organizationID, regionID, imageID)
+
+	//nolint:bodyclose // response body is closed in DoRequest
+	_, _, err := c.DoRequest(ctx, http.MethodDelete, path, nil, http.StatusAccepted)
+	if err != nil {
+		return fmt.Errorf("deleting image (ID: %s): %w", imageID, err)
+	}
+
+	return nil
+}
+
+type RegionEndpoints struct{}
+
+func (*RegionEndpoints) DeleteImage(organizationID, regionID, imageID string) string {
+	return fmt.Sprintf("/api/v1/organizations/%s/regions/%s/images/%s", organizationID, regionID, imageID)
 }
