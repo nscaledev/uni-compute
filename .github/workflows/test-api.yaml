@@ -35,6 +35,7 @@ jobs:
       ENVIRONMENT: dev
       API_BASE_URL: ${{ vars.DEV_API_BASE_URL }}
       IDENTITY_BASE_URL: ${{ vars.DEV_IDENTITY_BASE_URL }}
+      REGION_BASE_URL: ${{ vars.DEV_REGION_BASE_URL }}
       API_AUTH_TOKEN: ${{ secrets.DEV_API_AUTH_TOKEN }}
       TEST_ORG_ID: ${{ vars.DEV_TEST_ORG_ID }}
       TEST_PROJECT_ID: ${{ vars.DEV_TEST_PROJECT_ID }}
@@ -68,15 +69,25 @@ jobs:
 
     - name: Archive API Test Results
       uses: actions/upload-artifact@v4
+      if: ${{ !cancelled() }}
       with:
         name: api-test-results-dev
         path: test/api/suites/test-results.json
 
     - name: Archive API Test JUnit Report
       uses: actions/upload-artifact@v4
+      if: ${{ !cancelled() }}
       with:
         name: api-test-junit-dev
         path: test/api/suites/junit.xml
+
+    - name: Send Slack Notification
+      if: ${{ !cancelled() }}
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      run: |
+        WORKFLOW_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        go run test/api/suites/scripts/slack-notify.go test/api/suites/test-results.json "$WORKFLOW_URL"
 
   API-Tests-UAT:
     name: API Tests (uat)
@@ -86,6 +97,7 @@ jobs:
       ENVIRONMENT: uat
       API_BASE_URL: ${{ vars.UAT_API_BASE_URL }}
       IDENTITY_BASE_URL: ${{ vars.UAT_IDENTITY_BASE_URL }}
+      REGION_BASE_URL: ${{ vars.UAT_REGION_BASE_URL }}
       API_AUTH_TOKEN: ${{ secrets.UAT_API_AUTH_TOKEN }}
       TEST_ORG_ID: ${{ vars.UAT_TEST_ORG_ID }}
       TEST_PROJECT_ID: ${{ vars.UAT_TEST_PROJECT_ID }}
@@ -128,3 +140,11 @@ jobs:
       with:
         name: api-test-junit-uat
         path: test/api/suites/junit.xml
+
+    - name: Send Slack Notification
+      if: ${{ !cancelled() }}
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      run: |
+        WORKFLOW_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        go run test/api/suites/scripts/slack-notify.go test/api/suites/test-results.json "$WORKFLOW_URL"

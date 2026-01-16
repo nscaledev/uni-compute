@@ -27,6 +27,7 @@ import (
 type TestConfig struct {
 	coreconfig.BaseConfig
 	IdentityBaseURL    string
+	RegionBaseURL      string
 	OrgID              string
 	ProjectID          string
 	SecondaryProjectID string
@@ -42,7 +43,6 @@ type TestConfig struct {
 func LoadTestConfig() (*TestConfig, error) {
 	// Set up viper with config paths and defaults
 	defaults := map[string]interface{}{
-		"ENVIRONMENT":      "dev",
 		"REQUEST_TIMEOUT":  "30s",
 		"TEST_TIMEOUT":     "20m",
 		"SKIP_INTEGRATION": false,
@@ -64,24 +64,10 @@ func LoadTestConfig() (*TestConfig, error) {
 		return nil, err
 	}
 
-	// Get environment (dev or uat)
-	environment := v.GetString("ENVIRONMENT")
-
-	// Helper function to get environment-aware config value
-	// Tries {ENVIRONMENT}_KEY first, falls back to KEY for backward compatibility
-	getEnvString := func(key string) string {
-		prefixedKey := environment + "_" + key
-		if v.IsSet(prefixedKey) {
-			return v.GetString(prefixedKey)
-		}
-
-		return v.GetString(key)
-	}
-
 	config := &TestConfig{
 		BaseConfig: coreconfig.BaseConfig{
-			BaseURL:         getEnvString("API_BASE_URL"),
-			AuthToken:       getEnvString("API_AUTH_TOKEN"),
+			BaseURL:         v.GetString("API_BASE_URL"),
+			AuthToken:       v.GetString("API_AUTH_TOKEN"),
 			RequestTimeout:  coreconfig.GetDurationFromViper(v, "REQUEST_TIMEOUT", 30*time.Second),
 			TestTimeout:     coreconfig.GetDurationFromViper(v, "TEST_TIMEOUT", 20*time.Minute),
 			SkipIntegration: v.GetBool("SKIP_INTEGRATION"),
@@ -89,21 +75,23 @@ func LoadTestConfig() (*TestConfig, error) {
 			LogRequests:     v.GetBool("LOG_REQUESTS"),
 			LogResponses:    v.GetBool("LOG_RESPONSES"),
 		},
-		IdentityBaseURL:    getEnvString("IDENTITY_BASE_URL"),
-		OrgID:              getEnvString("TEST_ORG_ID"),
-		ProjectID:          getEnvString("TEST_PROJECT_ID"),
-		SecondaryProjectID: getEnvString("TEST_SECONDARY_PROJECT_ID"),
-		RegionID:           getEnvString("TEST_REGION_ID"),
-		SecondaryRegionID:  getEnvString("TEST_SECONDARY_REGION_ID"),
-		FlavorID:           getEnvString("TEST_FLAVOR_ID"),
-		ImageID:            getEnvString("TEST_IMAGE_ID"),
-		NetworkID:          getEnvString("TEST_NETWORK_ID"),
+		IdentityBaseURL:    v.GetString("IDENTITY_BASE_URL"),
+		RegionBaseURL:      v.GetString("REGION_BASE_URL"),
+		OrgID:              v.GetString("TEST_ORG_ID"),
+		ProjectID:          v.GetString("TEST_PROJECT_ID"),
+		SecondaryProjectID: v.GetString("TEST_SECONDARY_PROJECT_ID"),
+		RegionID:           v.GetString("TEST_REGION_ID"),
+		SecondaryRegionID:  v.GetString("TEST_SECONDARY_REGION_ID"),
+		FlavorID:           v.GetString("TEST_FLAVOR_ID"),
+		ImageID:            v.GetString("TEST_IMAGE_ID"),
+		NetworkID:          v.GetString("TEST_NETWORK_ID"),
 	}
 
 	// Validate required fields
 	required := map[string]string{
 		"API_BASE_URL":              config.BaseURL,
 		"IDENTITY_BASE_URL":         config.IdentityBaseURL,
+		"REGION_BASE_URL":           config.RegionBaseURL,
 		"TEST_ORG_ID":               config.OrgID,
 		"TEST_PROJECT_ID":           config.ProjectID,
 		"TEST_SECONDARY_PROJECT_ID": config.SecondaryProjectID,
