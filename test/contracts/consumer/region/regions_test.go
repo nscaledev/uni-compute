@@ -56,14 +56,14 @@ func testEmptyRegionsList(ctx context.Context, config consumer.MockServerConfig,
 	regionClient, err := createRegionClient(config)
 
 	if err != nil {
-		return err
+		return fmt.Errorf("creating region client: %w", err)
 	}
 
 	client := regionclient.New(regionClient)
 	regions, err := client.List(ctx, organizationID)
 
 	if err != nil {
-		return err
+		return fmt.Errorf("listing regions: %w", err)
 	}
 
 	Expect(regions).To(BeEmpty())
@@ -240,13 +240,13 @@ var _ = Describe("Region Service Contract", func() {
 				test := func(config consumer.MockServerConfig) error {
 					regionClient, err := createRegionClient(config)
 					if err != nil {
-						return err
+						return fmt.Errorf("creating region client: %w", err)
 					}
 
 					client := regionclient.New(regionClient)
 					regions, err := client.List(ctx, organizationID)
 					if err != nil {
-						return err
+						return fmt.Errorf("listing regions: %w", err)
 					}
 
 					// The client should filter out kubernetes regions
@@ -285,7 +285,7 @@ var _ = Describe("Region Service Contract", func() {
 				test := func(config consumer.MockServerConfig) error {
 					regionClient, err := createRegionClient(config)
 					if err != nil {
-						return err
+						return fmt.Errorf("creating region client: %w", err)
 					}
 
 					client := regionclient.New(regionClient)
@@ -296,7 +296,10 @@ var _ = Describe("Region Service Contract", func() {
 
 					// Even with a short timeout, the mock server should respond quickly
 					// So this should succeed
-					return err
+					if err != nil {
+						return fmt.Errorf("listing regions with timeout: %w", err)
+					}
+					return nil
 				}
 
 				Expect(pact.ExecuteTest(testingT, test)).To(Succeed())

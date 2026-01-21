@@ -86,12 +86,13 @@ jobs:
     - name: Run Consumer Contract Tests
       run: make test-contracts-consumer
       env:
-        CGO_LDFLAGS: "-L/usr/local/lib"
-        LD_LIBRARY_PATH: "/usr/local/lib"
+        PACT_LIB_PATH: "/usr/local/lib"
     - name: Publish Pacts to Dev Broker
       if: success()
       run: make publish-pacts
       env:
-        PACT_BROKER_URL: ${{ secrets.PACT_BROKER_URL_DEV }}
-        PACT_BROKER_USERNAME: ${{ secrets.PACT_BROKER_USERNAME }}
+        # Use variables for non-sensitive broker configuration
+        PACT_BROKER_URL: ${{ vars.PACT_BROKER_URL_DEV }}
+        PACT_BROKER_USERNAME: ${{ vars.PACT_BROKER_USERNAME }}
+        # Keep password as secret
         PACT_BROKER_PASSWORD: ${{ secrets.PACT_BROKER_PASSWORD }}

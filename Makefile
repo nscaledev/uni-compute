@@ -176,11 +176,23 @@ PACT_BROKER_PASSWORD ?= pact
 SERVICE_NAME ?= uni-compute
 BRANCH ?= $(shell git rev-parse --abbrev-ref HEAD)
 
+# Pact library path configuration (OS-specific defaults)
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Linux)
+	PACT_LIB_PATH ?= /usr/local/lib
+	PACT_LD_FLAGS = -L$(PACT_LIB_PATH)
+	PACT_LIB_ENV = LD_LIBRARY_PATH=$(PACT_LIB_PATH):$$LD_LIBRARY_PATH
+else ifeq ($(UNAME_S),Darwin)
+	PACT_LIB_PATH ?= $(HOME)/Library/pact
+	PACT_LD_FLAGS = -L$(PACT_LIB_PATH) -Wl,-rpath,$(PACT_LIB_PATH)
+	PACT_LIB_ENV = DYLD_LIBRARY_PATH=$(PACT_LIB_PATH):$$DYLD_LIBRARY_PATH
+endif
+
 # Run consumer contract tests
 .PHONY: test-contracts-consumer
 test-contracts-consumer:
-	CGO_LDFLAGS="-L$(HOME)/Library/pact -Wl,-rpath,$(HOME)/Library/pact" \
-	DYLD_LIBRARY_PATH="$(HOME)/Library/pact:$$DYLD_LIBRARY_PATH" \
+	CGO_LDFLAGS="$(PACT_LD_FLAGS)" \
+	$(PACT_LIB_ENV) \
 	go test ./test/contracts/consumer/... -v -count=1
 
 # Publish pacts to broker
