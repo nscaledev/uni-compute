@@ -101,34 +101,42 @@ The compute service includes comprehensive API integration tests that validate c
 
 #### Test Configuration
 
-Tests are configured via environment variables. It's recommended you create a `.env` file in the `test/` directory; there is a template `.env.example` you can copy and adapt.
+Tests are configured via environment variables using a `.env` file in the `test/` directory.
 
-**Required Environment Variables:**
+**Setup:**
 
-```bash
-# API endpoints
-API_BASE_URL=https://compute.your-domain.org
-IDENTITY_BASE_URL=https://identity.your-domain.org
+1. **Set up your environment configuration:**
 
-# Authentication
-API_AUTH_TOKEN=your-auth-token-here
+   Copy the example config and update with your values:
+   ```bash
+   cp test/.env.example test/.env
+   ```
 
-# Test resources
-TEST_ORG_ID=your-organization-id
-TEST_PROJECT_ID=your-project-id
-TEST_SECONDARY_PROJECT_ID=secondary-project-id
-TEST_REGION_ID=your-region-id
-TEST_SECONDARY_REGION_ID=secondary-region-id
-TEST_FLAVOR_ID=your-flavor-id
-TEST_IMAGE_ID=your-image-id
+   Or create environment-specific files (not tracked in git):
+   ```bash
+   # Create .env.dev with your dev credentials
+   cp test/.env.example test/.env.dev
+   # Edit test/.env.dev with dev values
 
-# Optional configuration
-REQUEST_TIMEOUT=30s           # Default: 30s
-TEST_TIMEOUT=20m              # Default: 20m
-DEBUG_LOGGING=false           # Default: false
-LOG_REQUESTS=false            # Default: false
-LOG_RESPONSES=false           # Default: false
-```
+   # Create .env.uat with your UAT credentials
+   cp test/.env.example test/.env.uat
+   # Edit test/.env.uat with UAT values
+
+   # Use the appropriate environment
+   cp test/.env.dev test/.env    # For dev environment
+   cp test/.env.uat test/.env    # For UAT environment
+   ```
+
+2. **Configure the required values in `test/.env`:**
+   - `API_BASE_URL` - Compute API server URL
+   - `IDENTITY_BASE_URL` - Identity API server URL
+   - `API_AUTH_TOKEN` - Service token from console
+   - `TEST_ORG_ID`, `TEST_PROJECT_ID`, `TEST_SECONDARY_PROJECT_ID` - Test organization and project IDs
+   - `TEST_REGION_ID`, `TEST_SECONDARY_REGION_ID` - Test region IDs
+   - `TEST_NETWORK_ID` - Test network ID
+   - `TEST_FLAVOR_ID`, `TEST_IMAGE_ID` - Test flavor and image IDs
+
+**Note:** All `test/.env` and `test/.env.*` files are gitignored and contain sensitive credentials. They should never be committed to the repository. You can use either `test/.env` directly or create environment-specific files like `test/.env.dev`, `test/.env.uat`, etc.
 
 #### Running Tests Locally (run from project root)
 
@@ -177,8 +185,9 @@ The API tests can be triggered manually via GitHub Actions using `workflow_dispa
 
 | Input | Type | Description | Default |
 |-------|------|-------------|---------|
+| `run_dev` | boolean | Run Dev environment tests | `true` |
+| `run_uat` | boolean | Run UAT environment tests | `false` |
 | `focus` | choice | Test suite to run | `All` |
-| `parallel` | boolean | Run tests in parallel | `false` |
 
 **Available Test Suite Options:**
 - `All` - Run all test suites
@@ -192,18 +201,17 @@ The API tests can be triggered manually via GitHub Actions using `workflow_dispa
 1. Navigate to **Actions** tab in GitHub
 2. Select **API Tests** workflow
 3. Click **Run workflow**
-4. Choose test suite
-5. Click **Run workflow**
-
-**Automatic Triggers:**
-
-Tests automatically run on pushes to `main` branch
+4. Select which environments to test:
+   - **Run Dev tests** (checked by default)
+   - **Run UAT tests** (unchecked by default)
+5. Choose test suite from the **focus** dropdown
+6. Click **Run workflow**
 
 **Test Artifacts:**
 
-After each run, test results are uploaded as artifacts:
-- `api-test-results` - JSON format test results
-- `api-test-junit` - JUnit XML format for CI integration
+After each run, test results are uploaded as artifacts per environment:
+- `api-test-results-dev` / `api-test-results-uat` - JSON format test results
+- `api-test-junit-dev` / `api-test-junit-uat` - JUnit XML format for CI integration
 
 #### Cleaning Up Test Artifacts locally.
 

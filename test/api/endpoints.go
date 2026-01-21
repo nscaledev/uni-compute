@@ -103,6 +103,27 @@ func (e *Endpoints) EvictMachines(orgID, projectID, clusterID string) string {
 		url.PathEscape(orgID), url.PathEscape(projectID), url.PathEscape(clusterID))
 }
 
+// Instance management endpoints (V2 API).
+func (e *Endpoints) CreateInstance() string {
+	return "/api/v2/instances"
+}
+
+func (e *Endpoints) GetInstance(instanceID string) string {
+	return fmt.Sprintf("/api/v2/instances/%s", url.PathEscape(instanceID))
+}
+
+func (e *Endpoints) DeleteInstance(instanceID string) string {
+	return fmt.Sprintf("/api/v2/instances/%s", url.PathEscape(instanceID))
+}
+
+func (e *Endpoints) GetInstanceConsoleOutput(instanceID string) string {
+	return fmt.Sprintf("/api/v2/instances/%s/consoleoutput", url.PathEscape(instanceID))
+}
+
+func (e *Endpoints) GetInstanceSnapshot(instanceID string) string {
+	return fmt.Sprintf("/api/v2/instances/%s/snapshot", url.PathEscape(instanceID))
+}
+
 // Health and metadata endpoints.
 func (e *Endpoints) HealthCheck() string {
 	return "/api/v1/health"

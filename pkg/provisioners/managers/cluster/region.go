@@ -22,14 +22,12 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/unikorn-cloud/compute/pkg/constants"
 	"github.com/unikorn-cloud/compute/pkg/provisioners/managers/cluster/util"
 	coreclient "github.com/unikorn-cloud/core/pkg/client"
 	coreconstants "github.com/unikorn-cloud/core/pkg/constants"
 	coreapi "github.com/unikorn-cloud/core/pkg/openapi"
 	"github.com/unikorn-cloud/core/pkg/provisioners"
 	coreapiutils "github.com/unikorn-cloud/core/pkg/util/api"
-	identityclient "github.com/unikorn-cloud/identity/pkg/client"
 	regionclient "github.com/unikorn-cloud/region/pkg/client"
 	regionapi "github.com/unikorn-cloud/region/pkg/openapi"
 
@@ -45,9 +43,7 @@ func (p *Provisioner) getRegionClient(ctx context.Context) (regionapi.ClientWith
 		return nil, err
 	}
 
-	issuer := identityclient.NewTokenIssuer(cli, p.options.identityOptions, &p.options.clientOptions, constants.ServiceDescriptor())
-
-	client, err := regionclient.New(cli, p.options.regionOptions, &p.options.clientOptions).ControllerClient(ctx, issuer, &p.cluster)
+	client, err := regionclient.New(cli, p.options.regionOptions, &p.options.clientOptions).ControllerClient(ctx, &p.cluster)
 	if err != nil {
 		return nil, err
 	}

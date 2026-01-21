@@ -26,7 +26,6 @@ import (
 	coreconstants "github.com/unikorn-cloud/core/pkg/constants"
 	coreapi "github.com/unikorn-cloud/core/pkg/openapi"
 	coreapiutils "github.com/unikorn-cloud/core/pkg/util/api"
-	identityclient "github.com/unikorn-cloud/identity/pkg/client"
 	regionclient "github.com/unikorn-cloud/region/pkg/client"
 	regionconstants "github.com/unikorn-cloud/region/pkg/constants"
 	regionapi "github.com/unikorn-cloud/region/pkg/openapi"
@@ -41,9 +40,7 @@ func (p *Provisioner) getRegionClient(ctx context.Context) (regionapi.ClientWith
 		return nil, err
 	}
 
-	issuer := identityclient.NewTokenIssuer(cli, p.options.identityOptions, &p.options.clientOptions, constants.ServiceDescriptor())
-
-	client, err := regionclient.New(cli, p.options.regionOptions, &p.options.clientOptions).ControllerClient(ctx, issuer, &p.instance)
+	client, err := regionclient.New(cli, p.options.regionOptions, &p.options.clientOptions).ControllerClient(ctx, &p.instance)
 	if err != nil {
 		return nil, err
 	}

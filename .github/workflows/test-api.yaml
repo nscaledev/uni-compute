@@ -2,6 +2,14 @@ name: API Tests
 on:
   workflow_dispatch:
     inputs:
+      run_dev:
+        description: 'Run Dev tests'
+        type: boolean
+        default: true
+      run_uat:
+        description: 'Run UAT tests'
+        type: boolean
+        default: false
       focus:
         description: 'Test suite to run'
         required: false
@@ -12,58 +20,131 @@ on:
         - 'Core Cluster Management'
         - 'Security and Authentication'
         - 'Machine Operations'
+        - 'Instance Operations'
         - 'Scaling Resource Management'
 
 permissions:
   contents: read
 
 jobs:
-  API-Tests:
+  API-Tests-Dev:
+    name: API Tests (dev)
     runs-on: ubuntu-latest
+    if: github.event.inputs.run_dev == 'true'
     env:
-      API_BASE_URL: ${{ secrets.API_BASE_URL }}
-      IDENTITY_BASE_URL: ${{ secrets.IDENTITY_BASE_URL }}
-      API_AUTH_TOKEN: ${{ secrets.API_AUTH_TOKEN }}
-      TEST_ORG_ID: ${{ secrets.TEST_ORG_ID }}
-      TEST_PROJECT_ID: ${{ secrets.TEST_PROJECT_ID }}
-      TEST_SECONDARY_PROJECT_ID: ${{ secrets.TEST_SECONDARY_PROJECT_ID }}
-      TEST_REGION_ID: ${{ secrets.TEST_REGION_ID }}
-      TEST_SECONDARY_REGION_ID: ${{ secrets.TEST_SECONDARY_REGION_ID }}
-      TEST_FLAVOR_ID: ${{ secrets.TEST_FLAVOR_ID }}
-      TEST_IMAGE_ID: ${{ secrets.TEST_IMAGE_ID }}
+      ENVIRONMENT: dev
+      API_BASE_URL: ${{ vars.DEV_API_BASE_URL }}
+      IDENTITY_BASE_URL: ${{ vars.DEV_IDENTITY_BASE_URL }}
+      REGION_BASE_URL: ${{ vars.DEV_REGION_BASE_URL }}
+      API_AUTH_TOKEN: ${{ secrets.DEV_API_AUTH_TOKEN }}
+      TEST_ORG_ID: ${{ vars.DEV_TEST_ORG_ID }}
+      TEST_PROJECT_ID: ${{ vars.DEV_TEST_PROJECT_ID }}
+      TEST_SECONDARY_PROJECT_ID: ${{ vars.DEV_TEST_SECONDARY_PROJECT_ID }}
+      TEST_REGION_ID: ${{ vars.DEV_TEST_REGION_ID }}
+      TEST_SECONDARY_REGION_ID: ${{ vars.DEV_TEST_SECONDARY_REGION_ID }}
+      TEST_FLAVOR_ID: ${{ vars.DEV_TEST_FLAVOR_ID }}
+      TEST_IMAGE_ID: ${{ vars.DEV_TEST_IMAGE_ID }}
+      TEST_NETWORK_ID: ${{ vars.DEV_TEST_NETWORK_ID }}
+
     steps:
     - name: Checkout
       uses: actions/checkout@v4
-    
+
     - name: Setup Go
       uses: actions/setup-go@v3
       with:
         go-version-file: go.mod
         cache: true
-    
+
     - name: Touch
       run: make touch
-    
-    - name: Run API Tests - All (Manual)
-      if: github.event_name == 'workflow_dispatch' && github.event.inputs.focus == 'All'
+
+    - name: Run API Tests - All
+      if: github.event.inputs.focus == 'All'
       run: make test-api
-    
-    - name: Run API Tests - Focused (Manual)
-      if: github.event_name == 'workflow_dispatch' && github.event.inputs.focus != 'All'
+
+    - name: Run API Tests - Focused
+      if: github.event.inputs.focus != 'All'
       run: make test-api-focus FOCUS="${{ github.event.inputs.focus }}"
-    
-    - name: Run API Tests - All (Push)
-      if: github.event_name == 'push'
+
+    - name: Archive API Test Results
+      uses: actions/upload-artifact@v4
+      if: ${{ !cancelled() }}
+      with:
+        name: api-test-results-dev
+        path: test/api/suites/test-results.json
+
+    - name: Archive API Test JUnit Report
+      uses: actions/upload-artifact@v4
+      if: ${{ !cancelled() }}
+      with:
+        name: api-test-junit-dev
+        path: test/api/suites/junit.xml
+
+    - name: Send Slack Notification
+      if: ${{ !cancelled() }}
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      run: |
+        WORKFLOW_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        go run test/api/suites/scripts/slack-notify.go test/api/suites/test-results.json "$WORKFLOW_URL"
+
+  API-Tests-UAT:
+    name: API Tests (uat)
+    runs-on: ubuntu-latest
+    if: github.event.inputs.run_uat == 'true'
+    env:
+      ENVIRONMENT: uat
+      API_BASE_URL: ${{ vars.UAT_API_BASE_URL }}
+      IDENTITY_BASE_URL: ${{ vars.UAT_IDENTITY_BASE_URL }}
+      REGION_BASE_URL: ${{ vars.UAT_REGION_BASE_URL }}
+      API_AUTH_TOKEN: ${{ secrets.UAT_API_AUTH_TOKEN }}
+      TEST_ORG_ID: ${{ vars.UAT_TEST_ORG_ID }}
+      TEST_PROJECT_ID: ${{ vars.UAT_TEST_PROJECT_ID }}
+      TEST_SECONDARY_PROJECT_ID: ${{ vars.UAT_TEST_SECONDARY_PROJECT_ID }}
+      TEST_REGION_ID: ${{ vars.UAT_TEST_REGION_ID }}
+      TEST_SECONDARY_REGION_ID: ${{ vars.UAT_TEST_SECONDARY_REGION_ID }}
+      TEST_FLAVOR_ID: ${{ vars.UAT_TEST_FLAVOR_ID }}
+      TEST_IMAGE_ID: ${{ vars.UAT_TEST_IMAGE_ID }}
+      TEST_NETWORK_ID: ${{ vars.UAT_TEST_NETWORK_ID }}
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup Go
+      uses: actions/setup-go@v3
+      with:
+        go-version-file: go.mod
+        cache: true
+
+    - name: Touch
+      run: make touch
+
+    - name: Run API Tests - All
+      if: github.event.inputs.focus == 'All'
       run: make test-api
-    
+
+    - name: Run API Tests - Focused
+      if: github.event.inputs.focus != 'All'
+      run: make test-api-focus FOCUS="${{ github.event.inputs.focus }}"
+
     - name: Archive API Test Results
       uses: actions/upload-artifact@v4
       with:
-        name: api-test-results
-        path: test/api/test-results.json
-    
+        name: api-test-results-uat
+        path: test/api/suites/test-results.json
+
     - name: Archive API Test JUnit Report
       uses: actions/upload-artifact@v4
       with:
-        name: api-test-junit
-        path: test/api/junit.xml
+        name: api-test-junit-uat
+        path: test/api/suites/junit.xml
+
+    - name: Send Slack Notification
+      if: ${{ !cancelled() }}
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      run: |
+        WORKFLOW_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        go run test/api/suites/scripts/slack-notify.go test/api/suites/test-results.json "$WORKFLOW_URL"

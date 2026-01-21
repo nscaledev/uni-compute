@@ -166,7 +166,7 @@ test-api-setup:
 # Clean test artifacts
 .PHONY: test-api-clean
 test-api-clean:
-	@rm -f test/api/test-results.json test/api/junit.xml
+	@rm -f test/api/suites/test-results.json test/api/suites/junit.xml
 
 # Contract testing targets
 # Pact Broker Configuration
@@ -277,7 +277,7 @@ lint: $(GENDIR)
 # Validate the server OpenAPI schema is legit.
 .PHONY: validate
 validate: $(OPENAPI_FILES)
-	go run ./hack/validate_openapi
+	go run github.com/unikorn-cloud/core/hack/validate_openapi
 
 # Validate the docs can be generated without fail.
 .PHONY: validate-docs
