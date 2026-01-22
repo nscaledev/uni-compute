@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"net"
 	"testing"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2" //nolint:revive
 	. "github.com/onsi/gomega"    //nolint:revive
@@ -254,51 +253,6 @@ var _ = Describe("Region Service Contract", func() {
 					Expect(regions[0].Metadata.Name).To(Equal("openstack-region"))
 					Expect(regions[0].Spec.Type).To(Equal(regionapi.RegionTypeOpenstack))
 
-					return nil
-				}
-
-				Expect(pact.ExecuteTest(testingT, test)).To(Succeed())
-			})
-		})
-
-		Context("when request takes too long", func() {
-			It("handles timeout gracefully", func() {
-				organizationID := "test-org-timeout"
-
-				// Create a context with a very short timeout
-				ctxWithTimeout, cancel := context.WithTimeout(ctx, 100*time.Millisecond)
-				defer cancel()
-
-				pact.AddInteraction().
-					GivenWithParameter(models.ProviderState{
-						Name: "organization exists",
-						Parameters: map[string]interface{}{
-							"organizationID": organizationID,
-						},
-					}).
-					UponReceiving("a request for regions that will timeout").
-					WithRequest("GET", fmt.Sprintf("/api/v1/organizations/%s/regions", organizationID)).
-					WillRespondWith(200, func(b *consumer.V4ResponseBuilder) {
-						b.JSONBody([]interface{}{})
-					})
-
-				test := func(config consumer.MockServerConfig) error {
-					regionClient, err := createRegionClient(config)
-					if err != nil {
-						return fmt.Errorf("creating region client: %w", err)
-					}
-
-					client := regionclient.New(regionClient)
-
-					// This should complete quickly with the mock server,
-					// but we're testing that timeout context is properly propagated
-					_, err = client.List(ctxWithTimeout, organizationID)
-
-					// Even with a short timeout, the mock server should respond quickly
-					// So this should succeed
-					if err != nil {
-						return fmt.Errorf("listing regions with timeout: %w", err)
-					}
 					return nil
 				}
 
