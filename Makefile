@@ -134,7 +134,7 @@ images-kind-load: images
 
 .PHONY: test-unit
 test-unit:
-	go test -coverpkg ./... -coverprofile cover.out $(shell go list ./... | grep -v /test/api)
+	go test -coverpkg ./... -coverprofile cover.out $(shell go list ./... | grep -v -e /test/api -e /test/contracts)
 	go tool cover -html cover.out -o cover.html
 
 # API automation test targets
@@ -167,6 +167,76 @@ test-api-setup:
 .PHONY: test-api-clean
 test-api-clean:
 	@rm -f test/api/suites/test-results.json test/api/suites/junit.xml
+
+# Contract testing targets
+# Pact Broker Configuration
+PACT_BROKER_URL ?= http://localhost:9292
+PACT_BROKER_USERNAME ?= pact
+PACT_BROKER_PASSWORD ?= pact
+SERVICE_NAME ?= uni-compute
+BRANCH ?= $(shell git rev-parse --abbrev-ref HEAD)
+
+# Pact library path configuration (OS-specific defaults)
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Linux)
+	PACT_LIB_PATH ?= /usr/local/lib
+	PACT_LD_FLAGS = -L$(PACT_LIB_PATH)
+	PACT_LIB_ENV = LD_LIBRARY_PATH=$(PACT_LIB_PATH):$$LD_LIBRARY_PATH
+else ifeq ($(UNAME_S),Darwin)
+	PACT_LIB_PATH ?= $(HOME)/Library/pact
+	PACT_LD_FLAGS = -L$(PACT_LIB_PATH) -Wl,-rpath,$(PACT_LIB_PATH)
+	PACT_LIB_ENV = DYLD_LIBRARY_PATH=$(PACT_LIB_PATH):$$DYLD_LIBRARY_PATH
+endif
+
+# Run consumer contract tests
+.PHONY: test-contracts-consumer
+test-contracts-consumer:
+	CGO_LDFLAGS="$(PACT_LD_FLAGS)" \
+	$(PACT_LIB_ENV) \
+	go test ./test/contracts/consumer/... -v -count=1
+
+# Publish pacts to broker
+.PHONY: publish-pacts
+publish-pacts:
+	docker run --rm \
+		--network host \
+		-v $(PWD)/test/contracts/consumer/pacts:/pacts \
+		-w /pacts \
+		pactfoundation/pact-cli:latest \
+		publish \
+		--broker-base-url="$(PACT_BROKER_URL)" \
+		--broker-username="$(PACT_BROKER_USERNAME)" \
+		--broker-password="$(PACT_BROKER_PASSWORD)" \
+		--consumer-app-version="$(REVISION)" \
+		--branch="$(BRANCH)" \
+		/pacts
+
+# Can-I-Deploy check
+.PHONY: can-i-deploy
+can-i-deploy:
+	pact-broker can-i-deploy \
+		--pacticipant="$(SERVICE_NAME)" \
+		--version="$(REVISION)" \
+		--to-environment="production" \
+		--broker-base-url="$(PACT_BROKER_URL)" \
+		--broker-username="$(PACT_BROKER_USERNAME)" \
+		--broker-password="$(PACT_BROKER_PASSWORD)"
+
+# Record deployment
+.PHONY: record-deployment
+record-deployment:
+	pact-broker record-deployment \
+		--pacticipant="$(SERVICE_NAME)" \
+		--version="$(REVISION)" \
+		--environment="production" \
+		--broker-base-url="$(PACT_BROKER_URL)" \
+		--broker-username="$(PACT_BROKER_USERNAME)" \
+		--broker-password="$(PACT_BROKER_PASSWORD)"
+
+# Clean contract test artifacts
+.PHONY: clean-contracts
+clean-contracts:
+	rm -rf ./test/contracts/consumer/pacts/*.json
 
 # Build a binary and install it.
 $(PREFIX)/%: $(BINDIR)/%

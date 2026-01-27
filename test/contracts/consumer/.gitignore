@@ -1,0 +1,5 @@
+# Pact files should be published to broker, not committed
+pacts/*.json
+
+# Pact logs
+*/logs/
