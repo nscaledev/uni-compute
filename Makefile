@@ -134,7 +134,7 @@ images-kind-load: images
 
 .PHONY: test-unit
 test-unit:
-	go test -coverpkg ./... -coverprofile cover.out $(shell go list ./... | grep -v /test/api)
+	go test -coverpkg ./... -coverprofile cover.out $(shell go list ./... | grep -v -e /test/api -e /test/contracts)
 	go tool cover -html cover.out -o cover.html
 
 # API automation test targets
