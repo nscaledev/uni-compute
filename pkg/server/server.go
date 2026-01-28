@@ -25,17 +25,17 @@ import (
 
 	chi "github.com/go-chi/chi/v5"
 	"github.com/spf13/pflag"
-	"go.opentelemetry.io/otel/sdk/trace"
 
 	"github.com/unikorn-cloud/compute/pkg/constants"
 	"github.com/unikorn-cloud/compute/pkg/openapi"
 	"github.com/unikorn-cloud/compute/pkg/server/handler"
 	coreclient "github.com/unikorn-cloud/core/pkg/client"
-	coreapi "github.com/unikorn-cloud/core/pkg/openapi"
+	"github.com/unikorn-cloud/core/pkg/openapi/helpers"
 	"github.com/unikorn-cloud/core/pkg/options"
 	"github.com/unikorn-cloud/core/pkg/server/middleware/cors"
+	"github.com/unikorn-cloud/core/pkg/server/middleware/logging"
 	"github.com/unikorn-cloud/core/pkg/server/middleware/opentelemetry"
-	"github.com/unikorn-cloud/core/pkg/server/middleware/timeout"
+	"github.com/unikorn-cloud/core/pkg/server/middleware/routeresolver"
 	identityclient "github.com/unikorn-cloud/identity/pkg/client"
 	"github.com/unikorn-cloud/identity/pkg/middleware/audit"
 	openapimiddleware "github.com/unikorn-cloud/identity/pkg/middleware/openapi"
@@ -98,7 +98,7 @@ func (s *Server) SetupLogging() {
 // logs by default, and optionally ship the spans to an OTLP listener.
 // TODO: move config into an otel specific options struct.
 func (s *Server) SetupOpenTelemetry(ctx context.Context) error {
-	return s.CoreOptions.SetupOpenTelemetry(ctx, trace.WithSpanProcessor(&opentelemetry.LoggingSpanProcessor{}))
+	return s.CoreOptions.SetupOpenTelemetry(ctx)
 }
 
 func (s *Server) GetServer(client client.Client) (*http.Server, error) {
@@ -123,18 +123,30 @@ func (s *Server) GetServer(client client.Client) (*http.Server, error) {
 		}
 	}()
 
-	schema, err := coreapi.NewSchema(openapi.GetSwagger)
+	schema, err := helpers.NewSchema(openapi.GetSwagger)
 	if err != nil {
 		return nil, err
 	}
 
-	corsMiddleware := cors.New(schema, &s.CORSOptions)
+	router := chi.NewRouter()
 
 	// Middleware specified here is applied to all requests pre-routing.
-	router := chi.NewRouter()
-	router.Use(timeout.Middleware(s.ServerOptions.RequestTimeout))
-	router.Use(opentelemetry.Middleware(constants.Application, constants.Version))
-	router.Use(corsMiddleware.Middleware)
+	// Ordering is important:
+	// * OpenTelemetry middleware optionally transmits spans over OTLP, but also
+	//   establishes a trace ID that is used to correlate logs with user issues.
+	// * Logging ensures at least all errors are captured by logging telemetry and we
+	//   can trigger alerts based on them.
+	// * Route resolver provides routing and OpenAPI information to child middlewares.
+	// * CORS emulates OPTIONS endpoints based on OpenAPI (requires route resolver).
+	opentelemetry := opentelemetry.New(constants.Application, constants.Version)
+	logging := logging.New()
+	routeresolver := routeresolver.New(schema)
+	cors := cors.New(&s.CORSOptions)
+
+	router.Use(opentelemetry.Middleware)
+	router.Use(logging.Middleware)
+	router.Use(routeresolver.Middleware)
+	router.Use(cors.Middleware)
 	router.NotFound(http.HandlerFunc(handler.NotFound))
 	router.MethodNotAllowed(http.HandlerFunc(handler.MethodNotAllowed))
 
@@ -143,14 +155,17 @@ func (s *Server) GetServer(client client.Client) (*http.Server, error) {
 		return nil, err
 	}
 
+	validator := openapimiddleware.NewValidator(&s.OpenAPIOptions, authorizer)
+	audit := audit.New(constants.Application, constants.Version)
+
 	// Middleware specified here is applied to all requests post-routing.
 	// NOTE: these are applied in reverse order!!
 	chiServerOptions := openapi.ChiServerOptions{
 		BaseRouter:       router,
 		ErrorHandlerFunc: handler.HandleError,
 		Middlewares: []openapi.MiddlewareFunc{
-			audit.Middleware(schema, constants.Application, constants.Version),
-			openapimiddleware.Middleware(&s.OpenAPIOptions, authorizer, schema),
+			audit.Middleware,
+			validator.Middleware,
 		},
 	}
 
