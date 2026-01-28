@@ -84,7 +84,7 @@ jobs:
         path: test/api/suites/junit.xml
     
     - name: Create Linear Issues for Test Failures
-      uses: nscale/quality-tooling/.github/actions/linear-test-failures@main
+      uses: nscaledev/quality-tooling/.github/actions/linear-test-failures@main
       if: ${{ !cancelled() }}
       with:
         test-results-path: test/api/suites/test-results.json
@@ -159,7 +159,7 @@ jobs:
         path: test/api/suites/junit.xml
 
     - name: Create Linear Issues for Test Failures
-      uses: nscale/quality-tooling/.github/actions/linear-test-failures@main
+      uses: nscaledev/quality-tooling/.github/actions/linear-test-failures@main
       if: ${{ !cancelled() }}
       with:
         test-results-path: test/api/suites/test-results.json
