@@ -24,6 +24,22 @@ on:
         - 'Machine Operations'
         - 'Instance Operations'
         - 'Scaling Resource Management'
+      region_id_override:
+        description: 'Override Region ID (if set, you must also provide flavor, image and network overrides)'
+        required: false
+        type: string
+      flavor_id_override:
+        description: 'Override Flavor ID (required when region_id_override is set)'
+        required: false
+        type: string
+      image_id_override:
+        description: 'Override Image ID (required when region_id_override is set)'
+        required: false
+        type: string
+      network_id_override:
+        description: 'Override Network ID (required when region_id_override is set)'
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -42,13 +58,25 @@ jobs:
       TEST_ORG_ID: ${{ vars.DEV_TEST_ORG_ID }}
       TEST_PROJECT_ID: ${{ vars.DEV_TEST_PROJECT_ID }}
       TEST_SECONDARY_PROJECT_ID: ${{ vars.DEV_TEST_SECONDARY_PROJECT_ID }}
-      TEST_REGION_ID: ${{ vars.DEV_TEST_REGION_ID }}
+      TEST_REGION_ID: ${{ inputs.region_id_override || vars.DEV_TEST_REGION_ID }}
       TEST_SECONDARY_REGION_ID: ${{ vars.DEV_TEST_SECONDARY_REGION_ID }}
-      TEST_FLAVOR_ID: ${{ vars.DEV_TEST_FLAVOR_ID }}
-      TEST_IMAGE_ID: ${{ vars.DEV_TEST_IMAGE_ID }}
-      TEST_NETWORK_ID: ${{ vars.DEV_TEST_NETWORK_ID }}
+      TEST_FLAVOR_ID: ${{ inputs.flavor_id_override || vars.DEV_TEST_FLAVOR_ID }}
+      TEST_IMAGE_ID: ${{ inputs.image_id_override || vars.DEV_TEST_IMAGE_ID }}
+      TEST_NETWORK_ID: ${{ inputs.network_id_override || vars.DEV_TEST_NETWORK_ID }}
 
     steps:
+    - name: Validate region override inputs
+      if: github.event_name == 'workflow_dispatch' && inputs.region_id_override != ''
+      run: |
+        missing=()
+        [ -z "${{ inputs.flavor_id_override }}" ] && missing+=("flavor_id_override")
+        [ -z "${{ inputs.image_id_override }}" ] && missing+=("image_id_override")
+        [ -z "${{ inputs.network_id_override }}" ] && missing+=("network_id_override")
+        if [ ${#missing[@]} -gt 0 ]; then
+          echo "::error::region_id_override is set but the following required overrides are missing: ${missing[*]}"
+          exit 1
+        fi
+
     - name: Checkout
       uses: actions/checkout@v4
 
@@ -104,13 +132,25 @@ jobs:
       TEST_ORG_ID: ${{ vars.UAT_TEST_ORG_ID }}
       TEST_PROJECT_ID: ${{ vars.UAT_TEST_PROJECT_ID }}
       TEST_SECONDARY_PROJECT_ID: ${{ vars.UAT_TEST_SECONDARY_PROJECT_ID }}
-      TEST_REGION_ID: ${{ vars.UAT_TEST_REGION_ID }}
+      TEST_REGION_ID: ${{ inputs.region_id_override || vars.UAT_TEST_REGION_ID }}
       TEST_SECONDARY_REGION_ID: ${{ vars.UAT_TEST_SECONDARY_REGION_ID }}
-      TEST_FLAVOR_ID: ${{ vars.UAT_TEST_FLAVOR_ID }}
-      TEST_IMAGE_ID: ${{ vars.UAT_TEST_IMAGE_ID }}
-      TEST_NETWORK_ID: ${{ vars.UAT_TEST_NETWORK_ID }}
+      TEST_FLAVOR_ID: ${{ inputs.flavor_id_override || vars.UAT_TEST_FLAVOR_ID }}
+      TEST_IMAGE_ID: ${{ inputs.image_id_override || vars.UAT_TEST_IMAGE_ID }}
+      TEST_NETWORK_ID: ${{ inputs.network_id_override || vars.UAT_TEST_NETWORK_ID }}
 
     steps:
+    - name: Validate region override inputs
+      if: github.event_name == 'workflow_dispatch' && inputs.region_id_override != ''
+      run: |
+        missing=()
+        [ -z "${{ inputs.flavor_id_override }}" ] && missing+=("flavor_id_override")
+        [ -z "${{ inputs.image_id_override }}" ] && missing+=("image_id_override")
+        [ -z "${{ inputs.network_id_override }}" ] && missing+=("network_id_override")
+        if [ ${#missing[@]} -gt 0 ]; then
+          echo "::error::region_id_override is set but the following required overrides are missing: ${missing[*]}"
+          exit 1
+        fi
+
     - name: Checkout
       uses: actions/checkout@v4
 
