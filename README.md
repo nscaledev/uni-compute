@@ -316,4 +316,14 @@ var _ = Describe("Provider Service Contract", func() {
 })
 ```
 
-For complete examples, see `test/contracts/consumer/region/regions_test.go`.
+For complete examples, see:
+- `test/contracts/consumer/region/regions_test.go` - Region service consumer tests
+- `test/contracts/consumer/identity/identity_test.go` - Identity service consumer tests
+
+#### Consumer Contracts with uni-identity
+
+The compute service defines consumer contracts for interactions with the identity service resource allocation API:
+
+- Create allocation - Track resource usage when clusters/instances are created
+- Update allocation - Update resource counts when scaling operations occur
+- Delete allocation - Release resource allocations during cleanup
