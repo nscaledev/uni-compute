@@ -26,6 +26,7 @@ import (
 	"net/http"
 	"reflect"
 	"slices"
+	"strings"
 
 	computev1 "github.com/unikorn-cloud/compute/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/compute/pkg/constants"
@@ -769,6 +770,34 @@ func (c *Client) Reboot(ctx context.Context, instanceID string, params computeap
 	return nil
 }
 
+// dropSystemTags removes any tags that are reserved for this service to use.
+func dropSystemTags(meta *coreapi.ResourceMetadata) {
+	if meta.Tags == nil {
+		return
+	}
+
+	tags := *meta.Tags
+	tags = slices.DeleteFunc(tags, func(t coreapi.Tag) bool {
+		return strings.HasPrefix(t.Name, constants.SystemTagPrefix)
+	})
+
+	meta.Tags = &tags
+}
+
+func setTag(meta *coreapi.ResourceMetadata, tag, value string) {
+	var tags coreapi.TagList
+	if requestTags := meta.Tags; requestTags != nil {
+		tags = *requestTags
+	}
+
+	tags = append(tags, coreapi.Tag{
+		Name:  tag,
+		Value: value,
+	})
+
+	meta.Tags = &tags
+}
+
 func (c *Client) Snapshot(ctx context.Context, instanceID string, params computeapi.InstanceSnapshotCreate) (*regionapi.ImageResponse, error) {
 	// This implicitly checks read permission on the instance in question.
 	resource, err := c.GetRaw(ctx, instanceID)
@@ -783,6 +812,10 @@ func (c *Client) Snapshot(ctx context.Context, instanceID string, params compute
 
 	var requestBody regionapi.SnapshotCreate
 	requestBody.Metadata = params.Metadata
+
+	dropSystemTags(&requestBody.Metadata)
+	setTag(&requestBody.Metadata, constants.InstanceIDTag, instanceID)
+
 	requestBody.Spec = regionapi.SnapshotCreateSpec{}
 
 	response, err := c.region.PostApiV2ServersServerIDSnapshotWithResponse(ctx, serverID, requestBody)
