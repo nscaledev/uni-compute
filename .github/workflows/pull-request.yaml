@@ -96,3 +96,4 @@ jobs:
         PACT_BROKER_USERNAME: ${{ vars.PACT_BROKER_USERNAME }}
         # Keep password as secret
         PACT_BROKER_PASSWORD: ${{ secrets.PACT_BROKER_PASSWORD }}
+        BRANCH: ${{ github.head_ref || github.ref_name }}
