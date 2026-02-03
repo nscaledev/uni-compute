@@ -214,7 +214,10 @@ publish-pacts:
 # Can-I-Deploy check
 .PHONY: can-i-deploy
 can-i-deploy:
-	pact-broker can-i-deploy \
+	docker run --rm \
+		--network host \
+		pactfoundation/pact-cli:latest \
+		pact-broker can-i-deploy \
 		--pacticipant="$(SERVICE_NAME)" \
 		--version="$(REVISION)" \
 		--to-environment="production" \
@@ -225,7 +228,10 @@ can-i-deploy:
 # Record deployment
 .PHONY: record-deployment
 record-deployment:
-	pact-broker record-deployment \
+	docker run --rm \
+		--network host \
+		pactfoundation/pact-cli:latest \
+		pact-broker record-deployment \
 		--pacticipant="$(SERVICE_NAME)" \
 		--version="$(REVISION)" \
 		--environment="production" \
