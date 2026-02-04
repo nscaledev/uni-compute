@@ -137,26 +137,29 @@ test-unit:
 	go test -coverpkg ./... -coverprofile cover.out ./...
 	go tool cover -html cover.out -o cover.html
 
+GINKGO_INTEGRATION_TEST_FLAGS = --json-report=test-results.json --junit-report=junit.xml --tags=integration
+
 # API automation test targets
 .PHONY: test-api
 test-api: test-api-setup
-	cd test/api/suites && ginkgo run -v --show-node-events --json-report=test-results.json --junit-report=junit.xml
+	cd test/api/suites && ginkgo run -v --show-node-events $(GINKGO_INTEGRATION_TEST_FLAGS)
 
 .PHONY: test-api-focus
 test-api-focus: test-api-setup
-	cd test/api/suites && ginkgo run -v --focus="$(FOCUS)" --json-report=test-results.json --junit-report=junit.xml
+	cd test/api/suites && ginkgo run -v --focus="$(FOCUS)" $(GINKGO_INTEGRATION_TEST_FLAGS)
 
 .PHONY: test-api-suite
 test-api-suite: test-api-setup
-	cd test/api/suites && ginkgo run $(SUITE) --json-report=test-results.json --junit-report=junit.xml
+	cd test/api/suites && ginkgo run $(SUITE) $(GINKGO_INTEGRATION_TEST_FLAGS)
 
 .PHONY: test-api-parallel
 test-api-parallel: test-api-setup
-	cd test/api/suites && ginkgo run --procs=4 --json-report=test-results.json --junit-report=junit.xml
+	cd test/api/suites && ginkgo run --procs=4 $(GINKGO_INTEGRATION_TEST_FLAGS)
 
 .PHONY: test-api-ci
 test-api-ci: test-api-setup
-	cd test/api/suites && ginkgo run --randomize-all --randomize-suites --race --json-report=test-results.json --junit-report=junit.xml --output-interceptor-mode=none
+	cd test/api/suites && ginkgo run --randomize-all --randomize-suites \
+		--race --output-interceptor-mode=none $(GINKGO_INTEGRATION_TEST_FLAGS)
 
 .PHONY: test-api-setup
 test-api-setup:
