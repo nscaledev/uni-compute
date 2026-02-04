@@ -19,6 +19,7 @@ limitations under the License.
 package handler
 
 import (
+	"fmt"
 	"net/http"
 	"slices"
 
@@ -88,7 +89,7 @@ func (h *Handler) GetApiV1OrganizationsOrganizationIDRegions(w http.ResponseWrit
 
 	result, err := h.regionClient().List(ctx, organizationID)
 	if err != nil {
-		errors.HandleError(w, r, errors.OAuth2ServerError("unable to read regions").WithError(err))
+		errors.HandleError(w, r, fmt.Errorf("%w: unable to read regions", err))
 		return
 	}
 
@@ -105,7 +106,7 @@ func (h *Handler) GetApiV1OrganizationsOrganizationIDRegionsRegionIDFlavors(w ht
 
 	result, err := h.regionClient().Flavors(ctx, organizationID, regionID)
 	if err != nil {
-		errors.HandleError(w, r, errors.OAuth2ServerError("unable to read flavors").WithError(err))
+		errors.HandleError(w, r, fmt.Errorf("%w: unable to read flavors", err))
 		return
 	}
 
@@ -122,7 +123,7 @@ func (h *Handler) GetApiV1OrganizationsOrganizationIDRegionsRegionIDImages(w htt
 
 	result, err := h.regionClient().Images(ctx, organizationID, regionID)
 	if err != nil {
-		errors.HandleError(w, r, errors.OAuth2ServerError("unable to read images").WithError(err))
+		errors.HandleError(w, r, fmt.Errorf("%w: unable to read images", err))
 		return
 	}
 
