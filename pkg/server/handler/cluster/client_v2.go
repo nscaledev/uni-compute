@@ -21,6 +21,7 @@ import (
 	"cmp"
 	"context"
 	"encoding/json"
+	"fmt"
 	"slices"
 
 	computev1 "github.com/unikorn-cloud/compute/pkg/apis/unikorn/v1alpha1"
@@ -48,13 +49,13 @@ import (
 func convertCreateToUpdateRequest(in *computeapi.ClusterV2Create) (*computeapi.ClusterV2Update, error) {
 	t, err := json.Marshal(in)
 	if err != nil {
-		return nil, errors.OAuth2ServerError("failed to marshal request").WithError(err)
+		return nil, fmt.Errorf("%w: failed to marshal request", err)
 	}
 
 	out := &computeapi.ClusterV2Update{}
 
 	if err := json.Unmarshal(t, out); err != nil {
-		return nil, errors.OAuth2ServerError("failed to unmarshal request").WithError(err)
+		return nil, fmt.Errorf("%w: failed to unmarshal request", err)
 	}
 
 	return out, nil
@@ -167,11 +168,11 @@ func (c *Client) generate(ctx context.Context, in *computeapi.ClusterV2Update, o
 	}
 
 	if err := util.InjectUserPrincipal(ctx, organizationID, projectID); err != nil {
-		return nil, errors.OAuth2ServerError("unable to set principal information").WithError(err)
+		return nil, fmt.Errorf("%w: unable to set principal information", err)
 	}
 
 	if err := common.SetIdentityMetadata(ctx, &out.ObjectMeta); err != nil {
-		return nil, errors.OAuth2ServerError("failed to set identity metadata").WithError(err)
+		return nil, fmt.Errorf("%w: failed to set identity metadata", err)
 	}
 
 	return out, nil
@@ -186,17 +187,17 @@ func (c *Client) ListV2(ctx context.Context, params computeapi.GetApiV2ClustersP
 
 	selector, err = rbac.AddOrganizationAndProjectIDQuery(ctx, selector, util.OrganizationIDQuery(params.OrganizationID), util.ProjectIDQuery(params.ProjectID))
 	if err != nil {
-		return nil, errors.OAuth2ServerError("failed to add identity label selector").WithError(err)
+		return nil, fmt.Errorf("%w: failed to add identity label selector", err)
 	}
 
 	selector, err = util.AddRegionIDQuery(selector, params.RegionID)
 	if err != nil {
-		return nil, errors.OAuth2ServerError("failed to add region label selector").WithError(err)
+		return nil, fmt.Errorf("%w: failed to add region label selector", err)
 	}
 
 	selector, err = util.AddNetworkIDQuery(selector, params.NetworkID)
 	if err != nil {
-		return nil, errors.OAuth2ServerError("failed to add network label selector").WithError(err)
+		return nil, fmt.Errorf("%w: failed to add network label selector", err)
 	}
 
 	options := &client.ListOptions{
@@ -207,7 +208,7 @@ func (c *Client) ListV2(ctx context.Context, params computeapi.GetApiV2ClustersP
 	result := &computev1.ComputeClusterList{}
 
 	if err := c.client.List(ctx, result, options); err != nil {
-		return nil, errors.OAuth2ServerError("unable to list clusters").WithError(err)
+		return nil, fmt.Errorf("%w: unable to list clusters", err)
 	}
 
 	tagSelector, err := coreutil.DecodeTagSelectorParam(params.Tag)
@@ -259,7 +260,7 @@ func (c *Client) CreateV2(ctx context.Context, request *computeapi.ClusterV2Crea
 	}
 
 	if err := c.client.Create(ctx, resource); err != nil {
-		return nil, errors.OAuth2ServerError("unable to create cluster").WithError(err)
+		return nil, fmt.Errorf("%w: unable to create cluster", err)
 	}
 
 	return convert(resource), nil
@@ -273,7 +274,7 @@ func (c *Client) GetRawV2(ctx context.Context, clusterID string) (*computev1.Com
 			return nil, errors.HTTPNotFound().WithError(err)
 		}
 
-		return nil, errors.OAuth2ServerError("unable to lookup cluster").WithError(err)
+		return nil, fmt.Errorf("%w: unable to lookup cluster", err)
 	}
 
 	if err := rbac.AllowProjectScope(ctx, "compute:clusters", identityapi.Read, result.Labels[coreconstants.OrganizationLabel], result.Labels[coreconstants.ProjectLabel]); err != nil {
@@ -288,7 +289,7 @@ func (c *Client) GetRawV2(ctx context.Context, clusterID string) (*computev1.Com
 
 	version, err := constants.UnmarshalAPIVersion(v)
 	if err != nil {
-		return nil, errors.OAuth2ServerError("unable to parse API version")
+		return nil, fmt.Errorf("%w: unable to parse API version", err)
 	}
 
 	if version != 2 {
@@ -337,7 +338,7 @@ func (c *Client) UpdateV2(ctx context.Context, clusterID string, request *comput
 	updated.Spec = required.Spec
 
 	if err := c.client.Patch(ctx, updated, client.MergeFrom(current)); err != nil {
-		return nil, errors.OAuth2ServerError("unable to update cluster").WithError(err)
+		return nil, fmt.Errorf("%w: unable to update cluster", err)
 	}
 
 	return convert(updated), nil
@@ -362,7 +363,7 @@ func (c *Client) DeleteV2(ctx context.Context, clusterID string) error {
 			return errors.HTTPNotFound().WithError(err)
 		}
 
-		return errors.OAuth2ServerError("unable to delete cluster").WithError(err)
+		return fmt.Errorf("%w: unable to delete cluster", err)
 	}
 
 	return nil
