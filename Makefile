@@ -134,7 +134,7 @@ images-kind-load: images
 
 .PHONY: test-unit
 test-unit:
-	go test -coverpkg ./... -coverprofile cover.out $(shell go list ./... | grep -v -e /test/api -e /test/contracts)
+	go test -coverpkg ./... -coverprofile cover.out ./...
 	go tool cover -html cover.out -o cover.html
 
 # API automation test targets
@@ -188,11 +188,14 @@ else ifeq ($(UNAME_S),Darwin)
 	PACT_LIB_ENV = DYLD_LIBRARY_PATH=$(PACT_LIB_PATH):$$DYLD_LIBRARY_PATH
 endif
 
+PACT_GOFLAGS=-tags=integration
+
 # Run consumer contract tests
 .PHONY: test-contracts-consumer
 test-contracts-consumer:
 	CGO_LDFLAGS="$(PACT_LD_FLAGS)" \
 	$(PACT_LIB_ENV) \
+	GOFLAGS="$(PACT_GOFLAGS)" \
 	go test ./test/contracts/consumer/... -v -count=1
 
 # Publish pacts to broker
