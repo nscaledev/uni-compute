@@ -67,6 +67,11 @@ const (
 	ClusterLabel = "compute.unikorn-cloud.org/cluster-id"
 )
 
+const (
+	SystemTagPrefix = "compute.unikorn-cloud.org:"
+	InstanceIDTag   = SystemTagPrefix + "instance-id"
+)
+
 func MarshalAPIVersion(i int) string {
 	return strconv.Itoa(i)
 }
