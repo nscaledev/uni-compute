@@ -38,7 +38,6 @@ import (
 	"github.com/unikorn-cloud/core/pkg/server/conversion"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
 	"github.com/unikorn-cloud/core/pkg/server/util"
-	coreapiutils "github.com/unikorn-cloud/core/pkg/util/api"
 	identityclient "github.com/unikorn-cloud/identity/pkg/client"
 	"github.com/unikorn-cloud/identity/pkg/handler/common"
 	identityapi "github.com/unikorn-cloud/identity/pkg/openapi"
@@ -100,12 +99,12 @@ func NewClient(client client.Client, namespace string, options *Options, identit
 func (c *Client) List(ctx context.Context, organizationID string, params openapi.GetApiV1OrganizationsOrganizationIDClustersParams) (openapi.ComputeClusters, error) {
 	requirement, err := labels.NewRequirement(constants.OrganizationLabel, selection.Equals, []string{organizationID})
 	if err != nil {
-		return nil, errors.OAuth2ServerError("failed to build label selector").WithError(err)
+		return nil, fmt.Errorf("%w: failed to build label selector", err)
 	}
 
 	versionRequirement, err := labels.NewRequirement(computeconstants.ResourceAPIVersionLabel, selection.DoesNotExist, nil)
 	if err != nil {
-		return nil, errors.OAuth2ServerError("failed to build label selector").WithError(err)
+		return nil, fmt.Errorf("%w: failed to build label selector", err)
 	}
 
 	selector := labels.NewSelector()
@@ -118,7 +117,7 @@ func (c *Client) List(ctx context.Context, organizationID string, params openapi
 	result := &unikornv1.ComputeClusterList{}
 
 	if err := c.client.List(ctx, result, options); err != nil {
-		return nil, errors.OAuth2ServerError("failed to list clusters").WithError(err)
+		return nil, fmt.Errorf("%w: failed to list clusters", err)
 	}
 
 	tagSelector, err := util.DecodeTagSelectorParam(params.Tag)
@@ -155,7 +154,7 @@ func (c *Client) get(ctx context.Context, organizationID, projectID, clusterID s
 			return nil, errors.HTTPNotFound().WithError(err)
 		}
 
-		return nil, errors.OAuth2ServerError("unable to get cluster").WithError(err)
+		return nil, fmt.Errorf("%w: unable to get cluster", err)
 	}
 
 	if _, ok := resource.Labels[computeconstants.ResourceAPIVersionLabel]; ok {
@@ -243,11 +242,11 @@ func (c *Client) createIdentity(ctx context.Context, organizationID, projectID, 
 
 	resp, err := c.region.PostApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesWithResponse(ctx, organizationID, projectID, request)
 	if err != nil {
-		return nil, errors.OAuth2ServerError("unable to create identity").WithError(err)
+		return nil, fmt.Errorf("%w: unable to create identity", err)
 	}
 
 	if resp.StatusCode() != http.StatusCreated {
-		return nil, errors.OAuth2ServerError("unable to create identity").WithError(coreapiutils.ExtractError(resp.StatusCode(), resp))
+		return nil, errors.PropagateError(resp.HTTPResponse, resp)
 	}
 
 	return resp.JSON201, nil
@@ -281,11 +280,11 @@ func (c *Client) createNetworkOpenstack(ctx context.Context, organizationID, pro
 
 	resp, err := c.region.PostApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDNetworksWithResponse(ctx, organizationID, projectID, identity.Metadata.Id, request)
 	if err != nil {
-		return nil, errors.OAuth2ServerError("unable to create network").WithError(err)
+		return nil, fmt.Errorf("%w: unable to create network", err)
 	}
 
 	if resp.StatusCode() != http.StatusCreated {
-		return nil, errors.OAuth2ServerError("unable to create network").WithError(coreapiutils.ExtractError(resp.StatusCode(), resp))
+		return nil, errors.PropagateError(resp.HTTPResponse, resp)
 	}
 
 	return resp.JSON201, nil
@@ -302,7 +301,7 @@ func (c *Client) applyCloudSpecificConfiguration(ctx context.Context, organizati
 	// Provision a network for nodes to attach to.
 	network, err := c.createNetworkOpenstack(ctx, organizationID, projectID, cluster, identity)
 	if err != nil {
-		return errors.OAuth2ServerError("failed to create physical network").WithError(err)
+		return fmt.Errorf("%w: failed to create physical network", err)
 	}
 
 	cluster.Labels[constants.NetworkLabel] = network.Metadata.Id
@@ -362,7 +361,7 @@ func (c *Client) Create(ctx context.Context, organizationID, projectID string, r
 
 	allocations, err := c.generateAllocations(ctx, organizationID, cluster)
 	if err != nil {
-		return nil, errors.OAuth2ServerError("failed to generate quota allocations").WithError(err)
+		return nil, fmt.Errorf("%w: failed to generate quota allocations", err)
 	}
 
 	if err := identityclient.NewAllocations(c.client, c.identity).Create(ctx, cluster, allocations); err != nil {
@@ -374,7 +373,7 @@ func (c *Client) Create(ctx context.Context, organizationID, projectID string, r
 	}
 
 	if err := c.client.Create(ctx, cluster); err != nil {
-		return nil, errors.OAuth2ServerError("failed to create cluster").WithError(err)
+		return nil, fmt.Errorf("%w: failed to create cluster", err)
 	}
 
 	return newGenerator(c.client, c.options, region.New(c.region), "", organizationID, "", nil).convert(cluster), nil
@@ -392,7 +391,7 @@ func (c *Client) Delete(ctx context.Context, organizationID, projectID, clusterI
 	}
 
 	if err := c.client.Delete(ctx, cluster); err != nil {
-		return errors.OAuth2ServerError("failed to delete cluster").WithError(err)
+		return fmt.Errorf("%w: failed to delete cluster", err)
 	}
 
 	return nil
@@ -415,7 +414,7 @@ func (c *Client) Update(ctx context.Context, organizationID, projectID, clusterI
 	}
 
 	if err := conversion.UpdateObjectMetadata(required, current, common.IdentityMetadataMutator, metadataMutator); err != nil {
-		return errors.OAuth2ServerError("failed to merge metadata").WithError(err)
+		return fmt.Errorf("%w: failed to merge metadata", err)
 	}
 
 	// Experience has taught me that modifying caches by accident is a bad thing
@@ -426,12 +425,12 @@ func (c *Client) Update(ctx context.Context, organizationID, projectID, clusterI
 	updated.Spec = required.Spec
 
 	if err := conversion.LogUpdate(ctx, current, updated); err != nil {
-		return errors.OAuth2ServerError("failed to log update").WithError(err)
+		return fmt.Errorf("%w: failed to log update", err)
 	}
 
 	allocations, err := c.generateAllocations(ctx, organizationID, updated)
 	if err != nil {
-		return errors.OAuth2ServerError("failed to generate quota allocations").WithError(err)
+		return fmt.Errorf("%w: failed to generate quota allocations", err)
 	}
 
 	if err := identityclient.NewAllocations(c.client, c.identity).Update(ctx, updated, allocations); err != nil {
@@ -439,7 +438,7 @@ func (c *Client) Update(ctx context.Context, organizationID, projectID, clusterI
 	}
 
 	if err := c.client.Patch(ctx, updated, client.MergeFrom(current)); err != nil {
-		return errors.OAuth2ServerError("failed to patch cluster").WithError(err)
+		return fmt.Errorf("%w: failed to patch cluster", err)
 	}
 
 	return nil
@@ -468,7 +467,7 @@ func (c *Client) Evict(ctx context.Context, organizationID, projectID, clusterID
 	// Lookup the servers and ensure they all exist...
 	servers, err := region.New(c.region).Servers(ctx, organizationID, cluster)
 	if err != nil {
-		return errors.OAuth2ServerError("failed to list servers").WithError(err)
+		return fmt.Errorf("%w: failed to list servers", err)
 	}
 
 	servers = slices.DeleteFunc(servers, func(server regionapi.ServerRead) bool {
@@ -486,12 +485,12 @@ func (c *Client) Evict(ctx context.Context, organizationID, projectID, clusterID
 
 		poolName, err := managerutil.GetWorkloadPoolTag(server.Metadata.Tags)
 		if err != nil {
-			return errors.OAuth2ServerError("failed to lookup server pool name")
+			return fmt.Errorf("%w: failed to lookup server pool name", err)
 		}
 
 		pool, ok := updated.GetWorkloadPool(poolName)
 		if !ok {
-			return errors.OAuth2ServerError("failed to lookup server pool")
+			return fmt.Errorf("%w: failed to lookup server pool", err)
 		}
 
 		pool.Replicas--
@@ -505,7 +504,7 @@ func (c *Client) Evict(ctx context.Context, organizationID, projectID, clusterID
 
 	allocations, err := c.generateAllocations(ctx, organizationID, updated)
 	if err != nil {
-		return errors.OAuth2ServerError("failed to generate quota allocations").WithError(err)
+		return fmt.Errorf("%w: failed to generate quota allocations", err)
 	}
 
 	if err := identityclient.NewAllocations(c.client, c.identity).Update(ctx, updated, allocations); err != nil {
@@ -513,7 +512,7 @@ func (c *Client) Evict(ctx context.Context, organizationID, projectID, clusterID
 	}
 
 	if err := c.client.Patch(ctx, updated, client.MergeFrom(cluster)); err != nil {
-		return errors.OAuth2ServerError("failed to patch cluster").WithError(err)
+		return fmt.Errorf("%w: failed to patch cluster", err)
 	}
 
 	return nil

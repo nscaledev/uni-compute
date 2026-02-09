@@ -27,7 +27,7 @@ import (
 	coreconstants "github.com/unikorn-cloud/core/pkg/constants"
 	coreapi "github.com/unikorn-cloud/core/pkg/openapi"
 	"github.com/unikorn-cloud/core/pkg/provisioners"
-	coreapiutils "github.com/unikorn-cloud/core/pkg/util/api"
+	servererrors "github.com/unikorn-cloud/core/pkg/server/errors"
 	regionclient "github.com/unikorn-cloud/region/pkg/client"
 	regionapi "github.com/unikorn-cloud/region/pkg/openapi"
 
@@ -61,7 +61,7 @@ func (p *Provisioner) getIdentity(ctx context.Context, client regionapi.ClientWi
 	}
 
 	if response.StatusCode() != http.StatusOK {
-		return nil, coreapiutils.ExtractError(response.StatusCode(), response)
+		return nil, servererrors.PropagateError(response.HTTPResponse, response)
 	}
 
 	resource := response.JSON200
@@ -99,7 +99,7 @@ func (p *Provisioner) deleteIdentity(ctx context.Context, client regionapi.Clien
 		return nil
 	}
 
-	return coreapiutils.ExtractError(statusCode, response)
+	return servererrors.PropagateError(response.HTTPResponse, response)
 }
 
 // getNetwork returns the network associated with a compute cluster.
@@ -118,7 +118,7 @@ func (p *Provisioner) getNetwork(ctx context.Context, client regionapi.ClientWit
 	}
 
 	if response.StatusCode() != http.StatusOK {
-		return nil, coreapiutils.ExtractError(response.StatusCode(), response)
+		return nil, servererrors.PropagateError(response.HTTPResponse, response)
 	}
 
 	resource := response.JSON200
@@ -148,7 +148,7 @@ func (p *Provisioner) listServers(ctx context.Context, client regionapi.ClientWi
 	}
 
 	if response.StatusCode() != http.StatusOK {
-		return nil, coreapiutils.ExtractError(response.StatusCode(), response)
+		return nil, servererrors.PropagateError(response.HTTPResponse, response)
 	}
 
 	return *response.JSON200, nil
@@ -162,7 +162,7 @@ func (p *Provisioner) createServer(ctx context.Context, client regionapi.ClientW
 	}
 
 	if resp.StatusCode() != http.StatusCreated {
-		return nil, coreapiutils.ExtractError(resp.StatusCode(), resp)
+		return nil, servererrors.PropagateError(resp.HTTPResponse, resp)
 	}
 
 	return resp.JSON201, nil
@@ -176,7 +176,7 @@ func (p *Provisioner) updateServer(ctx context.Context, client regionapi.ClientW
 	}
 
 	if resp.StatusCode() != http.StatusAccepted {
-		return nil, coreapiutils.ExtractError(resp.StatusCode(), resp)
+		return nil, servererrors.PropagateError(resp.HTTPResponse, resp)
 	}
 
 	return resp.JSON202, nil
@@ -195,7 +195,7 @@ func (p *Provisioner) deleteServer(ctx context.Context, client regionapi.ClientW
 	}
 
 	if resp.StatusCode() != http.StatusAccepted {
-		return coreapiutils.ExtractError(resp.StatusCode(), resp)
+		return servererrors.PropagateError(resp.HTTPResponse, resp)
 	}
 
 	// TODO: add to the status in a deprovisioning state.
@@ -214,7 +214,7 @@ func (p *Provisioner) listSecurityGroups(ctx context.Context, client regionapi.C
 	}
 
 	if response.StatusCode() != http.StatusOK {
-		return nil, coreapiutils.ExtractError(response.StatusCode(), response)
+		return nil, servererrors.PropagateError(response.HTTPResponse, response)
 	}
 
 	return *response.JSON200, nil
@@ -228,7 +228,7 @@ func (p *Provisioner) createSecurityGroup(ctx context.Context, client regionapi.
 	}
 
 	if resp.StatusCode() != http.StatusCreated {
-		return nil, coreapiutils.ExtractError(resp.StatusCode(), resp)
+		return nil, servererrors.PropagateError(resp.HTTPResponse, resp)
 	}
 
 	return resp.JSON201, nil
@@ -242,7 +242,7 @@ func (p *Provisioner) updateSecurityGroup(ctx context.Context, client regionapi.
 	}
 
 	if resp.StatusCode() != http.StatusAccepted {
-		return nil, coreapiutils.ExtractError(resp.StatusCode(), resp)
+		return nil, servererrors.PropagateError(resp.HTTPResponse, resp)
 	}
 
 	return resp.JSON202, nil
@@ -256,7 +256,7 @@ func (p *Provisioner) deleteSecurityGroup(ctx context.Context, client regionapi.
 	}
 
 	if resp.StatusCode() != http.StatusAccepted && resp.StatusCode() != http.StatusNotFound {
-		return coreapiutils.ExtractError(resp.StatusCode(), resp)
+		return servererrors.PropagateError(resp.HTTPResponse, resp)
 	}
 
 	return nil

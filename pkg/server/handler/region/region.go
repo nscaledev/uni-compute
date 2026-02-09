@@ -19,13 +19,13 @@ package region
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"slices"
 
 	unikornv1 "github.com/unikorn-cloud/compute/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/compute/pkg/provisioners/managers/cluster/util"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
-	coreapiutils "github.com/unikorn-cloud/core/pkg/util/api"
 	regionapi "github.com/unikorn-cloud/region/pkg/openapi"
 )
 
@@ -49,7 +49,7 @@ func (c *Client) List(ctx context.Context, organizationID string) ([]regionapi.R
 	}
 
 	if resp.StatusCode() != http.StatusOK {
-		return nil, coreapiutils.ExtractError(resp.StatusCode(), resp)
+		return nil, errors.PropagateError(resp.HTTPResponse, resp)
 	}
 
 	regions := *resp.JSON200
@@ -71,7 +71,7 @@ func (c *Client) Flavors(ctx context.Context, organizationID, regionID string) (
 	}
 
 	if resp.StatusCode() != http.StatusOK {
-		return nil, coreapiutils.ExtractError(resp.StatusCode(), resp)
+		return nil, errors.PropagateError(resp.HTTPResponse, resp)
 	}
 
 	flavors := *resp.JSON200
@@ -88,7 +88,7 @@ func (c *Client) Images(ctx context.Context, organizationID, regionID string) ([
 	}
 
 	if resp.StatusCode() != http.StatusOK {
-		return nil, coreapiutils.ExtractError(resp.StatusCode(), resp)
+		return nil, errors.PropagateError(resp.HTTPResponse, resp)
 	}
 
 	images := *resp.JSON200
@@ -112,7 +112,7 @@ func (c *Client) Servers(ctx context.Context, organizationID string, cluster *un
 	}
 
 	if resp.StatusCode() != http.StatusOK {
-		return nil, coreapiutils.ExtractError(resp.StatusCode(), resp)
+		return nil, errors.PropagateError(resp.HTTPResponse, resp)
 	}
 
 	servers := *resp.JSON200
@@ -127,7 +127,7 @@ func (c *Client) DeleteServer(ctx context.Context, organizationID, projectID, id
 	}
 
 	if resp.StatusCode() != http.StatusAccepted && resp.StatusCode() != http.StatusNotFound {
-		return coreapiutils.ExtractError(resp.StatusCode(), resp)
+		return errors.PropagateError(resp.HTTPResponse, resp)
 	}
 
 	return nil
@@ -141,7 +141,7 @@ func (c *Client) HardRebootServer(ctx context.Context, organizationID, projectID
 
 	// FIXME: We should rethrow the not found error.
 	if resp.StatusCode() != http.StatusAccepted && resp.StatusCode() != http.StatusNotFound {
-		return coreapiutils.ExtractError(resp.StatusCode(), resp)
+		return errors.PropagateError(resp.HTTPResponse, resp)
 	}
 
 	return nil
@@ -155,7 +155,7 @@ func (c *Client) SoftRebootServer(ctx context.Context, organizationID, projectID
 
 	// FIXME: We should rethrow the not found error.
 	if resp.StatusCode() != http.StatusAccepted && resp.StatusCode() != http.StatusNotFound {
-		return coreapiutils.ExtractError(resp.StatusCode(), resp)
+		return errors.PropagateError(resp.HTTPResponse, resp)
 	}
 
 	return nil
@@ -169,7 +169,7 @@ func (c *Client) StartServer(ctx context.Context, organizationID, projectID, ide
 
 	// FIXME: We should rethrow the not found error.
 	if resp.StatusCode() != http.StatusAccepted && resp.StatusCode() != http.StatusNotFound {
-		return coreapiutils.ExtractError(resp.StatusCode(), resp)
+		return errors.PropagateError(resp.HTTPResponse, resp)
 	}
 
 	return nil
@@ -183,7 +183,7 @@ func (c *Client) StopServer(ctx context.Context, organizationID, projectID, iden
 
 	// FIXME: We should rethrow the not found error.
 	if resp.StatusCode() != http.StatusAccepted && resp.StatusCode() != http.StatusNotFound {
-		return coreapiutils.ExtractError(resp.StatusCode(), resp)
+		return errors.PropagateError(resp.HTTPResponse, resp)
 	}
 
 	return nil
@@ -196,7 +196,7 @@ func (c *Client) CreateConsoleSession(ctx context.Context, organizationID, proje
 	}
 
 	if resp.StatusCode() != http.StatusOK {
-		return nil, coreapiutils.ExtractError(resp.StatusCode(), resp)
+		return nil, errors.PropagateError(resp.HTTPResponse, resp)
 	}
 
 	return resp.JSON200, nil
@@ -209,7 +209,7 @@ func (c *Client) GetConsoleOutput(ctx context.Context, organizationID, projectID
 	}
 
 	if resp.StatusCode() != http.StatusOK {
-		return nil, coreapiutils.ExtractError(resp.StatusCode(), resp)
+		return nil, errors.PropagateError(resp.HTTPResponse, resp)
 	}
 
 	return resp.JSON200, nil
@@ -222,7 +222,7 @@ func GetNetwork(ctx context.Context, client regionapi.ClientWithResponsesInterfa
 	}
 
 	if response.StatusCode() != http.StatusOK {
-		return nil, errors.OAuth2ServerError("unable to get network")
+		return nil, fmt.Errorf("%w: unable to get network", err)
 	}
 
 	network := response.JSON200

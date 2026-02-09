@@ -25,7 +25,7 @@ import (
 	coreclient "github.com/unikorn-cloud/core/pkg/client"
 	coreconstants "github.com/unikorn-cloud/core/pkg/constants"
 	coreapi "github.com/unikorn-cloud/core/pkg/openapi"
-	coreapiutils "github.com/unikorn-cloud/core/pkg/util/api"
+	servererrors "github.com/unikorn-cloud/core/pkg/server/errors"
 	regionclient "github.com/unikorn-cloud/region/pkg/client"
 	regionconstants "github.com/unikorn-cloud/region/pkg/constants"
 	regionapi "github.com/unikorn-cloud/region/pkg/openapi"
@@ -74,7 +74,7 @@ func (p *Provisioner) getServer(ctx context.Context, client regionapi.ClientWith
 	}
 
 	if response.StatusCode() != http.StatusOK {
-		return nil, coreapiutils.ExtractError(response.StatusCode(), response)
+		return nil, servererrors.PropagateError(response.HTTPResponse, response)
 	}
 
 	result := *response.JSON200
@@ -95,7 +95,7 @@ func (p *Provisioner) createServer(ctx context.Context, client regionapi.ClientW
 	}
 
 	if resp.StatusCode() != http.StatusCreated {
-		return nil, coreapiutils.ExtractError(resp.StatusCode(), resp)
+		return nil, servererrors.PropagateError(resp.HTTPResponse, resp)
 	}
 
 	return resp.JSON201, nil
@@ -109,7 +109,7 @@ func (p *Provisioner) updateServer(ctx context.Context, client regionapi.ClientW
 	}
 
 	if resp.StatusCode() != http.StatusAccepted {
-		return nil, coreapiutils.ExtractError(resp.StatusCode(), resp)
+		return nil, servererrors.PropagateError(resp.HTTPResponse, resp)
 	}
 
 	return resp.JSON202, nil
@@ -128,7 +128,7 @@ func (p *Provisioner) deleteServer(ctx context.Context, client regionapi.ClientW
 	}
 
 	if resp.StatusCode() != http.StatusAccepted {
-		return coreapiutils.ExtractError(resp.StatusCode(), resp)
+		return servererrors.PropagateError(resp.HTTPResponse, resp)
 	}
 
 	// TODO: add to the status in a deprovisioning state.
