@@ -260,12 +260,34 @@ make test-contracts-consumer
 make publish-pacts
 ```
 
+**Setup webhook for provider verification (one-time setup per environment):**
+
+This webhook triggers uni-region's CI to automatically verify contracts when they change:
+
+```bash
+# Create a GitHub Personal Access Token with 'repo' scope
+# Then run:
+GITHUB_TOKEN="ghp_your_token_here" make setup-webhook
+
+# Verify webhook was created
+make list-webhooks
+```
+
 **Available make targets:**
 - `test-contracts-consumer` - Run consumer contract tests
 - `publish-pacts` - Publish generated pacts to Pact Broker
 - `can-i-deploy` - Check if service version is safe to deploy
 - `record-deployment` - Record deployment to an environment
+- `setup-webhook` - Configure webhook to trigger provider verification (one-time setup)
+- `update-webhook` - Update existing webhook (use with WEBHOOK_UUID variable)
+- `list-webhooks` - List all webhooks configured in the Pact Broker
+- `show-webhook` - Show detailed webhook info (use with WEBHOOK_UUID variable)
+- `test-webhook` - Manually trigger webhook to test it (use with WEBHOOK_UUID variable)
+- `open-webhook` - Open webhook in browser for editing (use with WEBHOOK_UUID variable)
+- `delete-webhook` - Delete a webhook by UUID (use with WEBHOOK_UUID variable)
 - `clean-contracts` - Clean generated pact files
+
+**Note:** To enable/disable webhooks, use `make open-webhook` to open the Pact Broker UI in your browser, or delete and recreate the webhook as needed.
 
 **Configuration:**
 
