@@ -220,7 +220,9 @@ can-i-deploy:
 		pact-broker can-i-deploy \
 		--pacticipant="$(SERVICE_NAME)" \
 		--version="$(REVISION)" \
-		--to-environment="production" \
+		--to=main \
+		--retry-while-unknown=300 \
+		--retry-interval=10 \
 		--broker-base-url="$(PACT_BROKER_URL)" \
 		--broker-username="$(PACT_BROKER_USERNAME)" \
 		--broker-password="$(PACT_BROKER_PASSWORD)"
