@@ -170,9 +170,9 @@ test-api-clean:
 
 # Contract testing targets
 # Pact Broker Configuration
-PACT_BROKER_URL ?= https://pact.nks-dev.glo1.nscale.com/
-PACT_BROKER_USERNAME ?= admin
-PACT_BROKER_PASSWORD ?= rVf@nh8MnYzWFQ
+PACT_BROKER_URL ?= http://localhost:9292
+PACT_BROKER_USERNAME ?= pact
+PACT_BROKER_PASSWORD ?= pact
 SERVICE_NAME ?= uni-compute
 BRANCH ?= $(shell git rev-parse --abbrev-ref HEAD)
 
