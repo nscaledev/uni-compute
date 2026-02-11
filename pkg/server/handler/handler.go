@@ -19,12 +19,14 @@ limitations under the License.
 package handler
 
 import (
+	"fmt"
 	"net/http"
 	"slices"
 
 	"github.com/unikorn-cloud/compute/pkg/openapi"
 	"github.com/unikorn-cloud/compute/pkg/server/handler/cluster"
 	"github.com/unikorn-cloud/compute/pkg/server/handler/region"
+	coreapi "github.com/unikorn-cloud/core/pkg/openapi"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
 	"github.com/unikorn-cloud/core/pkg/server/util"
 	identityapi "github.com/unikorn-cloud/identity/pkg/openapi"
@@ -63,15 +65,35 @@ func New(client client.Client, namespace string, options *Options, identity iden
 	return h, nil
 }
 
-/*
-func (h *Handler) setCacheable(w http.ResponseWriter) {
-	w.Header().Add("Cache-Control", fmt.Sprintf("max-age=%d", h.options.CacheMaxAge/time.Second))
-	w.Header().Add("Cache-Control", "private")
-}
-*/
-
 func (h *Handler) setUncacheable(w http.ResponseWriter) {
 	w.Header().Add("Cache-Control", "no-cache")
+}
+
+// GetWellKnownOpenidProtectedResource implements RFC 9728.
+func (h *Handler) GetWellKnownOpenidProtectedResource(w http.ResponseWriter, r *http.Request) {
+	authenticationServer, err := identityapi.Host(h.identity)
+	if err != nil {
+		errors.HandleError(w, r, err)
+		return
+	}
+
+	result := &coreapi.OpenidProtectedResource{
+		Resource: "https://" + r.Host,
+		AuthorizationServers: coreapi.AuthorizationServerList{
+			authenticationServer,
+		},
+		ScopesSupported: coreapi.ScopeList{
+			"openid",
+			"email",
+			"profile",
+		},
+		BearerMethodsSupported: coreapi.BearerMethodList{
+			coreapi.Header,
+		},
+	}
+
+	h.options.setCacheable(w)
+	util.WriteJSONResponse(w, r, http.StatusOK, result)
 }
 
 func (h *Handler) regionClient() *region.Client {
@@ -88,7 +110,7 @@ func (h *Handler) GetApiV1OrganizationsOrganizationIDRegions(w http.ResponseWrit
 
 	result, err := h.regionClient().List(ctx, organizationID)
 	if err != nil {
-		errors.HandleError(w, r, errors.OAuth2ServerError("unable to read regions").WithError(err))
+		errors.HandleError(w, r, fmt.Errorf("%w: unable to read regions", err))
 		return
 	}
 
@@ -105,7 +127,7 @@ func (h *Handler) GetApiV1OrganizationsOrganizationIDRegionsRegionIDFlavors(w ht
 
 	result, err := h.regionClient().Flavors(ctx, organizationID, regionID)
 	if err != nil {
-		errors.HandleError(w, r, errors.OAuth2ServerError("unable to read flavors").WithError(err))
+		errors.HandleError(w, r, fmt.Errorf("%w: unable to read flavors", err))
 		return
 	}
 
@@ -122,7 +144,7 @@ func (h *Handler) GetApiV1OrganizationsOrganizationIDRegionsRegionIDImages(w htt
 
 	result, err := h.regionClient().Images(ctx, organizationID, regionID)
 	if err != nil {
-		errors.HandleError(w, r, errors.OAuth2ServerError("unable to read images").WithError(err))
+		errors.HandleError(w, r, fmt.Errorf("%w: unable to read images", err))
 		return
 	}
 

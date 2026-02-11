@@ -134,29 +134,32 @@ images-kind-load: images
 
 .PHONY: test-unit
 test-unit:
-	go test -coverpkg ./... -coverprofile cover.out $(shell go list ./... | grep -v -e /test/api -e /test/contracts)
+	go test -coverpkg ./... -coverprofile cover.out ./...
 	go tool cover -html cover.out -o cover.html
+
+GINKGO_INTEGRATION_TEST_FLAGS = --json-report=test-results.json --junit-report=junit.xml --tags=integration
 
 # API automation test targets
 .PHONY: test-api
 test-api: test-api-setup
-	cd test/api/suites && ginkgo run -v --show-node-events --json-report=test-results.json --junit-report=junit.xml
+	cd test/api/suites && ginkgo run -v --show-node-events $(GINKGO_INTEGRATION_TEST_FLAGS)
 
 .PHONY: test-api-focus
 test-api-focus: test-api-setup
-	cd test/api/suites && ginkgo run -v --focus="$(FOCUS)" --json-report=test-results.json --junit-report=junit.xml
+	cd test/api/suites && ginkgo run -v --focus="$(FOCUS)" $(GINKGO_INTEGRATION_TEST_FLAGS)
 
 .PHONY: test-api-suite
 test-api-suite: test-api-setup
-	cd test/api/suites && ginkgo run $(SUITE) --json-report=test-results.json --junit-report=junit.xml
+	cd test/api/suites && ginkgo run $(SUITE) $(GINKGO_INTEGRATION_TEST_FLAGS)
 
 .PHONY: test-api-parallel
 test-api-parallel: test-api-setup
-	cd test/api/suites && ginkgo run --procs=4 --json-report=test-results.json --junit-report=junit.xml
+	cd test/api/suites && ginkgo run --procs=4 $(GINKGO_INTEGRATION_TEST_FLAGS)
 
 .PHONY: test-api-ci
 test-api-ci: test-api-setup
-	cd test/api/suites && ginkgo run --randomize-all --randomize-suites --race --json-report=test-results.json --junit-report=junit.xml --output-interceptor-mode=none
+	cd test/api/suites && ginkgo run --randomize-all --randomize-suites \
+		--race --output-interceptor-mode=none $(GINKGO_INTEGRATION_TEST_FLAGS)
 
 .PHONY: test-api-setup
 test-api-setup:
@@ -188,11 +191,14 @@ else ifeq ($(UNAME_S),Darwin)
 	PACT_LIB_ENV = DYLD_LIBRARY_PATH=$(PACT_LIB_PATH):$$DYLD_LIBRARY_PATH
 endif
 
+PACT_GOFLAGS=-tags=integration
+
 # Run consumer contract tests
 .PHONY: test-contracts-consumer
 test-contracts-consumer:
 	CGO_LDFLAGS="$(PACT_LD_FLAGS)" \
 	$(PACT_LIB_ENV) \
+	GOFLAGS="$(PACT_GOFLAGS)" \
 	go test ./test/contracts/consumer/... -v -count=1
 
 # Publish pacts to broker and capture if contract changed

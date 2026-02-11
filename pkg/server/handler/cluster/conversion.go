@@ -19,6 +19,7 @@ package cluster
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"slices"
 
@@ -354,7 +355,7 @@ func (g *generator) convertList(in *unikornv1.ComputeClusterList) openapi.Comput
 func (g *generator) chooseImage(ctx context.Context, regionID string, pool *openapi.ComputeClusterWorkloadPool, _ *regionapi.Flavor) (*regionapi.Image, error) {
 	images, err := g.region.Images(ctx, g.organizationID, regionID)
 	if err != nil {
-		return nil, errors.OAuth2ServerError("failed to list images").WithError(err)
+		return nil, fmt.Errorf("%w: failed to list images", err)
 	}
 
 	// TODO: is the image compatible with the flavor virtualization type???
@@ -682,7 +683,7 @@ func (g *generator) generate(ctx context.Context, request *openapi.ComputeCluste
 	}
 
 	if err := common.SetIdentityMetadata(ctx, &out.ObjectMeta); err != nil {
-		return nil, errors.OAuth2ServerError("failed to set identity metadata").WithError(err)
+		return nil, fmt.Errorf("%w: failed to set identity metadata", err)
 	}
 
 	return out, nil
