@@ -438,6 +438,37 @@ func (s *createSaga) Actions() []saga.Action {
 	}
 }
 
+// isInstanceNameInUse does a best effort attempt to ensure the instance name
+// does not already exist on the same network as that would lead to aliasing issues
+// of cloud resources and servers having the same hostname.
+func (c *Client) isInstanceNameInUse(ctx context.Context, organizationID, projectID, networkID, name string) error {
+	selector := labels.Set{
+		coreconstants.OrganizationLabel: organizationID,
+		coreconstants.ProjectLabel:      projectID,
+		regionconstants.NetworkLabel:    networkID,
+	}
+
+	options := &client.ListOptions{
+		Namespace:     c.namespace,
+		LabelSelector: labels.SelectorFromSet(selector),
+	}
+
+	instances := &computev1.ComputeInstanceList{}
+
+	if err := c.client.List(ctx, instances, options); err != nil {
+		return err
+	}
+
+	for i := range instances.Items {
+		if instances.Items[i].Labels[coreconstants.NameLabel] == name {
+			// TODO: we can be more verbose here, update the interface in core.
+			return errors.HTTPConflict()
+		}
+	}
+
+	return nil
+}
+
 func (c *Client) Create(ctx context.Context, request *computeapi.InstanceCreate) (*computeapi.InstanceRead, error) {
 	organizationID := request.Spec.OrganizationId
 	projectID := request.Spec.ProjectId
@@ -454,6 +485,10 @@ func (c *Client) Create(ctx context.Context, request *computeapi.InstanceCreate)
 	// infer the organization and project IDs too and not have to specify them in this API.
 	network, err := region.GetNetwork(ctx, c.region, organizationID, projectID, request.Spec.NetworkId)
 	if err != nil {
+		return nil, err
+	}
+
+	if err := c.isInstanceNameInUse(ctx, organizationID, projectID, request.Spec.NetworkId, request.Metadata.Name); err != nil {
 		return nil, err
 	}
 
