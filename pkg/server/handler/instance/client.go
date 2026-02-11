@@ -539,7 +539,7 @@ func (s *updateSaga) revertAllocation(ctx context.Context) error {
 }
 
 func (s *updateSaga) updateInstance(ctx context.Context) error {
-	if err := s.client.client.Patch(ctx, s.updated, client.MergeFrom(s.current)); err != nil {
+	if err := s.client.client.Patch(ctx, s.updated, client.MergeFromWithOptions(s.current, &client.MergeFromWithOptimisticLock{})); err != nil {
 		return fmt.Errorf("%w: unable to update instance", err)
 	}
 

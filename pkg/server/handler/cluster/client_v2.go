@@ -337,7 +337,7 @@ func (c *Client) UpdateV2(ctx context.Context, clusterID string, request *comput
 	updated.Annotations = required.Annotations
 	updated.Spec = required.Spec
 
-	if err := c.client.Patch(ctx, updated, client.MergeFrom(current)); err != nil {
+	if err := c.client.Patch(ctx, updated, client.MergeFromWithOptions(current, &client.MergeFromWithOptimisticLock{})); err != nil {
 		return nil, fmt.Errorf("%w: unable to update cluster", err)
 	}
 
