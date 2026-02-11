@@ -195,10 +195,10 @@ test-contracts-consumer:
 	$(PACT_LIB_ENV) \
 	go test ./test/contracts/consumer/... -v -count=1
 
-# Publish pacts to broker
+# Publish pacts to broker and capture if contract changed
 .PHONY: publish-pacts
 publish-pacts:
-	docker run --rm \
+	@docker run --rm \
 		--network host \
 		-v $(PWD)/test/contracts/consumer/pacts:/pacts \
 		-w /pacts \
@@ -209,23 +209,62 @@ publish-pacts:
 		--broker-password="$(PACT_BROKER_PASSWORD)" \
 		--consumer-app-version="$(REVISION)" \
 		--branch="$(BRANCH)" \
-		/pacts
+		/pacts | tee /tmp/pact-publish-output.txt
+	@if grep -q "contract_content_changed" /tmp/pact-publish-output.txt; then \
+		echo "true" > /tmp/pact-changed.flag; \
+	else \
+		echo "false" > /tmp/pact-changed.flag; \
+	fi
 
-# Can-I-Deploy check
+# Check if pact content changed (reads flag set by publish-pacts)
+.PHONY: pact-changed
+pact-changed:
+	@echo "Checking if pact content changed..."
+	@if [ ! -f /tmp/pact-changed.flag ]; then \
+		echo "⚠️  No pact-changed flag found - did you run publish-pacts?"; \
+		echo "   Assuming contract changed to be safe"; \
+		exit 0; \
+	fi; \
+	changed=$$(cat /tmp/pact-changed.flag); \
+	if [ "$$changed" = "true" ]; then \
+		echo "✓ Pact content changed - verification will be triggered"; \
+		exit 0; \
+	else \
+		echo "○ Pact content unchanged - can use previous verification"; \
+		exit 1; \
+	fi
+
+# Can-I-Deploy check (smart: only waits if contract changed)
 .PHONY: can-i-deploy
 can-i-deploy:
-	docker run --rm \
-		--network host \
-		pactfoundation/pact-cli:latest \
-		pact-broker can-i-deploy \
-		--pacticipant="$(SERVICE_NAME)" \
-		--version="$(REVISION)" \
-		--to=main \
-		--retry-while-unknown=300 \
-		--retry-interval=10 \
-		--broker-base-url="$(PACT_BROKER_URL)" \
-		--broker-username="$(PACT_BROKER_USERNAME)" \
-		--broker-password="$(PACT_BROKER_PASSWORD)"
+	@echo "Running can-i-deploy check..."
+	@if make pact-changed 2>/dev/null; then \
+		echo ""; \
+		echo "📝 Contract changed - waiting for provider verification..."; \
+		docker run --rm \
+			--network host \
+			pactfoundation/pact-cli:latest \
+			pact-broker can-i-deploy \
+			--pacticipant="$(SERVICE_NAME)" \
+			--version="$(REVISION)" \
+			--retry-while-unknown=300 \
+			--retry-interval=10 \
+			--broker-base-url="$(PACT_BROKER_URL)" \
+			--broker-username="$(PACT_BROKER_USERNAME)" \
+			--broker-password="$(PACT_BROKER_PASSWORD)"; \
+	else \
+		echo ""; \
+		echo "⚡ Contract unchanged - running quick verification check..."; \
+		docker run --rm \
+			--network host \
+			pactfoundation/pact-cli:latest \
+			pact-broker can-i-deploy \
+			--pacticipant="$(SERVICE_NAME)" \
+			--version="$(REVISION)" \
+			--broker-base-url="$(PACT_BROKER_URL)" \
+			--broker-username="$(PACT_BROKER_USERNAME)" \
+			--broker-password="$(PACT_BROKER_PASSWORD)"; \
+	fi
 
 # Record deployment
 .PHONY: record-deployment
@@ -236,128 +275,16 @@ record-deployment:
 		pact-broker record-deployment \
 		--pacticipant="$(SERVICE_NAME)" \
 		--version="$(REVISION)" \
-		--environment="production" \
+		--environment="development" \
 		--broker-base-url="$(PACT_BROKER_URL)" \
 		--broker-username="$(PACT_BROKER_USERNAME)" \
 		--broker-password="$(PACT_BROKER_PASSWORD)"
-
-# Setup webhook for provider verification
-# Triggers uni-region CI when uni-compute publishes new pacts
-.PHONY: setup-webhook
-setup-webhook:
-ifndef GITHUB_TOKEN
-	$(error GITHUB_TOKEN is required - create a GitHub PAT with repo scope)
-endif
-	docker run --rm \
-		--network host \
-		pactfoundation/pact-cli:latest \
-		pact-broker create-webhook \
-		"https://api.github.com/repos/nscaledev/uni-region/dispatches" \
-		-X POST \
-		-H "Authorization: Bearer $(GITHUB_TOKEN)" \
-		-H "Content-Type: application/json" \
-		-H "Accept: application/vnd.github.v3+json" \
-		-d '{"event_type":"pact_verification","client_payload":{"pact_url":"$${pactbroker.pactUrl}","provider_version":"$${pactbroker.providerVersionNumber}","provider_branch":"$${pactbroker.providerVersionBranch}","consumer_name":"$${pactbroker.consumerName}","consumer_branch":"$${pactbroker.consumerVersionBranch}"}}' \
-		--description="Trigger uni-region verification when uni-compute pact changes" \
-		--consumer=uni-compute \
-		--provider=uni-region \
-		--contract-content-changed \
-		-b "$(PACT_BROKER_URL)" \
-		--broker-username="$(PACT_BROKER_USERNAME)" \
-		--broker-password="$(PACT_BROKER_PASSWORD)"
-
-# Update existing webhook (requires WEBHOOK_UUID from list-webhooks)
-.PHONY: update-webhook
-update-webhook:
-ifndef GITHUB_TOKEN
-	$(error GITHUB_TOKEN is required - create a GitHub PAT with repo scope)
-endif
-ifndef WEBHOOK_UUID
-	$(error WEBHOOK_UUID is required - get it from list-webhooks)
-endif
-	docker run --rm \
-		--network host \
-		pactfoundation/pact-cli:latest \
-		pact-broker create-or-update-webhook \
-		"https://api.github.com/repos/nscaledev/uni-region/dispatches" \
-		--uuid="$(WEBHOOK_UUID)" \
-		-X POST \
-		-H "Authorization: Bearer $(GITHUB_TOKEN)" \
-		-H "Content-Type: application/json" \
-		-H "Accept: application/vnd.github.v3+json" \
-		-d '{"event_type":"pact_verification","client_payload":{"pact_url":"$${pactbroker.pactUrl}","provider_version":"$${pactbroker.providerVersionNumber}","provider_branch":"$${pactbroker.providerVersionBranch}","consumer_name":"$${pactbroker.consumerName}","consumer_branch":"$${pactbroker.consumerVersionBranch}"}}' \
-		--description="Trigger uni-region verification when uni-compute pact changes" \
-		--consumer=uni-compute \
-		--provider=uni-region \
-		--contract-content-changed \
-		-b "$(PACT_BROKER_URL)" \
-		--broker-username="$(PACT_BROKER_USERNAME)" \
-		--broker-password="$(PACT_BROKER_PASSWORD)"
-
-# List all webhooks in broker (uses API directly)
-.PHONY: list-webhooks
-list-webhooks:
-	@echo "Fetching webhooks from $(PACT_BROKER_URL)..."
-	@curl -s -u "$(PACT_BROKER_USERNAME):$(PACT_BROKER_PASSWORD)" \
-		"$(PACT_BROKER_URL)webhooks" | \
-		jq '._links."pb:webhooks"[] | {uuid: .href | split("/") | .[-1], description: .name, title: .title, url: .href}'
-
-# Show detailed webhook info (requires WEBHOOK_UUID from list-webhooks)
-.PHONY: show-webhook
-show-webhook:
-ifndef WEBHOOK_UUID
-	$(error WEBHOOK_UUID is required - get it from list-webhooks)
-endif
-	@echo "Fetching webhook details..."
-	@curl -s -u "$(PACT_BROKER_USERNAME):$(PACT_BROKER_PASSWORD)" \
-		"$(PACT_BROKER_URL)webhooks/$(WEBHOOK_UUID)" | \
-		jq '{description: .description, enabled: .enabled, consumer: .consumer.name, provider: .provider.name, url: .request.url, method: .request.method, events: [.events[].name]}'
-
-# Delete webhook (requires WEBHOOK_UUID from list-webhooks)
-.PHONY: delete-webhook
-delete-webhook:
-ifndef WEBHOOK_UUID
-	$(error WEBHOOK_UUID is required - get it from list-webhooks)
-endif
-	@echo "Deleting webhook $(WEBHOOK_UUID)..."
-	@curl -X DELETE -u "$(PACT_BROKER_USERNAME):$(PACT_BROKER_PASSWORD)" \
-		"$(PACT_BROKER_URL)webhooks/$(WEBHOOK_UUID)"
-	@echo "\nWebhook deleted"
-
-# Note: Disable/Enable webhook via CLI is not supported by Pact Broker API
-# Use the Pact Broker UI at $(PACT_BROKER_URL)/webhooks/$(WEBHOOK_UUID) to toggle enabled status
-# Or delete and recreate the webhook as needed
-
-# Open webhook in browser for editing
-.PHONY: open-webhook
-open-webhook:
-ifndef WEBHOOK_UUID
-	$(error WEBHOOK_UUID is required - get it from list-webhooks)
-endif
-	@echo "Opening webhook in browser..."
-	open "$(PACT_BROKER_URL)webhooks/$(WEBHOOK_UUID)"
-
-# Test webhook execution (manually trigger webhook)
-.PHONY: test-webhook
-test-webhook:
-ifndef WEBHOOK_UUID
-	$(error WEBHOOK_UUID is required - get it from list-webhooks)
-endif
-	@echo "Triggering webhook $(WEBHOOK_UUID)..."
-	docker run --rm \
-		--network host \
-		pactfoundation/pact-cli:latest \
-		pact-broker test-webhook \
-		--uuid="$(WEBHOOK_UUID)" \
-		-b "$(PACT_BROKER_URL)" \
-		--broker-username="$(PACT_BROKER_USERNAME)" \
-		--broker-password="$(PACT_BROKER_PASSWORD)" \
-		--verbose
 
 # Clean contract test artifacts
 .PHONY: clean-contracts
 clean-contracts:
 	rm -rf ./test/contracts/consumer/pacts/*.json
+	rm -f /tmp/pact-publish-output.txt /tmp/pact-changed.flag
 
 # Build a binary and install it.
 $(PREFIX)/%: $(BINDIR)/%
