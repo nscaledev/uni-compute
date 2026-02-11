@@ -101,7 +101,7 @@ var _ = Describe("Region Service Contract", func() {
 							"regionType":     "openstack",
 						},
 					}).
-					UponReceiving("a request for regions (webhook test v2)").
+					UponReceiving("a request for regions").
 					WithRequest("GET", fmt.Sprintf("/api/v1/organizations/%s/regions", organizationID)).
 					WillRespondWith(200, func(b *consumer.V4ResponseBuilder) {
 						b.JSONBody(matchers.EachLike(map[string]interface{}{

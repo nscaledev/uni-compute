@@ -257,11 +257,11 @@ endif
 		-H "Authorization: Bearer $(GITHUB_TOKEN)" \
 		-H "Content-Type: application/json" \
 		-H "Accept: application/vnd.github.v3+json" \
-		-d '{"event_type":"pact_verification","client_payload":{"pact_url":"$${pactbroker.pactUrl}","provider_version":"$${pactbroker.providerVersionNumber}","provider_branch":"$${pactbroker.providerVersionBranch}","consumer_name":"$${pactbroker.consumerName}"}}' \
+		-d '{"event_type":"pact_verification","client_payload":{"pact_url":"$${pactbroker.pactUrl}","provider_version":"$${pactbroker.providerVersionNumber}","provider_branch":"$${pactbroker.providerVersionBranch}","consumer_name":"$${pactbroker.consumerName}","consumer_branch":"$${pactbroker.consumerVersionBranch}"}}' \
 		--description="Trigger uni-region verification when uni-compute pact changes" \
 		--consumer=uni-compute \
 		--provider=uni-region \
-		--contract-requiring-verification-published \
+		--contract-content-changed \
 		-b "$(PACT_BROKER_URL)" \
 		--broker-username="$(PACT_BROKER_USERNAME)" \
 		--broker-password="$(PACT_BROKER_PASSWORD)"
@@ -285,11 +285,11 @@ endif
 		-H "Authorization: Bearer $(GITHUB_TOKEN)" \
 		-H "Content-Type: application/json" \
 		-H "Accept: application/vnd.github.v3+json" \
-		-d '{"event_type":"pact_verification","client_payload":{"pact_url":"$${pactbroker.pactUrl}","provider_version":"$${pactbroker.providerVersionNumber}","provider_branch":"$${pactbroker.providerVersionBranch}","consumer_name":"$${pactbroker.consumerName}"}}' \
+		-d '{"event_type":"pact_verification","client_payload":{"pact_url":"$${pactbroker.pactUrl}","provider_version":"$${pactbroker.providerVersionNumber}","provider_branch":"$${pactbroker.providerVersionBranch}","consumer_name":"$${pactbroker.consumerName}","consumer_branch":"$${pactbroker.consumerVersionBranch}"}}' \
 		--description="Trigger uni-region verification when uni-compute pact changes" \
 		--consumer=uni-compute \
 		--provider=uni-region \
-		--contract-requiring-verification-published \
+		--contract-content-changed \
 		-b "$(PACT_BROKER_URL)" \
 		--broker-username="$(PACT_BROKER_USERNAME)" \
 		--broker-password="$(PACT_BROKER_PASSWORD)"
