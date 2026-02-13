@@ -437,7 +437,7 @@ func (c *Client) Update(ctx context.Context, organizationID, projectID, clusterI
 		return err
 	}
 
-	if err := c.client.Patch(ctx, updated, client.MergeFrom(current)); err != nil {
+	if err := c.client.Patch(ctx, updated, client.MergeFromWithOptions(current, &client.MergeFromWithOptimisticLock{})); err != nil {
 		return fmt.Errorf("%w: failed to patch cluster", err)
 	}
 
@@ -511,7 +511,7 @@ func (c *Client) Evict(ctx context.Context, organizationID, projectID, clusterID
 		return err
 	}
 
-	if err := c.client.Patch(ctx, updated, client.MergeFrom(cluster)); err != nil {
+	if err := c.client.Patch(ctx, updated, client.MergeFromWithOptions(cluster, &client.MergeFromWithOptimisticLock{})); err != nil {
 		return fmt.Errorf("%w: failed to patch cluster", err)
 	}
 
