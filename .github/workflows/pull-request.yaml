@@ -116,4 +116,3 @@ jobs:
           --broker-base-url="${{ vars.PACT_BROKER_URL_DEV }}" \
           --broker-username="${{ vars.PACT_BROKER_USERNAME }}" \
           --broker-password="${{ secrets.PACT_BROKER_PASSWORD }}"
-        BRANCH: ${{ github.head_ref || github.ref_name }}
