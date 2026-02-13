@@ -35,6 +35,7 @@ import (
 	"github.com/unikorn-cloud/compute/pkg/server/handler/util"
 	corev1 "github.com/unikorn-cloud/core/pkg/apis/unikorn/v1alpha1"
 	coreconstants "github.com/unikorn-cloud/core/pkg/constants"
+	coreerrors "github.com/unikorn-cloud/core/pkg/errors"
 	coreapi "github.com/unikorn-cloud/core/pkg/openapi"
 	"github.com/unikorn-cloud/core/pkg/server/conversion"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
@@ -687,13 +688,13 @@ func (c *Client) serverID(ctx context.Context, instance *computev1.ComputeInstan
 	}
 
 	if response.StatusCode() != http.StatusOK {
-		return "", fmt.Errorf("%w: unable to query servers for instance - incorrect status code", err)
+		return "", fmt.Errorf("%w: unable to query servers for instance - incorrect status code", coreerrors.ErrAPIStatus)
 	}
 
 	servers := *response.JSON200
 
 	if len(servers) != 1 {
-		return "", fmt.Errorf("%w: unable to query server for instance - incorrect number of matches", err)
+		return "", fmt.Errorf("%w: unable to query server for instance - incorrect number of matches", coreerrors.ErrConsistency)
 	}
 
 	return servers[0].Metadata.Id, nil
@@ -716,7 +717,7 @@ func (c *Client) SSHKey(ctx context.Context, instanceID string) (*regionapi.SshK
 	}
 
 	if response.StatusCode() != http.StatusOK {
-		return nil, fmt.Errorf("%w: unable to fetch SSH key for instance - incorrect status code", err)
+		return nil, fmt.Errorf("%w: unable to fetch SSH key for instance - incorrect status code", coreerrors.ErrAPIStatus)
 	}
 
 	return response.JSON200, nil
@@ -739,7 +740,7 @@ func (c *Client) Start(ctx context.Context, instanceID string) error {
 	}
 
 	if response.StatusCode() != http.StatusAccepted {
-		return fmt.Errorf("%w: unable to start server for instance - incorrect status code", err)
+		return fmt.Errorf("%w: unable to start server for instance - incorrect status code", coreerrors.ErrAPIStatus)
 	}
 
 	return nil
@@ -762,7 +763,7 @@ func (c *Client) Stop(ctx context.Context, instanceID string) error {
 	}
 
 	if response.StatusCode() != http.StatusAccepted {
-		return fmt.Errorf("%w: unable to start server for instance - incorrect status code", err)
+		return fmt.Errorf("%w: unable to stop server for instance - incorrect status code", coreerrors.ErrAPIStatus)
 	}
 
 	return nil
@@ -787,7 +788,7 @@ func (c *Client) Reboot(ctx context.Context, instanceID string, params computeap
 		}
 
 		if response.StatusCode() != http.StatusAccepted {
-			return fmt.Errorf("%w: unable to reboot server for instance - incorrect status code", err)
+			return fmt.Errorf("%w: unable to reboot server for instance - incorrect status code", coreerrors.ErrAPIStatus)
 		}
 
 		return nil
@@ -799,7 +800,7 @@ func (c *Client) Reboot(ctx context.Context, instanceID string, params computeap
 	}
 
 	if response.StatusCode() != http.StatusAccepted {
-		return fmt.Errorf("%w: unable to reboot server for instance - incorrect status code", err)
+		return fmt.Errorf("%w: unable to reboot server for instance - incorrect status code", coreerrors.ErrAPIStatus)
 	}
 
 	return nil
@@ -859,7 +860,7 @@ func (c *Client) Snapshot(ctx context.Context, instanceID string, params compute
 	}
 
 	if response.StatusCode() != http.StatusCreated {
-		return nil, fmt.Errorf("%w: unable to create snapshot for instance - incorrect status code", err)
+		return nil, fmt.Errorf("%w: unable to create snapshot for instance - incorrect status code", coreerrors.ErrAPIStatus)
 	}
 
 	return response.JSON201, nil
@@ -890,7 +891,7 @@ func (c *Client) ConsoleOutput(ctx context.Context, instanceID string, params co
 	}
 
 	if response.StatusCode() != http.StatusOK {
-		return nil, fmt.Errorf("%w: unable to get console output for instance - incorrect status code", err)
+		return nil, fmt.Errorf("%w: unable to get console output for instance - incorrect status code", coreerrors.ErrAPIStatus)
 	}
 
 	return response.JSON200, nil
@@ -913,7 +914,7 @@ func (c *Client) ConsoleSession(ctx context.Context, instanceID string) (*region
 	}
 
 	if response.StatusCode() != http.StatusOK {
-		return nil, fmt.Errorf("%w: unable to start console session for instance - incorrect status code", err)
+		return nil, fmt.Errorf("%w: unable to start console session for instance - incorrect status code", coreerrors.ErrAPIStatus)
 	}
 
 	return response.JSON200, nil
