@@ -178,6 +178,7 @@ PACT_BROKER_USERNAME ?= pact
 PACT_BROKER_PASSWORD ?= pact
 SERVICE_NAME ?= uni-compute
 BRANCH ?= $(shell git rev-parse --abbrev-ref HEAD)
+CONSUMER_VERSION ?= $(REVISION)
 
 # Pact library path configuration (OS-specific defaults)
 UNAME_S := $(shell uname -s)
@@ -213,7 +214,7 @@ publish-pacts:
 		--broker-base-url="$(PACT_BROKER_URL)" \
 		--broker-username="$(PACT_BROKER_USERNAME)" \
 		--broker-password="$(PACT_BROKER_PASSWORD)" \
-		--consumer-app-version="$(REVISION)" \
+		--consumer-app-version="$(CONSUMER_VERSION)" \
 		--branch="$(BRANCH)" \
 		/pacts | tee /tmp/pact-publish-output.txt
 	@if grep -q "contract_content_changed" /tmp/pact-publish-output.txt; then \
@@ -252,7 +253,7 @@ can-i-deploy:
 			pactfoundation/pact-cli:latest \
 			pact-broker can-i-deploy \
 			--pacticipant="$(SERVICE_NAME)" \
-			--version="$(REVISION)" \
+			--version="$(CONSUMER_VERSION)" \
 			--retry-while-unknown=300 \
 			--retry-interval=10 \
 			--broker-base-url="$(PACT_BROKER_URL)" \
@@ -266,7 +267,7 @@ can-i-deploy:
 			pactfoundation/pact-cli:latest \
 			pact-broker can-i-deploy \
 			--pacticipant="$(SERVICE_NAME)" \
-			--version="$(REVISION)" \
+			--version="$(CONSUMER_VERSION)" \
 			--broker-base-url="$(PACT_BROKER_URL)" \
 			--broker-username="$(PACT_BROKER_USERNAME)" \
 			--broker-password="$(PACT_BROKER_PASSWORD)"; \
@@ -280,7 +281,7 @@ record-deployment:
 		pactfoundation/pact-cli:latest \
 		pact-broker record-deployment \
 		--pacticipant="$(SERVICE_NAME)" \
-		--version="$(REVISION)" \
+		--version="$(CONSUMER_VERSION)" \
 		--environment="development" \
 		--broker-base-url="$(PACT_BROKER_URL)" \
 		--broker-username="$(PACT_BROKER_USERNAME)" \
