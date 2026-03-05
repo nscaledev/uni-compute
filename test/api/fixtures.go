@@ -859,14 +859,14 @@ func NewImagePayload() *ImagePayloadBuilder {
 			},
 			Spec: regionopenapi.ImageCreateSpec{
 				Architecture:   regionopenapi.ArchitectureX8664,
-				Uri:            "https://s3.glo1.nscale.com/os-images/noble-server-cloudimg-amd64.raw",
+				Uri:            "https://s3.glo1.nscale.com/qa-test-automation-bucket/images/cirros-0.6.3-x86_64-disk.raw",
 				Virtualization: regionopenapi.ImageVirtualizationVirtualized,
 				Os: regionopenapi.ImageOS{
-					Codename: ptr.To("noble"),
+					Codename: ptr.To("cirros"),
 					Distro:   regionopenapi.OsDistroUbuntu,
 					Family:   regionopenapi.OsFamilyDebian,
 					Kernel:   regionopenapi.OsKernelLinux,
-					Version:  "24.04",
+					Version:  "0.6.3",
 				},
 			},
 		},
