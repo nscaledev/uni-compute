@@ -317,11 +317,17 @@ func (c *Client) List(ctx context.Context, params computeapi.GetApiV2InstancesPa
 	return convertList(result), nil
 }
 
-func (c *Client) generateAllocation(flavor *regionapi.Flavor) identityapi.ResourceAllocationList {
+func (c *Client) generateAllocation(flavor *regionapi.Flavor, publicIP bool) identityapi.ResourceAllocationList {
 	var gpus int
 
 	if flavor.Spec.Gpu != nil {
 		gpus = flavor.Spec.Gpu.PhysicalCount
+	}
+
+	var floatingips int
+
+	if publicIP {
+		floatingips = 1
 	}
 
 	required := identityapi.ResourceAllocationList{
@@ -332,6 +338,10 @@ func (c *Client) generateAllocation(flavor *regionapi.Flavor) identityapi.Resour
 		{
 			Kind:      "gpus",
 			Committed: gpus,
+		},
+		{
+			Kind:      "floatingips",
+			Committed: floatingips,
 		},
 	}
 
@@ -416,7 +426,7 @@ func newCreateSaga(client *Client, resource *computev1.ComputeInstance, flavor *
 }
 
 func (s *createSaga) createAllocation(ctx context.Context) error {
-	required := s.client.generateAllocation(s.flavor)
+	required := s.client.generateAllocation(s.flavor, s.resource.PublicIPEnabled())
 
 	return identityclient.NewAllocations(s.client.client, s.client.identity).Create(ctx, s.resource, required)
 }
@@ -567,13 +577,13 @@ func newUpdateSaga(client *Client, current, updated *computev1.ComputeInstance, 
 }
 
 func (s *updateSaga) updateAllocation(ctx context.Context) error {
-	required := s.client.generateAllocation(s.flavor)
+	required := s.client.generateAllocation(s.flavor, s.updated.PublicIPEnabled())
 
 	return identityclient.NewAllocations(s.client.client, s.client.identity).Update(ctx, s.current, required)
 }
 
 func (s *updateSaga) revertAllocation(ctx context.Context) error {
-	required := s.client.generateAllocation(s.flavor)
+	required := s.client.generateAllocation(s.flavor, s.current.PublicIPEnabled())
 
 	return identityclient.NewAllocations(s.client.client, s.client.identity).Update(ctx, s.current, required)
 }
