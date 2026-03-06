@@ -70,7 +70,7 @@ func (p *Provisioner) getIdentity(ctx context.Context, client regionapi.ClientWi
 	switch resource.Metadata.ProvisioningStatus {
 	case coreapi.ResourceProvisioningStatusProvisioned:
 		return resource, nil
-	case coreapi.ResourceProvisioningStatusUnknown, coreapi.ResourceProvisioningStatusProvisioning:
+	case coreapi.ResourceProvisioningStatusUnknown, coreapi.ResourceProvisioningStatusPending, coreapi.ResourceProvisioningStatusProvisioning:
 		log.Info("waiting for identity to become ready")
 
 		return nil, provisioners.ErrYield
@@ -127,7 +127,7 @@ func (p *Provisioner) getNetwork(ctx context.Context, client regionapi.ClientWit
 	switch resource.Metadata.ProvisioningStatus {
 	case coreapi.ResourceProvisioningStatusProvisioned:
 		return resource, nil
-	case coreapi.ResourceProvisioningStatusUnknown, coreapi.ResourceProvisioningStatusProvisioning:
+	case coreapi.ResourceProvisioningStatusUnknown, coreapi.ResourceProvisioningStatusPending, coreapi.ResourceProvisioningStatusProvisioning:
 		log.Info("waiting for network to become ready")
 
 		return nil, provisioners.ErrYield
