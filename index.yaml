@@ -2,6 +2,21 @@ apiVersion: v1
 entries:
   unikorn-compute:
   - apiVersion: v2
+    appVersion: 1.15.0-rc2
+    created: "2026-03-06T09:58:32.810408604Z"
+    dependencies:
+    - name: unikorn-common
+      repository: https://nscaledev.github.io/uni-helm-common
+      version: 0.1.16
+    description: A Helm chart for deploying Unikorn compute Service
+    digest: 095fb439a2deabe358f67048d1459dd1acce168071095e4452bfbe705ba9daaa
+    icon: https://raw.githubusercontent.com/unikorn-cloud/assets/main/images/logos/dark-on-light/icon.png
+    name: unikorn-compute
+    type: application
+    urls:
+    - https://github.com/nscaledev/uni-compute/releases/download/v1.15.0-rc2/unikorn-compute-1.15.0-rc2.tgz
+    version: 1.15.0-rc2
+  - apiVersion: v2
     appVersion: 1.15.0-rc1
     created: "2026-03-05T12:46:13.198201073Z"
     dependencies:
@@ -1201,4 +1216,4 @@ entries:
     urls:
     - https://github.com/unikorn-cloud/compute/releases/download/v0.1.0-rc1/unikorn-compute-v0.1.0-rc1.tgz
     version: v0.1.0-rc1
-generated: "2026-03-05T12:46:13.19851395Z"
+generated: "2026-03-06T09:58:32.810792783Z"
