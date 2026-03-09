@@ -232,7 +232,7 @@ func (c *Client) CreateV2(ctx context.Context, request *computeapi.ClusterV2Crea
 	organizationID := request.Spec.OrganizationId
 	projectID := request.Spec.ProjectId
 
-	if err := rbac.AllowProjectScope(ctx, "compute:clusters", identityapi.Create, organizationID, projectID); err != nil {
+	if err := rbac.AllowProjectScopeCreate(ctx, c.identity, "compute:clusters", identityapi.Create, organizationID, projectID); err != nil {
 		return nil, err
 	}
 

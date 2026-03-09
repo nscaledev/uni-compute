@@ -474,7 +474,7 @@ func (c *Client) Create(ctx context.Context, request *computeapi.InstanceCreate)
 	organizationID := request.Spec.OrganizationId
 	projectID := request.Spec.ProjectId
 
-	if err := rbac.AllowProjectScope(ctx, "compute:instances", identityapi.Create, organizationID, projectID); err != nil {
+	if err := rbac.AllowProjectScopeCreate(ctx, c.identity, "compute:instances", identityapi.Create, organizationID, projectID); err != nil {
 		return nil, err
 	}
 
