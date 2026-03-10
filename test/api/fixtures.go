@@ -30,6 +30,7 @@ import (
 
 	"github.com/unikorn-cloud/compute/pkg/openapi"
 	coreapi "github.com/unikorn-cloud/core/pkg/openapi"
+	regionopenapi "github.com/unikorn-cloud/region/pkg/openapi"
 
 	"k8s.io/utils/ptr"
 )
@@ -840,4 +841,67 @@ func WaitForInstanceActive(client *APIClient, ctx context.Context, config *TestC
 	}).WithTimeout(config.TestTimeout).WithPolling(10 * time.Second).Should(Equal("Running"))
 
 	GinkgoWriter.Printf("Instance %s is running\n", instanceID)
+}
+
+// ImagePayloadBuilder builds ImageCreate payloads for testing.
+type ImagePayloadBuilder struct {
+	image regionopenapi.ImageCreate
+}
+
+// NewImagePayload creates a builder with sensible defaults.
+func NewImagePayload() *ImagePayloadBuilder {
+	timestamp := time.Now().Format("20060102-150405")
+
+	return &ImagePayloadBuilder{
+		image: regionopenapi.ImageCreate{
+			Metadata: coreapi.ResourceWriteMetadata{
+				Name: fmt.Sprintf("ginkgo-test-image-%s", timestamp),
+			},
+			Spec: regionopenapi.ImageCreateSpec{
+				Architecture:   regionopenapi.ArchitectureX8664,
+				Uri:            "https://s3.glo1.nscale.com/qa-test-automation-bucket/images/cirros-0.6.3-x86_64-disk.raw",
+				Virtualization: regionopenapi.ImageVirtualizationVirtualized,
+				Os: regionopenapi.ImageOS{
+					Codename: ptr.To("cirros"),
+					Distro:   regionopenapi.OsDistroUbuntu,
+					Family:   regionopenapi.OsFamilyDebian,
+					Kernel:   regionopenapi.OsKernelLinux,
+					Version:  "0.6.3",
+				},
+			},
+		},
+	}
+}
+
+// WithName overrides the image name.
+func (b *ImagePayloadBuilder) WithName(name string) *ImagePayloadBuilder {
+	b.image.Metadata.Name = name
+	return b
+}
+
+// Build returns the typed ImageCreate struct.
+func (b *ImagePayloadBuilder) Build() regionopenapi.ImageCreate {
+	return b.image
+}
+
+// WaitForImageReady polls until a custom image reaches the ready state in the region.
+// Uses a 1-hour timeout to accommodate image download and import times.
+func WaitForImageReady(regionClient *RegionAPIClient, ctx context.Context, config *TestConfig, imageID string) {
+	GinkgoWriter.Printf("Waiting for image %s to be ready\n", imageID)
+
+	Eventually(func() bool {
+		images, err := regionClient.ListImages(ctx, config.OrgID, config.RegionID)
+		Expect(err).NotTo(HaveOccurred())
+
+		for _, image := range images {
+			if image.Metadata.Id == imageID {
+				GinkgoWriter.Printf("Image %s state: %s\n", imageID, image.Status.State)
+				return image.Status.State == regionopenapi.ImageStateReady
+			}
+		}
+
+		GinkgoWriter.Printf("Image %s not yet visible in list\n", imageID)
+
+		return false
+	}).WithTimeout(time.Hour).WithPolling(15 * time.Second).Should(BeTrue())
 }

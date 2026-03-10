@@ -1,6 +1,6 @@
 module github.com/unikorn-cloud/compute
 
-go 1.24.3
+go 1.25.8
 
 require (
 	github.com/getkin/kin-openapi v0.132.0
