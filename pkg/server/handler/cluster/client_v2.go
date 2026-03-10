@@ -37,6 +37,7 @@ import (
 	coreutil "github.com/unikorn-cloud/core/pkg/server/util"
 	"github.com/unikorn-cloud/identity/pkg/handler/common"
 	identityapi "github.com/unikorn-cloud/identity/pkg/openapi"
+	"github.com/unikorn-cloud/identity/pkg/principal"
 	"github.com/unikorn-cloud/identity/pkg/rbac"
 	regionconstants "github.com/unikorn-cloud/region/pkg/constants"
 
@@ -236,13 +237,16 @@ func (c *Client) CreateV2(ctx context.Context, request *computeapi.ClusterV2Crea
 		return nil, err
 	}
 
-	// Lookup the network so that we can infer things about it, specifically the region ID
-	// which can then be used to label the cluster for list API.  We need to double check
-	// that the network matches the requested organization and project first.  Ideally we
-	// would get the network impersonating the user principal and let the region service do
-	// the necessary ReBAC checks, but we cannot do that yet.  If we could do that we could
-	// infer the organization and project IDs too and not have to specify them in this API.
-	network, err := region.GetNetwork(ctx, c.region, organizationID, projectID, request.Spec.NetworkId)
+	// Inject the org/project into the principal so the region service can resolve
+	// the user's scoped ACL, then impersonate so region enforces ReBAC on the network
+	// rather than us doing a manual org/project ownership check here.
+	if err := util.InjectUserPrincipal(ctx, organizationID, projectID); err != nil {
+		return nil, err
+	}
+
+	ctx = principal.NewImpersonateContext(ctx)
+
+	network, err := region.GetNetwork(ctx, c.region, request.Spec.NetworkId)
 	if err != nil {
 		return nil, err
 	}
