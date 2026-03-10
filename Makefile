@@ -192,23 +192,30 @@ else ifeq ($(UNAME_S),Darwin)
 	PACT_LIB_ENV = DYLD_LIBRARY_PATH=$(PACT_LIB_PATH):$$DYLD_LIBRARY_PATH
 endif
 
-PACT_GOFLAGS=-tags=integration
+PACT_GOFLAGS="-tags=integration"
 
 # Run consumer contract tests
 .PHONY: test-contracts-consumer
 test-contracts-consumer:
+	@echo "Running consumer contract tests..."
 	CGO_LDFLAGS="$(PACT_LD_FLAGS)" \
 	$(PACT_LIB_ENV) \
 	GOFLAGS="$(PACT_GOFLAGS)" \
 	go test ./test/contracts/consumer/... -v -count=1
 
-# Publish pacts to broker and capture if contract changed
-.PHONY: publish-pacts
-publish-pacts:
+# Run consumer contract tests and publish in one step
+.PHONY: test-contracts-consumer-ci
+test-contracts-consumer-ci: test-contracts-consumer publish-contracts-consumer
+	@echo "Consumer contract tests and publishing completed successfully"
+
+# Publish consumer pact files to Pact Broker
+# Publishes all pacts from test/contracts/consumer/*/pacts directories
+.PHONY: publish-contracts-consumer
+publish-contracts-consumer:
 	@docker run --rm \
 		--network host \
-		-v $(PWD)/test/contracts/consumer/pacts:/pacts \
-		-w /pacts \
+		-v $(PWD)/test/contracts/consumer:/consumer \
+		-w /consumer \
 		pactfoundation/pact-cli:latest \
 		publish \
 		--broker-base-url="$(PACT_BROKER_URL)" \
@@ -216,28 +223,30 @@ publish-pacts:
 		--broker-password="$(PACT_BROKER_PASSWORD)" \
 		--consumer-app-version="$(CONSUMER_VERSION)" \
 		--branch="$(BRANCH)" \
-		/pacts | tee /tmp/pact-publish-output.txt
+		./pacts | tee /tmp/pact-publish-output.txt
 	@if grep -q "contract_content_changed" /tmp/pact-publish-output.txt; then \
 		echo "true" > /tmp/pact-changed.flag; \
 	else \
 		echo "false" > /tmp/pact-changed.flag; \
 	fi
 
+# Alias for publishing pacts (shorter name for CI workflows)
+.PHONY: publish-pacts
+publish-pacts: publish-contracts-consumer
+
 # Check if pact content changed (reads flag set by publish-pacts)
 .PHONY: pact-changed
 pact-changed:
-	@echo "Checking if pact content changed..."
 	@if [ ! -f /tmp/pact-changed.flag ]; then \
-		echo "⚠️  No pact-changed flag found - did you run publish-pacts?"; \
-		echo "   Assuming contract changed to be safe"; \
+		echo "No pact-changed flag found - assuming contract changed to be safe"; \
 		exit 0; \
 	fi; \
 	changed=$$(cat /tmp/pact-changed.flag); \
 	if [ "$$changed" = "true" ]; then \
-		echo "✓ Pact content changed - verification will be triggered"; \
+		echo "Pact content changed - verification will be triggered"; \
 		exit 0; \
 	else \
-		echo "○ Pact content unchanged - can use previous verification"; \
+		echo "Pact content unchanged - can use previous verification"; \
 		exit 1; \
 	fi
 
@@ -247,7 +256,7 @@ can-i-deploy:
 	@echo "Running can-i-deploy check..."
 	@if make pact-changed 2>/dev/null; then \
 		echo ""; \
-		echo "📝 Contract changed - waiting for provider verification..."; \
+		echo "Contract changed - waiting for provider verification..."; \
 		docker run --rm \
 			--network host \
 			pactfoundation/pact-cli:latest \
@@ -262,7 +271,7 @@ can-i-deploy:
 			--broker-password="$(PACT_BROKER_PASSWORD)"; \
 	else \
 		echo ""; \
-		echo "⚡ Contract unchanged - running quick verification check..."; \
+		echo "Contract unchanged - running quick verification check..."; \
 		docker run --rm \
 			--network host \
 			pactfoundation/pact-cli:latest \
@@ -278,6 +287,7 @@ can-i-deploy:
 # Record deployment
 .PHONY: record-deployment
 record-deployment:
+	@echo "Recording deployment of $(SERVICE_NAME) version $(CONSUMER_VERSION) to development..."
 	docker run --rm \
 		--network host \
 		pactfoundation/pact-cli:latest \
