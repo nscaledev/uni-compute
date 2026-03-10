@@ -596,6 +596,43 @@ func newRegionAPIClientWithConfig(baseURL string, config *TestConfig) *RegionAPI
 	}
 }
 
+func (c *RegionAPIClient) CreateImage(ctx context.Context, organizationID, regionID string, request regionopenapi.ImageCreate) (*regionopenapi.Image, error) {
+	path := c.endpoints.ListImages(organizationID, regionID)
+
+	reqBody, err := json.Marshal(request)
+	if err != nil {
+		return nil, fmt.Errorf("marshaling image request: %w", err)
+	}
+
+	//nolint:bodyclose // response body is closed in DoRequest
+	_, respBody, err := c.DoRequest(ctx, http.MethodPost, path, bytes.NewReader(reqBody), http.StatusOK)
+	if err != nil {
+		return nil, fmt.Errorf("creating image: %w", err)
+	}
+
+	var image regionopenapi.Image
+	if err := json.Unmarshal(respBody, &image); err != nil {
+		return nil, fmt.Errorf("unmarshaling image: %w", err)
+	}
+
+	return &image, nil
+}
+
+func (c *RegionAPIClient) ListImages(ctx context.Context, organizationID, regionID string) ([]regionopenapi.Image, error) {
+	path := c.endpoints.ListImages(organizationID, regionID)
+
+	return coreclient.ListResource[regionopenapi.Image](
+		ctx,
+		c.APIClient,
+		path,
+		coreclient.ResponseHandlerConfig{
+			ResourceType:   "images",
+			ResourceID:     regionID,
+			ResourceIDType: "region",
+		},
+	)
+}
+
 func (c *RegionAPIClient) DeleteImage(ctx context.Context, organizationID, regionID, imageID string) error {
 	path := c.endpoints.DeleteImage(organizationID, regionID, imageID)
 
@@ -609,6 +646,10 @@ func (c *RegionAPIClient) DeleteImage(ctx context.Context, organizationID, regio
 }
 
 type RegionEndpoints struct{}
+
+func (*RegionEndpoints) ListImages(organizationID, regionID string) string {
+	return fmt.Sprintf("/api/v1/organizations/%s/regions/%s/images", organizationID, regionID)
+}
 
 func (*RegionEndpoints) DeleteImage(organizationID, regionID, imageID string) string {
 	return fmt.Sprintf("/api/v1/organizations/%s/regions/%s/images/%s", organizationID, regionID, imageID)
