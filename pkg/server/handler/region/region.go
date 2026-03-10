@@ -215,21 +215,15 @@ func (c *Client) GetConsoleOutput(ctx context.Context, organizationID, projectID
 	return resp.JSON200, nil
 }
 
-func GetNetwork(ctx context.Context, client regionapi.ClientWithResponsesInterface, organizationID, projectID, networkID string) (*regionapi.NetworkV2Read, error) {
+func GetNetwork(ctx context.Context, client regionapi.ClientWithResponsesInterface, networkID string) (*regionapi.NetworkV2Read, error) {
 	response, err := client.GetApiV2NetworksNetworkIDWithResponse(ctx, networkID)
 	if err != nil {
-		return nil, errors.OAuth2InvalidRequest("unable to get network").WithError(err)
-	}
-
-	if response.StatusCode() != http.StatusOK {
 		return nil, fmt.Errorf("%w: unable to get network", err)
 	}
 
-	network := response.JSON200
-
-	if network.Metadata.OrganizationId != organizationID || network.Metadata.ProjectId != projectID {
-		return nil, errors.OAuth2InvalidRequest("cluster network does not exist")
+	if response.StatusCode() != http.StatusOK {
+		return nil, errors.PropagateError(response.HTTPResponse, response)
 	}
 
-	return network, nil
+	return response.JSON200, nil
 }

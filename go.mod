@@ -13,8 +13,8 @@ require (
 	github.com/spjmurray/go-util v0.1.3
 	github.com/stretchr/testify v1.11.1
 	github.com/unikorn-cloud/core v1.14.0-rc1.0.20260303151724-ca0bb7391055
-	github.com/unikorn-cloud/identity v1.14.0-rc1.0.20260306152311-082860f974b5
-	github.com/unikorn-cloud/region v1.15.0-pre1.0.20260305101222-7c1e93518bdf
+	github.com/unikorn-cloud/identity v1.14.0-rc1.0.20260311114637-a4432dddf052
+	github.com/unikorn-cloud/region v1.15.0-pre1.0.20260311120913-dd9b8807fc28
 	go.uber.org/mock v0.5.2
 	k8s.io/api v0.33.1
 	k8s.io/apimachinery v0.33.1
