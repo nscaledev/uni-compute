@@ -384,6 +384,20 @@ func (c *Client) getImage(ctx context.Context, organizationID, regionID, id stri
 	return &resources[index], nil
 }
 
+func (c *Client) validateSecurityGroups(ctx context.Context, networking *computeapi.InstanceNetworking) error {
+	if networking == nil || networking.SecurityGroups == nil {
+		return nil
+	}
+
+	for _, id := range *networking.SecurityGroups {
+		if _, err := region.GetSecurityGroup(ctx, c.region, id); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 //nolint:unparam
 func (c *Client) getAndValidateFlavorAndImage(ctx context.Context, organizationID, regionID, flavorID, imageID string) (*regionapi.Flavor, *regionapi.Image, error) {
 	flavor, err := c.getFlavor(ctx, organizationID, regionID, flavorID)
@@ -406,6 +420,21 @@ func (c *Client) getAndValidateFlavorAndImage(ctx context.Context, organizationI
 
 	if flavor.Spec.Disk < image.Spec.SizeGiB {
 		return nil, nil, errors.OAuth2InvalidRequest("Flavor disk (", flavor.Spec.Disk, " GIB) is too small for the image (", image.Spec.SizeGiB, " GiB)")
+	}
+
+	flavorBaremetal := flavor.Spec.Baremetal != nil && *flavor.Spec.Baremetal
+
+	switch image.Spec.Virtualization {
+	case regionapi.ImageVirtualizationAny:
+		// compatible with both baremetal and VM flavors
+	case regionapi.ImageVirtualizationBaremetal:
+		if !flavorBaremetal {
+			return nil, nil, errors.OAuth2InvalidRequest("image requires a baremetal flavor")
+		}
+	case regionapi.ImageVirtualizationVirtualized:
+		if flavorBaremetal {
+			return nil, nil, errors.OAuth2InvalidRequest("image requires a virtualized flavor")
+		}
 	}
 
 	return flavor, image, nil
@@ -511,6 +540,10 @@ func (c *Client) Create(ctx context.Context, request *computeapi.InstanceCreate)
 
 	flavor, _, err := c.getAndValidateFlavorAndImage(ctx, organizationID, regionID, request.Spec.FlavorId, request.Spec.ImageId)
 	if err != nil {
+		return nil, err
+	}
+
+	if err := c.validateSecurityGroups(ctx, request.Spec.Networking); err != nil {
 		return nil, err
 	}
 
@@ -622,8 +655,18 @@ func (c *Client) Update(ctx context.Context, instanceID string, request *compute
 		return nil, errors.OAuth2InvalidRequest("server is being deleted")
 	}
 
+	if err := util.InjectUserPrincipal(ctx, organizationID, projectID); err != nil {
+		return nil, err
+	}
+
+	ctx = principal.NewImpersonateContext(ctx)
+
 	flavor, _, err := c.getAndValidateFlavorAndImage(ctx, organizationID, regionID, request.Spec.FlavorId, request.Spec.ImageId)
 	if err != nil {
+		return nil, err
+	}
+
+	if err := c.validateSecurityGroups(ctx, request.Spec.Networking); err != nil {
 		return nil, err
 	}
 

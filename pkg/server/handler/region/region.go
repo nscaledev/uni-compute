@@ -227,3 +227,16 @@ func GetNetwork(ctx context.Context, client regionapi.ClientWithResponsesInterfa
 
 	return response.JSON200, nil
 }
+
+func GetSecurityGroup(ctx context.Context, client regionapi.ClientWithResponsesInterface, securityGroupID string) (*regionapi.SecurityGroupV2Read, error) {
+	response, err := client.GetApiV2SecuritygroupsSecurityGroupIDWithResponse(ctx, securityGroupID)
+	if err != nil {
+		return nil, fmt.Errorf("%w: unable to get security group", err)
+	}
+
+	if response.StatusCode() != http.StatusOK {
+		return nil, errors.PropagateError(response.HTTPResponse, response)
+	}
+
+	return response.JSON200, nil
+}
