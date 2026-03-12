@@ -327,3 +327,11 @@ The compute service defines consumer contracts for interactions with the identit
 - Create allocation - Track resource usage when clusters/instances are created
 - Update allocation - Update resource counts when scaling operations occur
 - Delete allocation - Release resource allocations during cleanup
+
+#### Emergency Escape Hatch
+
+In exceptional circumstances (e.g. a hotfix that can't wait for contract tests to be updated), contract testing can be bypassed by adding the `skip-contract-tests` label to a PR.
+
+When this label is present, both the `ConsumerContractTests` and `CanIDeploy` CI jobs are skipped. Skipped jobs show as neutral (green) in GitHub and satisfy required status checks, so the PR can still be merged.
+
+**This label should only be used as a last resort.** Its use is visible in the PR timeline and auditable. After merging, the contract tests must be updated and the label removed before the next PR.
