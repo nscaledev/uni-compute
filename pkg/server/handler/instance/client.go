@@ -602,18 +602,20 @@ func (c *Client) Get(ctx context.Context, instanceID string) (*computeapi.Instan
 }
 
 type updateSaga struct {
-	client  *Client
-	current *computev1.ComputeInstance
-	updated *computev1.ComputeInstance
-	flavor  *regionapi.Flavor
+	client        *Client
+	current       *computev1.ComputeInstance
+	updated       *computev1.ComputeInstance
+	currentFlavor *regionapi.Flavor
+	flavor        *regionapi.Flavor
 }
 
-func newUpdateSaga(client *Client, current, updated *computev1.ComputeInstance, flavor *regionapi.Flavor) *updateSaga {
+func newUpdateSaga(client *Client, current, updated *computev1.ComputeInstance, currentFlavor, flavor *regionapi.Flavor) *updateSaga {
 	return &updateSaga{
-		client:  client,
-		current: current,
-		updated: updated,
-		flavor:  flavor,
+		client:        client,
+		current:       current,
+		updated:       updated,
+		currentFlavor: currentFlavor,
+		flavor:        flavor,
 	}
 }
 
@@ -624,7 +626,7 @@ func (s *updateSaga) updateAllocation(ctx context.Context) error {
 }
 
 func (s *updateSaga) revertAllocation(ctx context.Context) error {
-	required := s.client.generateAllocation(s.flavor, s.current.PublicIPEnabled())
+	required := s.client.generateAllocation(s.currentFlavor, s.current.PublicIPEnabled())
 
 	return identityclient.NewAllocations(s.client.client, s.client.identity).Update(ctx, s.current, required)
 }
@@ -667,9 +669,12 @@ func (c *Client) Update(ctx context.Context, instanceID string, request *compute
 		return nil, err
 	}
 
-	ctx = principal.NewImpersonateContext(ctx)
+	currentFlavor, _, err := c.getAndValidateFlavorAndImage(principal.NewImpersonateContext(ctx), organizationID, regionID, current.Spec.FlavorID, current.Spec.ImageID)
+	if err != nil {
+		return nil, err
+	}
 
-	flavor, _, err := c.getAndValidateFlavorAndImage(ctx, organizationID, regionID, request.Spec.FlavorId, request.Spec.ImageId)
+	flavor, _, err := c.getAndValidateFlavorAndImage(principal.NewImpersonateContext(ctx), organizationID, regionID, request.Spec.FlavorId, request.Spec.ImageId)
 	if err != nil {
 		return nil, err
 	}
@@ -693,7 +698,7 @@ func (c *Client) Update(ctx context.Context, instanceID string, request *compute
 	updated.Annotations = required.Annotations
 	updated.Spec = required.Spec
 
-	s := newUpdateSaga(c, current, updated, flavor)
+	s := newUpdateSaga(c, current, updated, currentFlavor, flavor)
 
 	if err := saga.Run(ctx, s); err != nil {
 		return nil, err
