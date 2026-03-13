@@ -422,6 +422,14 @@ func (c *Client) getAndValidateFlavorAndImage(ctx context.Context, organizationI
 		return nil, nil, errors.OAuth2InvalidRequest("Flavor disk (", flavor.Spec.Disk, " GIB) is too small for the image (", image.Spec.SizeGiB, " GiB)")
 	}
 
+	if err := ValidateVirtualization(flavor, image); err != nil {
+		return nil, nil, err
+	}
+
+	return flavor, image, nil
+}
+
+func ValidateVirtualization(flavor *regionapi.Flavor, image *regionapi.Image) error {
 	flavorBaremetal := flavor.Spec.Baremetal != nil && *flavor.Spec.Baremetal
 
 	switch image.Spec.Virtualization {
@@ -429,15 +437,15 @@ func (c *Client) getAndValidateFlavorAndImage(ctx context.Context, organizationI
 		// compatible with both baremetal and VM flavors
 	case regionapi.ImageVirtualizationBaremetal:
 		if !flavorBaremetal {
-			return nil, nil, errors.OAuth2InvalidRequest("image requires a baremetal flavor")
+			return errors.OAuth2InvalidRequest("image requires a baremetal flavor")
 		}
 	case regionapi.ImageVirtualizationVirtualized:
 		if flavorBaremetal {
-			return nil, nil, errors.OAuth2InvalidRequest("image requires a virtualized flavor")
+			return errors.OAuth2InvalidRequest("image requires a virtualized flavor")
 		}
 	}
 
-	return flavor, image, nil
+	return nil
 }
 
 type createSaga struct {
