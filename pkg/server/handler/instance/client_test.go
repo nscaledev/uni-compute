@@ -32,6 +32,8 @@ import (
 	identitymock "github.com/unikorn-cloud/identity/pkg/openapi/mock"
 	"github.com/unikorn-cloud/identity/pkg/rbac"
 	regionapi "github.com/unikorn-cloud/region/pkg/openapi"
+
+	"k8s.io/utils/ptr"
 )
 
 const (
@@ -151,6 +153,82 @@ func TestGenerateAllocationWithPublicIP(t *testing.T) {
 	committed, ok := allocationKind(alloc, "floatingips")
 	assert.True(t, ok, "floatingips entry should be present")
 	assert.Equal(t, 1, committed)
+}
+
+func makeFlavorVM() *regionapi.Flavor {
+	return &regionapi.Flavor{Spec: regionapi.FlavorSpec{}}
+}
+
+func makeFlavorBaremetal() *regionapi.Flavor {
+	return &regionapi.Flavor{Spec: regionapi.FlavorSpec{Baremetal: ptr.To(true)}}
+}
+
+func makeImage(v regionapi.ImageVirtualization) *regionapi.Image {
+	return &regionapi.Image{Spec: regionapi.ImageSpec{Virtualization: v}}
+}
+
+// TestValidateVirtualization covers all combinations of flavor type and image
+// virtualization hint.
+func TestValidateVirtualization(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		flavor      *regionapi.Flavor
+		image       *regionapi.Image
+		expectError bool
+	}{
+		{
+			name:        "vm flavor with virtualized image",
+			flavor:      makeFlavorVM(),
+			image:       makeImage(regionapi.ImageVirtualizationVirtualized),
+			expectError: false,
+		},
+		{
+			name:        "vm flavor with any image",
+			flavor:      makeFlavorVM(),
+			image:       makeImage(regionapi.ImageVirtualizationAny),
+			expectError: false,
+		},
+		{
+			name:        "vm flavor with baremetal image",
+			flavor:      makeFlavorVM(),
+			image:       makeImage(regionapi.ImageVirtualizationBaremetal),
+			expectError: true,
+		},
+		{
+			name:        "baremetal flavor with baremetal image",
+			flavor:      makeFlavorBaremetal(),
+			image:       makeImage(regionapi.ImageVirtualizationBaremetal),
+			expectError: false,
+		},
+		{
+			name:        "baremetal flavor with any image",
+			flavor:      makeFlavorBaremetal(),
+			image:       makeImage(regionapi.ImageVirtualizationAny),
+			expectError: false,
+		},
+		{
+			name:        "baremetal flavor with virtualized image",
+			flavor:      makeFlavorBaremetal(),
+			image:       makeImage(regionapi.ImageVirtualizationVirtualized),
+			expectError: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := instance.ValidateVirtualization(tc.flavor, tc.image)
+
+			if tc.expectError {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
 }
 
 // TestInstanceCreateRBACNoPermissions verifies that Create returns a forbidden
