@@ -19,11 +19,8 @@ on:
         type: choice
         options:
         - 'All'
-        - 'Core Cluster Management'
-        - 'Security and Authentication'
-        - 'Machine Operations'
         - 'Instance Operations'
-        - 'Scaling Resource Management'
+        - 'Security and Authentication'
       region_id_override:
         description: 'Override Region ID (if set, you must also provide flavor, image and network overrides)'
         required: false
@@ -52,14 +49,11 @@ jobs:
     env:
       ENVIRONMENT: dev
       API_BASE_URL: ${{ vars.DEV_API_BASE_URL }}
-      IDENTITY_BASE_URL: ${{ vars.DEV_IDENTITY_BASE_URL }}
       REGION_BASE_URL: ${{ vars.DEV_REGION_BASE_URL }}
       API_AUTH_TOKEN: ${{ secrets.DEV_API_AUTH_TOKEN }}
       TEST_ORG_ID: ${{ vars.DEV_TEST_ORG_ID }}
       TEST_PROJECT_ID: ${{ vars.DEV_TEST_PROJECT_ID }}
-      TEST_SECONDARY_PROJECT_ID: ${{ vars.DEV_TEST_SECONDARY_PROJECT_ID }}
       TEST_REGION_ID: ${{ inputs.region_id_override || vars.DEV_TEST_REGION_ID }}
-      TEST_SECONDARY_REGION_ID: ${{ vars.DEV_TEST_SECONDARY_REGION_ID }}
       TEST_FLAVOR_ID: ${{ inputs.flavor_id_override || vars.DEV_TEST_FLAVOR_ID }}
       TEST_IMAGE_ID: ${{ inputs.image_id_override || vars.DEV_TEST_IMAGE_ID }}
       TEST_NETWORK_ID: ${{ inputs.network_id_override || vars.DEV_TEST_NETWORK_ID }}
@@ -139,14 +133,11 @@ jobs:
     env:
       ENVIRONMENT: uat
       API_BASE_URL: ${{ vars.UAT_API_BASE_URL }}
-      IDENTITY_BASE_URL: ${{ vars.UAT_IDENTITY_BASE_URL }}
       REGION_BASE_URL: ${{ vars.UAT_REGION_BASE_URL }}
       API_AUTH_TOKEN: ${{ secrets.UAT_API_AUTH_TOKEN }}
       TEST_ORG_ID: ${{ vars.UAT_TEST_ORG_ID }}
       TEST_PROJECT_ID: ${{ vars.UAT_TEST_PROJECT_ID }}
-      TEST_SECONDARY_PROJECT_ID: ${{ vars.UAT_TEST_SECONDARY_PROJECT_ID }}
       TEST_REGION_ID: ${{ inputs.region_id_override || vars.UAT_TEST_REGION_ID }}
-      TEST_SECONDARY_REGION_ID: ${{ vars.UAT_TEST_SECONDARY_REGION_ID }}
       TEST_FLAVOR_ID: ${{ inputs.flavor_id_override || vars.UAT_TEST_FLAVOR_ID }}
       TEST_IMAGE_ID: ${{ inputs.image_id_override || vars.UAT_TEST_IMAGE_ID }}
       TEST_NETWORK_ID: ${{ inputs.network_id_override || vars.UAT_TEST_NETWORK_ID }}

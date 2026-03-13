@@ -21,6 +21,8 @@ limitations under the License.
 package suites
 
 import (
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -222,6 +224,136 @@ var _ = Describe("Instance Operations", func() {
 				Expect(image).To(BeNil(), "Image response should be nil for non-existent instance")
 				Expect(err.Error()).To(ContainSubstring("404"), "Error should indicate HTTP 404 Not Found")
 				GinkgoWriter.Printf("Expected HTTP 404 error for non-existent instance: %v\n", err)
+			})
+		})
+	})
+
+	Context("When performing power operations on an instance", func() {
+		Describe("Given a valid instance exists", func() {
+			var (
+				instanceID string
+			)
+
+			BeforeEach(func() {
+				// Create an instance for power operation tests
+				_, iID := api.CreateInstanceWithCleanup(client, ctx, config,
+					api.NewInstancePayload().Build())
+
+				instanceID = iID
+
+				// Wait for instance to be running before performing power operations
+				api.WaitForInstanceActive(client, ctx, config, instanceID)
+
+				GinkgoWriter.Printf("Using instance %s for power operations\n", instanceID)
+			})
+
+			It("should successfully stop a running instance", func() {
+				GinkgoWriter.Printf("Stopping instance %s\n", instanceID)
+				err := client.StopInstance(ctx, instanceID)
+				Expect(err).NotTo(HaveOccurred())
+
+				Eventually(func() string {
+					instance, getErr := client.GetInstance(ctx, instanceID)
+					if getErr != nil {
+						GinkgoWriter.Printf("Error getting instance: %v\n", getErr)
+						return "error"
+					}
+
+					if instance.Status.PowerState == nil {
+						return "unknown"
+					}
+
+					status := string(*instance.Status.PowerState)
+					GinkgoWriter.Printf("Instance %s power state: %s (waiting for Stopped)\n", instanceID, status)
+
+					return status
+				}).WithTimeout(5 * time.Minute).WithPolling(10 * time.Second).Should(Equal("Stopped"))
+			})
+
+			It("should successfully start a stopped instance", func() {
+				GinkgoWriter.Printf("Stopping instance %s\n", instanceID)
+				err := client.StopInstance(ctx, instanceID)
+				Expect(err).NotTo(HaveOccurred())
+
+				Eventually(func() string {
+					instance, getErr := client.GetInstance(ctx, instanceID)
+					if getErr != nil {
+						return "error"
+					}
+
+					if instance.Status.PowerState == nil {
+						return "unknown"
+					}
+
+					status := string(*instance.Status.PowerState)
+					GinkgoWriter.Printf("Instance %s power state: %s (waiting for Stopped)\n", instanceID, status)
+
+					return status
+				}).WithTimeout(5 * time.Minute).WithPolling(10 * time.Second).Should(Equal("Stopped"))
+
+				GinkgoWriter.Printf("Starting instance %s\n", instanceID)
+				err = client.StartInstance(ctx, instanceID)
+				Expect(err).NotTo(HaveOccurred())
+
+				Eventually(func() string {
+					instance, getErr := client.GetInstance(ctx, instanceID)
+					if getErr != nil {
+						return "error"
+					}
+
+					if instance.Status.PowerState == nil {
+						return "unknown"
+					}
+
+					status := string(*instance.Status.PowerState)
+					GinkgoWriter.Printf("Instance %s power state: %s (waiting for Running)\n", instanceID, status)
+
+					return status
+				}).WithTimeout(5 * time.Minute).WithPolling(10 * time.Second).Should(Equal("Running"))
+			})
+
+			It("should successfully soft reboot a running instance", func() {
+				GinkgoWriter.Printf("Soft rebooting instance %s\n", instanceID)
+				err := client.RebootInstance(ctx, instanceID, false)
+				Expect(err).NotTo(HaveOccurred())
+
+				Eventually(func() string {
+					instance, getErr := client.GetInstance(ctx, instanceID)
+					if getErr != nil {
+						return "error"
+					}
+
+					if instance.Status.PowerState == nil {
+						return "unknown"
+					}
+
+					status := string(*instance.Status.PowerState)
+					GinkgoWriter.Printf("Instance %s power state: %s (waiting for Running after soft reboot)\n", instanceID, status)
+
+					return status
+				}).WithTimeout(5 * time.Minute).WithPolling(10 * time.Second).Should(Equal("Running"))
+			})
+
+			It("should successfully hard reboot a running instance", func() {
+				GinkgoWriter.Printf("Hard rebooting instance %s\n", instanceID)
+				err := client.RebootInstance(ctx, instanceID, true)
+				Expect(err).NotTo(HaveOccurred())
+
+				Eventually(func() string {
+					instance, getErr := client.GetInstance(ctx, instanceID)
+					if getErr != nil {
+						return "error"
+					}
+
+					if instance.Status.PowerState == nil {
+						return "unknown"
+					}
+
+					status := string(*instance.Status.PowerState)
+					GinkgoWriter.Printf("Instance %s power state: %s (waiting for Running after hard reboot)\n", instanceID, status)
+
+					return status
+				}).WithTimeout(5 * time.Minute).WithPolling(10 * time.Second).Should(Equal("Running"))
 			})
 		})
 	})

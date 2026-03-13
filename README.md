@@ -97,7 +97,7 @@ It will need the built in role `infra-manager-service` that allows:
 
 ### API Integration Tests
 
-The compute service includes comprehensive API integration tests that validate cluster lifecycle management, machine operations, security, and metadata discovery endpoints.
+The compute service includes comprehensive API integration tests that validate instance operations, security, and authentication.
 
 #### Test Configuration
 
@@ -129,10 +129,9 @@ Tests are configured via environment variables using a `.env` file in the `test/
 
 2. **Configure the required values in `test/.env`:**
    - `API_BASE_URL` - Compute API server URL
-   - `IDENTITY_BASE_URL` - Identity API server URL
    - `API_AUTH_TOKEN` - Service token from console
-   - `TEST_ORG_ID`, `TEST_PROJECT_ID`, `TEST_SECONDARY_PROJECT_ID` - Test organization and project IDs
-   - `TEST_REGION_ID`, `TEST_SECONDARY_REGION_ID` - Test region IDs
+   - `TEST_ORG_ID`, `TEST_PROJECT_ID` - Test organization and project IDs
+   - `TEST_REGION_ID` - Test region ID
    - `TEST_NETWORK_ID` - Test network ID
    - `TEST_FLAVOR_ID`, `TEST_IMAGE_ID` - Test flavor and image IDs
 
@@ -152,14 +151,14 @@ make test-api-parallel
 
 **Run specific test suite using focus:**
 ```bash
-# Example Run only cluster management tests, which is the suite name
-make test-api-focus FOCUS="Core Cluster Management"
+# Example: run only instance operations tests
+make test-api-focus FOCUS="Instance Operations"
 ```
 
 **Run specific test spec using focus:**
 ```bash
-# Example Run only the return all clusters test spec, which uses the test spec name.
-make test-api-focus FOCUS="should return all clusters for the organization"
+# Example: run only a specific test spec by name
+make test-api-focus FOCUS="should successfully stop a running instance"
 ```
 
 **Advanced Ginkgo options:**
@@ -171,7 +170,7 @@ cd test/api/suites && ginkgo run --procs=8 --json-report=test-results.json
 cd test/api/suites && ginkgo run -v --show-node-events
 
 # Skip specific tests
-cd test/api/suites && ginkgo run --skip="Machine Operations"
+cd test/api/suites && ginkgo run --skip="Security and Authentication"
 
 # Randomize test order
 cd test/api/suites && ginkgo run --randomize-all
@@ -191,10 +190,8 @@ The API tests can be triggered manually via GitHub Actions using `workflow_dispa
 
 **Available Test Suite Options:**
 - `All` - Run all test suites
-- `Core Cluster Management` - Cluster CRUD operations and lifecycle tests
-- `Discovery and Metadata` - Region, flavor, and image discovery tests
+- `Instance Operations` - Instance lifecycle and power operation tests
 - `Security and Authentication` - Authentication and input validation tests
-- `Machine Operations` - Machine power operations and eviction tests
 
 **Triggering Manually:**
 
