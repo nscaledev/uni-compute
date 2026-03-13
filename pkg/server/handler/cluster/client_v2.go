@@ -244,9 +244,7 @@ func (c *Client) CreateV2(ctx context.Context, request *computeapi.ClusterV2Crea
 		return nil, err
 	}
 
-	ctx = principal.NewImpersonateContext(ctx)
-
-	network, err := region.GetNetwork(ctx, c.region, request.Spec.NetworkId)
+	network, err := region.GetNetwork(principal.NewImpersonateContext(ctx), c.region, request.Spec.NetworkId)
 	if err != nil {
 		return nil, err
 	}
