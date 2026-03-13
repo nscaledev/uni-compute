@@ -26,16 +26,13 @@ import (
 // TestConfig extends the base config with Compute-specific fields.
 type TestConfig struct {
 	coreconfig.BaseConfig
-	IdentityBaseURL    string
-	RegionBaseURL      string
-	OrgID              string
-	ProjectID          string
-	SecondaryProjectID string
-	RegionID           string
-	SecondaryRegionID  string
-	FlavorID           string
-	ImageID            string
-	NetworkID          string
+	RegionBaseURL string
+	OrgID         string
+	ProjectID     string
+	RegionID      string
+	FlavorID      string
+	ImageID       string
+	NetworkID     string
 }
 
 // LoadTestConfig loads configuration from environment variables and .env files using viper.
@@ -75,31 +72,25 @@ func LoadTestConfig() (*TestConfig, error) {
 			LogRequests:     v.GetBool("LOG_REQUESTS"),
 			LogResponses:    v.GetBool("LOG_RESPONSES"),
 		},
-		IdentityBaseURL:    v.GetString("IDENTITY_BASE_URL"),
-		RegionBaseURL:      v.GetString("REGION_BASE_URL"),
-		OrgID:              v.GetString("TEST_ORG_ID"),
-		ProjectID:          v.GetString("TEST_PROJECT_ID"),
-		SecondaryProjectID: v.GetString("TEST_SECONDARY_PROJECT_ID"),
-		RegionID:           v.GetString("TEST_REGION_ID"),
-		SecondaryRegionID:  v.GetString("TEST_SECONDARY_REGION_ID"),
-		FlavorID:           v.GetString("TEST_FLAVOR_ID"),
-		ImageID:            v.GetString("TEST_IMAGE_ID"),
-		NetworkID:          v.GetString("TEST_NETWORK_ID"),
+		RegionBaseURL: v.GetString("REGION_BASE_URL"),
+		OrgID:         v.GetString("TEST_ORG_ID"),
+		ProjectID:     v.GetString("TEST_PROJECT_ID"),
+		RegionID:      v.GetString("TEST_REGION_ID"),
+		FlavorID:      v.GetString("TEST_FLAVOR_ID"),
+		ImageID:       v.GetString("TEST_IMAGE_ID"),
+		NetworkID:     v.GetString("TEST_NETWORK_ID"),
 	}
 
 	// Validate required fields
 	required := map[string]string{
-		"API_BASE_URL":              config.BaseURL,
-		"IDENTITY_BASE_URL":         config.IdentityBaseURL,
-		"REGION_BASE_URL":           config.RegionBaseURL,
-		"TEST_ORG_ID":               config.OrgID,
-		"TEST_PROJECT_ID":           config.ProjectID,
-		"TEST_SECONDARY_PROJECT_ID": config.SecondaryProjectID,
-		"TEST_REGION_ID":            config.RegionID,
-		"TEST_SECONDARY_REGION_ID":  config.SecondaryRegionID,
-		"TEST_FLAVOR_ID":            config.FlavorID,
-		"TEST_IMAGE_ID":             config.ImageID,
-		"TEST_NETWORK_ID":           config.NetworkID,
+		"API_BASE_URL":    config.BaseURL,
+		"REGION_BASE_URL": config.RegionBaseURL,
+		"TEST_ORG_ID":     config.OrgID,
+		"TEST_PROJECT_ID": config.ProjectID,
+		"TEST_REGION_ID":  config.RegionID,
+		"TEST_FLAVOR_ID":  config.FlavorID,
+		"TEST_IMAGE_ID":   config.ImageID,
+		"TEST_NETWORK_ID": config.NetworkID,
 	}
 
 	if err := coreconfig.ValidateRequiredFields(required); err != nil {
