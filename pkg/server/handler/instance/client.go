@@ -533,9 +533,7 @@ func (c *Client) Create(ctx context.Context, request *computeapi.InstanceCreate)
 		return nil, err
 	}
 
-	ctx = principal.NewImpersonateContext(ctx)
-
-	network, err := region.GetNetwork(ctx, c.region, request.Spec.NetworkId)
+	network, err := region.GetNetwork(principal.NewImpersonateContext(ctx), c.region, request.Spec.NetworkId)
 	if err != nil {
 		return nil, err
 	}
@@ -546,7 +544,7 @@ func (c *Client) Create(ctx context.Context, request *computeapi.InstanceCreate)
 
 	regionID := network.Status.RegionId
 
-	flavor, _, err := c.getAndValidateFlavorAndImage(ctx, organizationID, regionID, request.Spec.FlavorId, request.Spec.ImageId)
+	flavor, _, err := c.getAndValidateFlavorAndImage(principal.NewImpersonateContext(ctx), organizationID, regionID, request.Spec.FlavorId, request.Spec.ImageId)
 	if err != nil {
 		return nil, err
 	}
