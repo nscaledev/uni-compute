@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
@@ -30,6 +31,9 @@ import (
 	identityapi "github.com/unikorn-cloud/identity/pkg/openapi"
 	identitymock "github.com/unikorn-cloud/identity/pkg/openapi/mock"
 	"github.com/unikorn-cloud/identity/pkg/rbac"
+	regionapi "github.com/unikorn-cloud/region/pkg/openapi"
+
+	"k8s.io/utils/ptr"
 )
 
 const (
@@ -92,6 +96,139 @@ func TestInstanceCreateRBACOrgScopedProjectNotFound(t *testing.T) {
 
 	require.Error(t, err)
 	require.True(t, coreerrors.IsHTTPNotFound(err), "expected 404 not found, got: %v", err)
+}
+
+func flavorWithGPU(count int) *regionapi.Flavor {
+	return &regionapi.Flavor{
+		Spec: regionapi.FlavorSpec{
+			Gpu: &regionapi.GpuSpec{
+				PhysicalCount: count,
+			},
+		},
+	}
+}
+
+func flavorWithoutGPU() *regionapi.Flavor {
+	return &regionapi.Flavor{Spec: regionapi.FlavorSpec{}}
+}
+
+func allocationKind(list identityapi.ResourceAllocationList, kind string) (int, bool) {
+	for _, a := range list {
+		if a.Kind == kind {
+			return a.Committed, true
+		}
+	}
+
+	return 0, false
+}
+
+// TestGenerateAllocationNoPublicIP verifies that generateAllocation includes
+// floatingips with committed=0 when publicIP is false.
+func TestGenerateAllocationNoPublicIP(t *testing.T) {
+	t.Parallel()
+
+	c := instance.NewClient(nil, "", nil, nil)
+	alloc := c.GenerateAllocation(flavorWithGPU(2), false)
+
+	committed, ok := allocationKind(alloc, "floatingips")
+	assert.True(t, ok, "floatingips entry should be present")
+	assert.Equal(t, 0, committed)
+
+	committed, ok = allocationKind(alloc, "gpus")
+	assert.True(t, ok, "gpus entry should be present")
+	assert.Equal(t, 2, committed)
+
+	_, ok = allocationKind(alloc, "servers")
+	assert.True(t, ok, "servers entry should be present")
+}
+
+// TestGenerateAllocationWithPublicIP verifies that generateAllocation includes
+// floatingips with committed=1 when publicIP is true.
+func TestGenerateAllocationWithPublicIP(t *testing.T) {
+	t.Parallel()
+
+	c := instance.NewClient(nil, "", nil, nil)
+	alloc := c.GenerateAllocation(flavorWithoutGPU(), true)
+
+	committed, ok := allocationKind(alloc, "floatingips")
+	assert.True(t, ok, "floatingips entry should be present")
+	assert.Equal(t, 1, committed)
+}
+
+func makeFlavorVM() *regionapi.Flavor {
+	return &regionapi.Flavor{Spec: regionapi.FlavorSpec{}}
+}
+
+func makeFlavorBaremetal() *regionapi.Flavor {
+	return &regionapi.Flavor{Spec: regionapi.FlavorSpec{Baremetal: ptr.To(true)}}
+}
+
+func makeImage(v regionapi.ImageVirtualization) *regionapi.Image {
+	return &regionapi.Image{Spec: regionapi.ImageSpec{Virtualization: v}}
+}
+
+// TestValidateVirtualization covers all combinations of flavor type and image
+// virtualization hint.
+func TestValidateVirtualization(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		flavor      *regionapi.Flavor
+		image       *regionapi.Image
+		expectError bool
+	}{
+		{
+			name:        "vm flavor with virtualized image",
+			flavor:      makeFlavorVM(),
+			image:       makeImage(regionapi.ImageVirtualizationVirtualized),
+			expectError: false,
+		},
+		{
+			name:        "vm flavor with any image",
+			flavor:      makeFlavorVM(),
+			image:       makeImage(regionapi.ImageVirtualizationAny),
+			expectError: false,
+		},
+		{
+			name:        "vm flavor with baremetal image",
+			flavor:      makeFlavorVM(),
+			image:       makeImage(regionapi.ImageVirtualizationBaremetal),
+			expectError: true,
+		},
+		{
+			name:        "baremetal flavor with baremetal image",
+			flavor:      makeFlavorBaremetal(),
+			image:       makeImage(regionapi.ImageVirtualizationBaremetal),
+			expectError: false,
+		},
+		{
+			name:        "baremetal flavor with any image",
+			flavor:      makeFlavorBaremetal(),
+			image:       makeImage(regionapi.ImageVirtualizationAny),
+			expectError: false,
+		},
+		{
+			name:        "baremetal flavor with virtualized image",
+			flavor:      makeFlavorBaremetal(),
+			image:       makeImage(regionapi.ImageVirtualizationVirtualized),
+			expectError: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := instance.ValidateVirtualization(tc.flavor, tc.image)
+
+			if tc.expectError {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
 }
 
 // TestInstanceCreateRBACNoPermissions verifies that Create returns a forbidden

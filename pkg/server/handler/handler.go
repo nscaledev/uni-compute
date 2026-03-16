@@ -30,6 +30,7 @@ import (
 	"github.com/unikorn-cloud/core/pkg/server/errors"
 	"github.com/unikorn-cloud/core/pkg/server/util"
 	identityapi "github.com/unikorn-cloud/identity/pkg/openapi"
+	"github.com/unikorn-cloud/identity/pkg/principal"
 	"github.com/unikorn-cloud/identity/pkg/rbac"
 	regionapi "github.com/unikorn-cloud/region/pkg/openapi"
 
@@ -108,6 +109,8 @@ func (h *Handler) GetApiV1OrganizationsOrganizationIDRegions(w http.ResponseWrit
 		return
 	}
 
+	ctx = principal.NewImpersonateContext(ctx)
+
 	result, err := h.regionClient().List(ctx, organizationID)
 	if err != nil {
 		errors.HandleError(w, r, fmt.Errorf("%w: unable to read regions", err))
@@ -125,6 +128,8 @@ func (h *Handler) GetApiV1OrganizationsOrganizationIDRegionsRegionIDFlavors(w ht
 		return
 	}
 
+	ctx = principal.NewImpersonateContext(ctx)
+
 	result, err := h.regionClient().Flavors(ctx, organizationID, regionID)
 	if err != nil {
 		errors.HandleError(w, r, fmt.Errorf("%w: unable to read flavors", err))
@@ -141,6 +146,8 @@ func (h *Handler) GetApiV1OrganizationsOrganizationIDRegionsRegionIDImages(w htt
 		errors.HandleError(w, r, err)
 		return
 	}
+
+	ctx = principal.NewImpersonateContext(ctx)
 
 	result, err := h.regionClient().Images(ctx, organizationID, regionID)
 	if err != nil {

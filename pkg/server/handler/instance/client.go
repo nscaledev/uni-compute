@@ -44,6 +44,7 @@ import (
 	identityclient "github.com/unikorn-cloud/identity/pkg/client"
 	"github.com/unikorn-cloud/identity/pkg/handler/common"
 	identityapi "github.com/unikorn-cloud/identity/pkg/openapi"
+	"github.com/unikorn-cloud/identity/pkg/principal"
 	"github.com/unikorn-cloud/identity/pkg/rbac"
 	regionv1 "github.com/unikorn-cloud/region/pkg/apis/unikorn/v1alpha1"
 	regionconstants "github.com/unikorn-cloud/region/pkg/constants"
@@ -316,11 +317,17 @@ func (c *Client) List(ctx context.Context, params computeapi.GetApiV2InstancesPa
 	return convertList(result), nil
 }
 
-func (c *Client) generateAllocation(flavor *regionapi.Flavor) identityapi.ResourceAllocationList {
+func (c *Client) generateAllocation(flavor *regionapi.Flavor, publicIP bool) identityapi.ResourceAllocationList {
 	var gpus int
 
 	if flavor.Spec.Gpu != nil {
 		gpus = flavor.Spec.Gpu.PhysicalCount
+	}
+
+	var floatingips int
+
+	if publicIP {
+		floatingips = 1
 	}
 
 	required := identityapi.ResourceAllocationList{
@@ -331,6 +338,10 @@ func (c *Client) generateAllocation(flavor *regionapi.Flavor) identityapi.Resour
 		{
 			Kind:      "gpus",
 			Committed: gpus,
+		},
+		{
+			Kind:      "floatingips",
+			Committed: floatingips,
 		},
 	}
 
@@ -373,6 +384,20 @@ func (c *Client) getImage(ctx context.Context, organizationID, regionID, id stri
 	return &resources[index], nil
 }
 
+func (c *Client) validateSecurityGroups(ctx context.Context, networking *computeapi.InstanceNetworking) error {
+	if networking == nil || networking.SecurityGroups == nil {
+		return nil
+	}
+
+	for _, id := range *networking.SecurityGroups {
+		if _, err := region.GetSecurityGroup(ctx, c.region, id); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 //nolint:unparam
 func (c *Client) getAndValidateFlavorAndImage(ctx context.Context, organizationID, regionID, flavorID, imageID string) (*regionapi.Flavor, *regionapi.Image, error) {
 	flavor, err := c.getFlavor(ctx, organizationID, regionID, flavorID)
@@ -397,7 +422,30 @@ func (c *Client) getAndValidateFlavorAndImage(ctx context.Context, organizationI
 		return nil, nil, errors.OAuth2InvalidRequest("Flavor disk (", flavor.Spec.Disk, " GIB) is too small for the image (", image.Spec.SizeGiB, " GiB)")
 	}
 
+	if err := ValidateVirtualization(flavor, image); err != nil {
+		return nil, nil, err
+	}
+
 	return flavor, image, nil
+}
+
+func ValidateVirtualization(flavor *regionapi.Flavor, image *regionapi.Image) error {
+	flavorBaremetal := flavor.Spec.Baremetal != nil && *flavor.Spec.Baremetal
+
+	switch image.Spec.Virtualization {
+	case regionapi.ImageVirtualizationAny:
+		// compatible with both baremetal and VM flavors
+	case regionapi.ImageVirtualizationBaremetal:
+		if !flavorBaremetal {
+			return errors.OAuth2InvalidRequest("image requires a baremetal flavor")
+		}
+	case regionapi.ImageVirtualizationVirtualized:
+		if flavorBaremetal {
+			return errors.OAuth2InvalidRequest("image requires a virtualized flavor")
+		}
+	}
+
+	return nil
 }
 
 type createSaga struct {
@@ -415,7 +463,7 @@ func newCreateSaga(client *Client, resource *computev1.ComputeInstance, flavor *
 }
 
 func (s *createSaga) createAllocation(ctx context.Context) error {
-	required := s.client.generateAllocation(s.flavor)
+	required := s.client.generateAllocation(s.flavor, s.resource.PublicIPEnabled())
 
 	return identityclient.NewAllocations(s.client.client, s.client.identity).Create(ctx, s.resource, required)
 }
@@ -478,13 +526,14 @@ func (c *Client) Create(ctx context.Context, request *computeapi.InstanceCreate)
 		return nil, err
 	}
 
-	// Lookup the network so that we can infer things about it, specifically the region ID
-	// which can then be used to label the instance for list API.  We need to double check
-	// that the network matches the requested organization and project first.  Ideally we
-	// would get the network impersonating the user principal and let the region service do
-	// the necessary ReBAC checks, but we cannot do that yet.  If we could do that we could
-	// infer the organization and project IDs too and not have to specify them in this API.
-	network, err := region.GetNetwork(ctx, c.region, organizationID, projectID, request.Spec.NetworkId)
+	// Inject the org/project into the principal so the region service can resolve
+	// the user's scoped ACL, then impersonate so region enforces ReBAC on the network
+	// rather than us doing a manual org/project ownership check here.
+	if err := util.InjectUserPrincipal(ctx, organizationID, projectID); err != nil {
+		return nil, err
+	}
+
+	network, err := region.GetNetwork(principal.NewImpersonateContext(ctx), c.region, request.Spec.NetworkId)
 	if err != nil {
 		return nil, err
 	}
@@ -495,8 +544,12 @@ func (c *Client) Create(ctx context.Context, request *computeapi.InstanceCreate)
 
 	regionID := network.Status.RegionId
 
-	flavor, _, err := c.getAndValidateFlavorAndImage(ctx, organizationID, regionID, request.Spec.FlavorId, request.Spec.ImageId)
+	flavor, _, err := c.getAndValidateFlavorAndImage(principal.NewImpersonateContext(ctx), organizationID, regionID, request.Spec.FlavorId, request.Spec.ImageId)
 	if err != nil {
+		return nil, err
+	}
+
+	if err := c.validateSecurityGroups(ctx, request.Spec.Networking); err != nil {
 		return nil, err
 	}
 
@@ -547,29 +600,31 @@ func (c *Client) Get(ctx context.Context, instanceID string) (*computeapi.Instan
 }
 
 type updateSaga struct {
-	client  *Client
-	current *computev1.ComputeInstance
-	updated *computev1.ComputeInstance
-	flavor  *regionapi.Flavor
+	client        *Client
+	current       *computev1.ComputeInstance
+	updated       *computev1.ComputeInstance
+	currentFlavor *regionapi.Flavor
+	flavor        *regionapi.Flavor
 }
 
-func newUpdateSaga(client *Client, current, updated *computev1.ComputeInstance, flavor *regionapi.Flavor) *updateSaga {
+func newUpdateSaga(client *Client, current, updated *computev1.ComputeInstance, currentFlavor, flavor *regionapi.Flavor) *updateSaga {
 	return &updateSaga{
-		client:  client,
-		current: current,
-		updated: updated,
-		flavor:  flavor,
+		client:        client,
+		current:       current,
+		updated:       updated,
+		currentFlavor: currentFlavor,
+		flavor:        flavor,
 	}
 }
 
 func (s *updateSaga) updateAllocation(ctx context.Context) error {
-	required := s.client.generateAllocation(s.flavor)
+	required := s.client.generateAllocation(s.flavor, s.updated.PublicIPEnabled())
 
 	return identityclient.NewAllocations(s.client.client, s.client.identity).Update(ctx, s.current, required)
 }
 
 func (s *updateSaga) revertAllocation(ctx context.Context) error {
-	required := s.client.generateAllocation(s.flavor)
+	required := s.client.generateAllocation(s.currentFlavor, s.current.PublicIPEnabled())
 
 	return identityclient.NewAllocations(s.client.client, s.client.identity).Update(ctx, s.current, required)
 }
@@ -608,8 +663,21 @@ func (c *Client) Update(ctx context.Context, instanceID string, request *compute
 		return nil, errors.OAuth2InvalidRequest("server is being deleted")
 	}
 
-	flavor, _, err := c.getAndValidateFlavorAndImage(ctx, organizationID, regionID, request.Spec.FlavorId, request.Spec.ImageId)
+	if err := util.InjectUserPrincipal(ctx, organizationID, projectID); err != nil {
+		return nil, err
+	}
+
+	currentFlavor, _, err := c.getAndValidateFlavorAndImage(principal.NewImpersonateContext(ctx), organizationID, regionID, current.Spec.FlavorID, current.Spec.ImageID)
 	if err != nil {
+		return nil, err
+	}
+
+	flavor, _, err := c.getAndValidateFlavorAndImage(principal.NewImpersonateContext(ctx), organizationID, regionID, request.Spec.FlavorId, request.Spec.ImageId)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := c.validateSecurityGroups(ctx, request.Spec.Networking); err != nil {
 		return nil, err
 	}
 
@@ -628,7 +696,7 @@ func (c *Client) Update(ctx context.Context, instanceID string, request *compute
 	updated.Annotations = required.Annotations
 	updated.Spec = required.Spec
 
-	s := newUpdateSaga(c, current, updated, flavor)
+	s := newUpdateSaga(c, current, updated, currentFlavor, flavor)
 
 	if err := saga.Run(ctx, s); err != nil {
 		return nil, err

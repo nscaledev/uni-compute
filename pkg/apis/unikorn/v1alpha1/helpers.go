@@ -119,3 +119,8 @@ func (c *ComputeInstance) ResourceLabels() (labels.Set, error) {
 	//nolint:nilnil
 	return nil, nil
 }
+
+// PublicIPEnabled tells us if the instance has a public IP requested.
+func (c *ComputeInstance) PublicIPEnabled() bool {
+	return c.Spec.Networking != nil && c.Spec.Networking.PublicIP
+}
