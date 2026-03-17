@@ -58,14 +58,12 @@ var _ = Describe("Security and Authentication", func() {
 
 	Context("When submitting malicious input", func() {
 		Describe("Given security testing", func() {
-
 			DescribeTable("should reject XSS payloads",
 				func(payload string) {
-					_, err := client.CreateCluster(ctx, config.OrgID, config.ProjectID,
-						api.NewClusterPayload().
+					_, err := client.CreateInstance(ctx,
+						api.NewInstancePayload().
 							WithName(payload).
-							WithDescription(payload).
-							BuildTyped())
+							Build())
 
 					Expect(err).To(HaveOccurred())
 					Expect(err.Error()).To(Or(
@@ -82,10 +80,10 @@ var _ = Describe("Security and Authentication", func() {
 
 			DescribeTable("should handle path traversal attempts",
 				func(payload string) {
-					_, err := client.CreateCluster(ctx, config.OrgID, config.ProjectID,
-						api.NewClusterPayload().
+					_, err := client.CreateInstance(ctx,
+						api.NewInstancePayload().
 							WithName(payload).
-							BuildTyped())
+							Build())
 
 					Expect(err).To(HaveOccurred())
 					Expect(err.Error()).To(Or(
@@ -104,10 +102,10 @@ var _ = Describe("Security and Authentication", func() {
 		Describe("Given encoding and Unicode issues", func() {
 			DescribeTable("should handle Unicode characters properly",
 				func(unicodeName string) {
-					_, err := client.CreateCluster(ctx, config.OrgID, config.ProjectID,
-						api.NewClusterPayload().
+					_, err := client.CreateInstance(ctx,
+						api.NewInstancePayload().
 							WithName(unicodeName).
-							BuildTyped())
+							Build())
 
 					Expect(err).To(HaveOccurred())
 					Expect(err.Error()).To(Or(
@@ -116,18 +114,18 @@ var _ = Describe("Security and Authentication", func() {
 						ContainSubstring("invalid"),
 					))
 				},
-				Entry("emoji characters", "test-cluster-🚀🔥"),
-				Entry("chinese characters", "测试集群"), //nolint:gosmopolitan // intentionally testing non-ASCII input
+				Entry("emoji characters", "test-instance-🚀🔥"),
+				Entry("chinese characters", "测试实例"), //nolint:gosmopolitan // intentionally testing non-ASCII input
 				Entry("arabic characters", "مجموعة-الاختبار"),
-				Entry("cyrillic characters", "тест-кластер"),
+				Entry("cyrillic characters", "тест-экземпляр"),
 			)
 
 			DescribeTable("should handle invalid character encodings",
 				func(payload string) {
-					_, err := client.CreateCluster(ctx, config.OrgID, config.ProjectID,
-						api.NewClusterPayload().
+					_, err := client.CreateInstance(ctx,
+						api.NewInstancePayload().
 							WithName(payload).
-							BuildTyped())
+							Build())
 
 					Expect(err).To(HaveOccurred())
 					Expect(err.Error()).To(Or(
