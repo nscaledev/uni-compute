@@ -20,6 +20,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -113,6 +114,8 @@ func CreateInstanceWithCleanup(client *APIClient, ctx context.Context, config *T
 		if deleteErr != nil {
 			GinkgoWriter.Printf("Warning: Failed to delete instance %s: %v\n", instanceID, deleteErr)
 		} else {
+			GinkgoWriter.Printf("Delete accepted for instance %s, waiting for removal\n", instanceID)
+			WaitForInstanceDeleted(client, ctx, config, instanceID)
 			GinkgoWriter.Printf("Successfully deleted instance: %s\n", instanceID)
 		}
 	})
@@ -143,6 +146,34 @@ func CreateInstanceWithCleanup(client *APIClient, ctx context.Context, config *T
 	}).WithTimeout(config.TestTimeout).WithPolling(5 * time.Second).Should(Equal("provisioned"))
 
 	return instance, instanceID
+}
+
+// WaitForInstanceDeleted waits for an instance to disappear from the API.
+func WaitForInstanceDeleted(client *APIClient, ctx context.Context, config *TestConfig, instanceID string) {
+	var lastObservedStatus string
+	var lastErr error
+
+	Eventually(func() bool {
+		instance, err := client.GetInstance(ctx, instanceID)
+		if err != nil {
+			if errors.Is(err, ErrInstanceNotFound) {
+				GinkgoWriter.Printf("Instance %s is fully deleted\n", instanceID)
+				return true
+			}
+
+			lastErr = err
+			GinkgoWriter.Printf("Instance %s deletion still in progress, last get error: %v\n", instanceID, err)
+			return false
+		}
+
+		lastErr = nil
+		lastObservedStatus = string(instance.Metadata.ProvisioningStatus)
+		GinkgoWriter.Printf("Instance %s still present, provisioning status: %s\n", instanceID, lastObservedStatus)
+
+		return false
+	}).WithTimeout(config.TestTimeout).WithPolling(5 * time.Second).Should(BeTrue(),
+		"Timed out waiting for instance %s to be deleted (last status=%q, last error=%v)",
+		instanceID, lastObservedStatus, lastErr)
 }
 
 // WaitForInstanceActive waits for an instance to reach active/running power state.

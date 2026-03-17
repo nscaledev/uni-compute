@@ -22,6 +22,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -33,6 +34,12 @@ import (
 	coreclient "github.com/unikorn-cloud/core/pkg/testing/client"
 	regionopenapi "github.com/unikorn-cloud/region/pkg/openapi"
 )
+
+var ErrInstanceNotFound = errors.New("instance not found")
+
+func IsInstanceNotFound(err error) bool {
+	return errors.Is(err, ErrInstanceNotFound)
+}
 
 // GinkgoLogger implements the Logger interface for Ginkgo tests.
 type GinkgoLogger struct{}
@@ -165,7 +172,7 @@ func (c *APIClient) GetInstance(ctx context.Context, instanceID string) (openapi
 
 		return instance, nil
 	case http.StatusNotFound:
-		return openapi.InstanceRead{}, fmt.Errorf("instance '%s' not found (status: %d)", instanceID, resp.StatusCode)
+		return openapi.InstanceRead{}, fmt.Errorf("%w: instance '%s' not found (status: %d)", ErrInstanceNotFound, instanceID, resp.StatusCode)
 	case http.StatusForbidden:
 		return openapi.InstanceRead{}, fmt.Errorf("instance '%s' access denied (status: %d)", instanceID, resp.StatusCode)
 	default:
