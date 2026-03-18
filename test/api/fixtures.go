@@ -150,8 +150,10 @@ func CreateInstanceWithCleanup(client *APIClient, ctx context.Context, config *T
 
 // WaitForInstanceDeleted waits for an instance to disappear from the API.
 func WaitForInstanceDeleted(client *APIClient, ctx context.Context, config *TestConfig, instanceID string) {
-	var lastObservedStatus string
-	var lastErr error
+	var (
+		lastObservedStatus string
+		lastErr            error
+	)
 
 	Eventually(func() bool {
 		instance, err := client.GetInstance(ctx, instanceID)
@@ -163,6 +165,7 @@ func WaitForInstanceDeleted(client *APIClient, ctx context.Context, config *Test
 
 			lastErr = err
 			GinkgoWriter.Printf("Instance %s deletion still in progress, last get error: %v\n", instanceID, err)
+
 			return false
 		}
 
@@ -171,7 +174,7 @@ func WaitForInstanceDeleted(client *APIClient, ctx context.Context, config *Test
 		GinkgoWriter.Printf("Instance %s still present, provisioning status: %s\n", instanceID, lastObservedStatus)
 
 		return false
-	}).WithTimeout(config.TestTimeout).WithPolling(5 * time.Second).Should(BeTrue(),
+	}).WithTimeout(config.TestTimeout).WithPolling(5*time.Second).Should(BeTrue(),
 		"Timed out waiting for instance %s to be deleted (last status=%q, last error=%v)",
 		instanceID, lastObservedStatus, lastErr)
 }
