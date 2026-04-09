@@ -245,6 +245,8 @@ type ComputeInstanceSpec struct {
 	Tags unikornv1core.TagList `json:"tags,omitempty"`
 	// Network is networking options.
 	Networking *ComputeInstanceNetworking `json:"networking,omitempty"`
+	// SSHCertificateAuthorityID is an optional project scoped OpenSSH user CA trust anchor.
+	SSHCertificateAuthorityID *string `json:"sshCertificateAuthorityId,omitempty"`
 	// UserData is passed to cloud-init and may be a script, a multipart MIME archive etc.
 	// as permitted by the cloud-init specification.
 	UserData []byte `json:"userData,omitempty"`

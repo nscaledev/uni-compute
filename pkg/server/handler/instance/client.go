@@ -49,6 +49,7 @@ import (
 	regionv1 "github.com/unikorn-cloud/region/pkg/apis/unikorn/v1alpha1"
 	regionconstants "github.com/unikorn-cloud/region/pkg/constants"
 	regionapi "github.com/unikorn-cloud/region/pkg/openapi"
+	servermanager "github.com/unikorn-cloud/region/pkg/provisioners/managers/server"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
@@ -156,10 +157,11 @@ func convert(in *computev1.ComputeInstance) *computeapi.InstanceRead {
 	out := &computeapi.InstanceRead{
 		Metadata: conversion.ProjectScopedResourceReadMetadata(in, in.Spec.Tags),
 		Spec: computeapi.InstanceSpec{
-			FlavorId:   in.Spec.FlavorID,
-			ImageId:    in.Spec.ImageID,
-			Networking: ConvertNetworking(in.Spec.Networking),
-			UserData:   ConvertUserData(in.Spec.UserData),
+			FlavorId:                  in.Spec.FlavorID,
+			ImageId:                   in.Spec.ImageID,
+			Networking:                ConvertNetworking(in.Spec.Networking),
+			SshCertificateAuthorityId: in.Spec.SSHCertificateAuthorityID,
+			UserData:                  ConvertUserData(in.Spec.UserData),
 		},
 		Status: computeapi.InstanceStatus{
 			RegionId:   in.Labels[regionconstants.RegionLabel],
@@ -234,6 +236,80 @@ func GenerateUserData(in *[]byte) []byte {
 	return *in
 }
 
+func validateUserDataForSSHCertificateAuthority(sshCertificateAuthorityID *string, userData *[]byte) error {
+	if sshCertificateAuthorityID == nil || userData == nil || len(*userData) == 0 {
+		return nil
+	}
+
+	if err := servermanager.ValidateManagedUserData(*userData); err == nil {
+		return nil
+	}
+
+	return errors.HTTPUnprocessableContent("userData must be a recognized cloud-init format when sshCertificateAuthorityId is specified")
+}
+
+func (c *Client) validateSSHCertificateAuthorityReference(ctx context.Context, organizationID, projectID string, sshCertificateAuthorityID *string) error {
+	if sshCertificateAuthorityID == nil {
+		return nil
+	}
+
+	response, err := c.region.GetApiV2SshcertificateauthoritiesSshCertificateAuthorityIDWithResponse(ctx, *sshCertificateAuthorityID)
+	if err != nil {
+		return err
+	}
+
+	if response.StatusCode() != http.StatusOK {
+		return errors.PropagateError(response.HTTPResponse, response)
+	}
+
+	return validateSSHCertificateAuthorityScope(response.JSON200, organizationID, projectID)
+}
+
+func validateSSHCertificateAuthorityScope(resource *regionapi.SshCertificateAuthorityV2Response, organizationID, projectID string) error {
+	if resource.Metadata.OrganizationId != organizationID || resource.Metadata.ProjectId != projectID {
+		return errors.HTTPUnprocessableContent("sshCertificateAuthorityId must reference an SSH certificate authority in the same organization and project as the instance")
+	}
+
+	return nil
+}
+
+func (c *Client) validateCreateRequest(ctx context.Context, request *computeapi.InstanceCreate, organizationID, projectID, regionID string) (*regionapi.Flavor, error) {
+	flavor, _, err := c.getAndValidateFlavorAndImage(principal.NewImpersonateContext(ctx), organizationID, regionID, request.Spec.FlavorId, request.Spec.ImageId)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := c.validateSecurityGroups(ctx, request.Spec.Networking); err != nil {
+		return nil, err
+	}
+
+	if err := validateUserDataForSSHCertificateAuthority(request.Spec.SshCertificateAuthorityId, request.Spec.UserData); err != nil {
+		return nil, err
+	}
+
+	if err := c.validateSSHCertificateAuthorityReference(principal.NewImpersonateContext(ctx), organizationID, projectID, request.Spec.SshCertificateAuthorityId); err != nil {
+		return nil, err
+	}
+
+	return flavor, nil
+}
+
+func (c *Client) validateUpdateRequest(ctx context.Context, request *computeapi.InstanceUpdate, organizationID, projectID string) error {
+	if err := c.validateSecurityGroups(ctx, request.Spec.Networking); err != nil {
+		return err
+	}
+
+	if err := validateUserDataForSSHCertificateAuthority(request.Spec.SshCertificateAuthorityId, request.Spec.UserData); err != nil {
+		return err
+	}
+
+	if err := c.validateSSHCertificateAuthorityReference(principal.NewImpersonateContext(ctx), organizationID, projectID, request.Spec.SshCertificateAuthorityId); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (c *Client) generate(ctx context.Context, in *computeapi.InstanceUpdate, organizationID, projectID, regionID, networkID string) (*computev1.ComputeInstance, error) {
 	networking, err := GenerateNetworking(in.Spec.Networking)
 	if err != nil {
@@ -253,8 +329,9 @@ func (c *Client) generate(ctx context.Context, in *computeapi.InstanceUpdate, or
 				FlavorID: in.Spec.FlavorId,
 				ImageID:  in.Spec.ImageId,
 			},
-			Networking: networking,
-			UserData:   GenerateUserData(in.Spec.UserData),
+			Networking:                networking,
+			SSHCertificateAuthorityID: in.Spec.SshCertificateAuthorityId,
+			UserData:                  GenerateUserData(in.Spec.UserData),
 		},
 	}
 
@@ -544,12 +621,8 @@ func (c *Client) Create(ctx context.Context, request *computeapi.InstanceCreate)
 
 	regionID := network.Status.RegionId
 
-	flavor, _, err := c.getAndValidateFlavorAndImage(principal.NewImpersonateContext(ctx), organizationID, regionID, request.Spec.FlavorId, request.Spec.ImageId)
+	flavor, err := c.validateCreateRequest(ctx, request, organizationID, projectID, regionID)
 	if err != nil {
-		return nil, err
-	}
-
-	if err := c.validateSecurityGroups(ctx, request.Spec.Networking); err != nil {
 		return nil, err
 	}
 
@@ -677,7 +750,7 @@ func (c *Client) Update(ctx context.Context, instanceID string, request *compute
 		return nil, err
 	}
 
-	if err := c.validateSecurityGroups(ctx, request.Spec.Networking); err != nil {
+	if err := c.validateUpdateRequest(ctx, request, organizationID, projectID); err != nil {
 		return nil, err
 	}
 

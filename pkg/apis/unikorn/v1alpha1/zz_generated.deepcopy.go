@@ -339,6 +339,11 @@ func (in *ComputeInstanceSpec) DeepCopyInto(out *ComputeInstanceSpec) {
 		*out = new(ComputeInstanceNetworking)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.SSHCertificateAuthorityID != nil {
+		in, out := &in.SSHCertificateAuthorityID, &out.SSHCertificateAuthorityID
+		*out = new(string)
+		**out = **in
+	}
 	if in.UserData != nil {
 		in, out := &in.UserData, &out.UserData
 		*out = make([]byte, len(*in))

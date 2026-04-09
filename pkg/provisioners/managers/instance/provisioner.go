@@ -160,11 +160,12 @@ func (p *Provisioner) generateServerCreateRequest() *regionapi.ServerV2Create {
 			},
 		},
 		Spec: regionapi.ServerV2CreateSpec{
-			NetworkId:  p.instance.Labels[regionconstants.NetworkLabel],
-			FlavorId:   p.instance.Spec.FlavorID,
-			ImageId:    p.instance.Spec.ImageID,
-			Networking: p.generateServerNetworking(),
-			UserData:   p.generateUserData(),
+			NetworkId:                 p.instance.Labels[regionconstants.NetworkLabel],
+			FlavorId:                  p.instance.Spec.FlavorID,
+			ImageId:                   p.instance.Spec.ImageID,
+			Networking:                p.generateServerNetworking(),
+			SshCertificateAuthorityId: p.instance.Spec.SSHCertificateAuthorityID,
+			UserData:                  p.generateUserData(),
 		},
 	}
 }
