@@ -24,3 +24,11 @@ import (
 func (c *Client) GenerateAllocation(flavor *regionapi.Flavor, publicIP bool) identityapi.ResourceAllocationList {
 	return c.generateAllocation(flavor, publicIP)
 }
+
+func ValidateUserDataForSSHCertificateAuthority(sshCertificateAuthorityID *string, userData *[]byte) error {
+	return validateUserDataForSSHCertificateAuthority(sshCertificateAuthorityID, userData)
+}
+
+func ValidateSSHCertificateAuthorityScope(resource *regionapi.SshCertificateAuthorityV2Response, organizationID, projectID string) error {
+	return validateSSHCertificateAuthorityScope(resource, organizationID, projectID)
+}
