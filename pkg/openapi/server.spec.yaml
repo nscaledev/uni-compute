@@ -943,7 +943,11 @@ components:
         allowedSourceAddresses:
           $ref: '#/components/schemas/allowedSourceAddresses'
     instanceSpec:
-      description: A compute instance.
+      description: |-
+        A compute instance.
+        Some stored desired-state changes only take effect on the backing server when that server is
+        rebuilt or recreated. Currently, changing flavorId or imageId causes the backing server to
+        be rebuilt or recreated.
       type: object
       required:
       - flavorId
@@ -957,6 +961,11 @@ components:
           type: string
         networking:
           $ref: '#/components/schemas/instanceNetworking'
+        sshCertificateAuthorityId:
+          description: |-
+            The SSH certificate authority used to bootstrap login trust when the backing server is
+            created.
+          type: string
         userData:
           description: |-
             Contains base64-encoded configuration information or scripts to use upon launch.
@@ -1880,4 +1889,3 @@ components:
           authorizationUrl: https://identity.nks.europe-west4.nscale.com/oauth2/v2/authorization
           tokenUrl: https://identity.nks.europe-west4.nscale.com/oauth2/v2/token
           scopes: {}
-

@@ -307,6 +307,10 @@ type InstanceCreateSpec struct {
 	// ProjectId The project to provision the resource in.
 	ProjectId string `json:"projectId"`
 
+	// SshCertificateAuthorityId The SSH certificate authority used to bootstrap login trust when the backing server is
+	// created.
+	SshCertificateAuthorityId *string `json:"sshCertificateAuthorityId,omitempty"`
+
 	// UserData Contains base64-encoded configuration information or scripts to use upon launch.
 	// The format of the data is governed by the cloud-init standard, and may be a script,
 	// a MIME multipart archive, etc.
@@ -334,6 +338,9 @@ type InstanceRead struct {
 	Metadata externalRef0.ProjectScopedResourceReadMetadata `json:"metadata"`
 
 	// Spec A compute instance.
+	// Some stored desired-state changes only take effect on the backing server when that server is
+	// rebuilt or recreated. Currently, changing flavorId or imageId causes the backing server to
+	// be rebuilt or recreated.
 	Spec InstanceSpec `json:"spec"`
 
 	// Status Read only status information about a compute instance.
@@ -347,6 +354,9 @@ type InstanceSnapshotCreate struct {
 }
 
 // InstanceSpec A compute instance.
+// Some stored desired-state changes only take effect on the backing server when that server is
+// rebuilt or recreated. Currently, changing flavorId or imageId causes the backing server to
+// be rebuilt or recreated.
 type InstanceSpec struct {
 	// FlavorId The flavor CPU/RAM of a compute instance.
 	FlavorId string `json:"flavorId"`
@@ -356,6 +366,10 @@ type InstanceSpec struct {
 
 	// Networking A compute instance's network  configuration.
 	Networking *InstanceNetworking `json:"networking,omitempty"`
+
+	// SshCertificateAuthorityId The SSH certificate authority used to bootstrap login trust when the backing server is
+	// created.
+	SshCertificateAuthorityId *string `json:"sshCertificateAuthorityId,omitempty"`
 
 	// UserData Contains base64-encoded configuration information or scripts to use upon launch.
 	// The format of the data is governed by the cloud-init standard, and may be a script,
@@ -387,6 +401,9 @@ type InstanceUpdate struct {
 	Metadata externalRef0.ResourceWriteMetadata `json:"metadata"`
 
 	// Spec A compute instance.
+	// Some stored desired-state changes only take effect on the backing server when that server is
+	// rebuilt or recreated. Currently, changing flavorId or imageId causes the backing server to
+	// be rebuilt or recreated.
 	Spec InstanceSpec `json:"spec"`
 }
 

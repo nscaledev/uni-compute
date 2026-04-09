@@ -143,6 +143,10 @@ spec:
                           description: Replicas is the initial pool size to deploy.
                           minimum: 0
                           type: integer
+                        sshCertificateAuthorityId:
+                          description: SSHCertificateAuthorityID is an optional project
+                            scoped OpenSSH user CA trust anchor.
+                          type: string
                         tags:
                           description: Tags are aribrary user data.
                           items:
