@@ -250,3 +250,85 @@ func TestInstanceCreateRBACNoPermissions(t *testing.T) {
 	require.Error(t, err)
 	require.True(t, coreerrors.IsForbidden(err), "expected forbidden, got: %v", err)
 }
+
+func TestValidateUserDataForSSHCertificateAuthority(t *testing.T) {
+	t.Parallel()
+
+	sshCAID := "ssh-ca-id"
+	validCloudConfig := []byte("#cloud-config\nusers: []\n")
+	validMultipart := []byte("Content-Type: multipart/mixed; boundary=\"BOUNDARY\"\r\nMIME-Version: 1.0\r\n\r\n--BOUNDARY\r\nContent-Type: text/x-shellscript\r\n\r\n#!/bin/sh\necho hi\r\n--BOUNDARY--\r\n")
+	validMultipartLowerCase := []byte("content-type: multipart/mixed; boundary=\"BOUNDARY\"\r\nmime-version: 1.0\r\n\r\n--BOUNDARY\r\nContent-Type: text/x-shellscript\r\n\r\n#!/bin/sh\necho hi\r\n--BOUNDARY--\r\n")
+	validScript := []byte("#!/bin/sh\necho hi\n")
+	gzipData := []byte{0x1f, 0x8b, 0x08}
+	invalid := []byte("plain text")
+
+	tests := []struct {
+		name      string
+		sshCAID   *string
+		userData  *[]byte
+		wantError bool
+	}{
+		{name: "no ssh ca", sshCAID: nil, userData: &invalid, wantError: false},
+		{name: "no user data", sshCAID: &sshCAID, userData: nil, wantError: false},
+		{name: "empty user data", sshCAID: &sshCAID, userData: ptr.To([]byte{}), wantError: false},
+		{name: "cloud config", sshCAID: &sshCAID, userData: &validCloudConfig, wantError: false},
+		{name: "multipart", sshCAID: &sshCAID, userData: &validMultipart, wantError: false},
+		{name: "multipart lowercase", sshCAID: &sshCAID, userData: &validMultipartLowerCase, wantError: false},
+		{name: "script", sshCAID: &sshCAID, userData: &validScript, wantError: false},
+		{name: "gzip", sshCAID: &sshCAID, userData: &gzipData, wantError: true},
+		{name: "unrecognized", sshCAID: &sshCAID, userData: &invalid, wantError: true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := instance.ValidateUserDataForSSHCertificateAuthority(tc.sshCAID, tc.userData)
+
+			if tc.wantError {
+				require.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+		})
+	}
+}
+
+func TestValidateSSHCertificateAuthorityScope(t *testing.T) {
+	t.Parallel()
+
+	err := instance.ValidateSSHCertificateAuthorityScope(&regionapi.SshCertificateAuthorityV2Response{
+		Metadata: coreapi.ProjectScopedResourceReadMetadata{
+			OrganizationId: organizationID,
+			ProjectId:      projectID,
+		},
+	}, organizationID, projectID)
+	require.NoError(t, err)
+}
+
+func TestValidateSSHCertificateAuthorityScopeProjectMismatch(t *testing.T) {
+	t.Parallel()
+
+	err := instance.ValidateSSHCertificateAuthorityScope(&regionapi.SshCertificateAuthorityV2Response{
+		Metadata: coreapi.ProjectScopedResourceReadMetadata{
+			OrganizationId: organizationID,
+			ProjectId:      "different-project",
+		},
+	}, organizationID, projectID)
+	require.Error(t, err)
+	require.True(t, coreerrors.IsUnprocessableContent(err), "expected 422, got: %v", err)
+}
+
+func TestValidateSSHCertificateAuthorityScopeOrganizationMismatch(t *testing.T) {
+	t.Parallel()
+
+	err := instance.ValidateSSHCertificateAuthorityScope(&regionapi.SshCertificateAuthorityV2Response{
+		Metadata: coreapi.ProjectScopedResourceReadMetadata{
+			OrganizationId: "different-organization",
+			ProjectId:      projectID,
+		},
+	}, organizationID, projectID)
+	require.Error(t, err)
+	require.True(t, coreerrors.IsUnprocessableContent(err), "expected 422, got: %v", err)
+}
