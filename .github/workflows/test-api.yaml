@@ -119,12 +119,14 @@ jobs:
         max-failures: '5'
 
     - name: Send Slack Notification
+      uses: nscaledev/quality-tooling/.github/actions/slack-test-notifications@main
       if: ${{ !cancelled() }}
-      env:
-        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-      run: |
-        WORKFLOW_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-        go run test/api/suites/scripts/slack-notify.go test/api/suites/test-results.json "$WORKFLOW_URL"
+      with:
+        test-results-path: test/api/suites/test-results.json
+        workflow-url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        slack-webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+        environment: dev
+        title: 'Compute API Test Results'
 
   API-Tests-UAT:
     name: API Tests (uat)
@@ -203,9 +205,11 @@ jobs:
         max-failures: '5'
 
     - name: Send Slack Notification
+      uses: nscaledev/quality-tooling/.github/actions/slack-test-notifications@main
       if: ${{ !cancelled() }}
-      env:
-        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-      run: |
-        WORKFLOW_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-        go run test/api/suites/scripts/slack-notify.go test/api/suites/test-results.json "$WORKFLOW_URL"
+      with:
+        test-results-path: test/api/suites/test-results.json
+        workflow-url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        slack-webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
+        environment: uat
+        title: 'Compute API Test Results'
