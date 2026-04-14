@@ -225,6 +225,28 @@ func (c *APIClient) GetInstanceConsoleOutput(ctx context.Context, instanceID str
 	return &consoleOutput, nil
 }
 
+// GetInstanceSSHKey retrieves the SSH private key for an instance.
+func (c *APIClient) GetInstanceSSHKey(ctx context.Context, instanceID string) (*regionopenapi.SshKeyResponse, error) {
+	path := c.endpoints.GetInstanceSSHKey(instanceID)
+
+	//nolint:bodyclose // response body is closed in DoRequest
+	resp, respBody, err := c.DoRequest(ctx, http.MethodGet, path, nil, 0)
+	if err != nil {
+		return nil, fmt.Errorf("getting SSH key for instance: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status code: expected %d, got %d, body: %s", http.StatusOK, resp.StatusCode, string(respBody))
+	}
+
+	var sshKey regionopenapi.SshKeyResponse
+	if err := json.Unmarshal(respBody, &sshKey); err != nil {
+		return nil, fmt.Errorf("unmarshaling SSH key response: %w", err)
+	}
+
+	return &sshKey, nil
+}
+
 // StopInstance stops a running instance.
 func (c *APIClient) StopInstance(ctx context.Context, instanceID string) error {
 	path := c.endpoints.StopInstance(instanceID)
@@ -369,12 +391,88 @@ func (c *RegionAPIClient) DeleteImage(ctx context.Context, organizationID, regio
 	return nil
 }
 
-type RegionEndpoints struct{}
+func (c *RegionAPIClient) CreateSecurityGroup(ctx context.Context, request regionopenapi.SecurityGroupV2Create) (*regionopenapi.SecurityGroupV2Response, error) {
+	path := c.endpoints.SecurityGroupsV2()
 
-func (*RegionEndpoints) ListImages(organizationID, regionID string) string {
-	return fmt.Sprintf("/api/v1/organizations/%s/regions/%s/images", organizationID, regionID)
+	reqBody, err := json.Marshal(request)
+	if err != nil {
+		return nil, fmt.Errorf("marshaling security group request: %w", err)
+	}
+
+	//nolint:bodyclose // response body is closed in DoRequest
+	resp, respBody, err := c.DoRequest(ctx, http.MethodPost, path, bytes.NewReader(reqBody), 0)
+	if err != nil {
+		return nil, fmt.Errorf("creating security group: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusCreated {
+		return nil, fmt.Errorf("unexpected status code: expected %d, got %d, body: %s", http.StatusCreated, resp.StatusCode, string(respBody))
+	}
+
+	var securityGroup regionopenapi.SecurityGroupV2Response
+	if err := json.Unmarshal(respBody, &securityGroup); err != nil {
+		return nil, fmt.Errorf("unmarshaling security group response: %w", err)
+	}
+
+	return &securityGroup, nil
 }
 
-func (*RegionEndpoints) DeleteImage(organizationID, regionID, imageID string) string {
-	return fmt.Sprintf("/api/v1/organizations/%s/regions/%s/images/%s", organizationID, regionID, imageID)
+func (c *RegionAPIClient) DeleteSecurityGroup(ctx context.Context, securityGroupID string) error {
+	path := c.endpoints.SecurityGroupV2(securityGroupID)
+
+	//nolint:bodyclose // response body is closed in DoRequest
+	resp, respBody, err := c.DoRequest(ctx, http.MethodDelete, path, nil, 0)
+	if err != nil {
+		return fmt.Errorf("deleting security group %s: %w", securityGroupID, err)
+	}
+
+	switch resp.StatusCode {
+	case http.StatusAccepted, http.StatusNoContent, http.StatusOK, http.StatusNotFound:
+		return nil
+	default:
+		return fmt.Errorf("unexpected status code deleting security group %s: %d, body: %s", securityGroupID, resp.StatusCode, string(respBody))
+	}
+}
+
+func (c *RegionAPIClient) CreateSSHCertificateAuthority(ctx context.Context, request regionopenapi.SshCertificateAuthorityV2Create) (*regionopenapi.SshCertificateAuthorityV2Response, error) {
+	path := c.endpoints.SSHCertificateAuthoritiesV2()
+
+	reqBody, err := json.Marshal(request)
+	if err != nil {
+		return nil, fmt.Errorf("marshaling SSH certificate authority request: %w", err)
+	}
+
+	//nolint:bodyclose // response body is closed in DoRequest
+	resp, respBody, err := c.DoRequest(ctx, http.MethodPost, path, bytes.NewReader(reqBody), 0)
+	if err != nil {
+		return nil, fmt.Errorf("creating SSH certificate authority: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusCreated {
+		return nil, fmt.Errorf("unexpected status code: expected %d, got %d, body: %s", http.StatusCreated, resp.StatusCode, string(respBody))
+	}
+
+	var authority regionopenapi.SshCertificateAuthorityV2Response
+	if err := json.Unmarshal(respBody, &authority); err != nil {
+		return nil, fmt.Errorf("unmarshaling SSH certificate authority response: %w", err)
+	}
+
+	return &authority, nil
+}
+
+func (c *RegionAPIClient) DeleteSSHCertificateAuthority(ctx context.Context, sshCertificateAuthorityID string) error {
+	path := c.endpoints.SSHCertificateAuthorityV2(sshCertificateAuthorityID)
+
+	//nolint:bodyclose // response body is closed in DoRequest
+	resp, respBody, err := c.DoRequest(ctx, http.MethodDelete, path, nil, 0)
+	if err != nil {
+		return fmt.Errorf("deleting SSH certificate authority %s: %w", sshCertificateAuthorityID, err)
+	}
+
+	switch resp.StatusCode {
+	case http.StatusAccepted, http.StatusNoContent, http.StatusOK, http.StatusNotFound:
+		return nil
+	default:
+		return fmt.Errorf("unexpected status code deleting SSH certificate authority %s: %d, body: %s", sshCertificateAuthorityID, resp.StatusCode, string(respBody))
+	}
 }
