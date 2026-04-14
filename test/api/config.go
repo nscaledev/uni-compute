@@ -26,13 +26,14 @@ import (
 // TestConfig extends the base config with Compute-specific fields.
 type TestConfig struct {
 	coreconfig.BaseConfig
-	RegionBaseURL string
-	OrgID         string
-	ProjectID     string
-	RegionID      string
-	FlavorID      string
-	ImageID       string
-	NetworkID     string
+	RegionBaseURL        string
+	OrgID                string
+	ProjectID            string
+	RegionID             string
+	FlavorID             string
+	ImageID              string
+	NetworkID            string
+	EnableSSHIntegration bool
 }
 
 // LoadTestConfig loads configuration from environment variables and .env files using viper.
@@ -40,12 +41,13 @@ type TestConfig struct {
 func LoadTestConfig() (*TestConfig, error) {
 	// Set up viper with config paths and defaults
 	defaults := map[string]interface{}{
-		"REQUEST_TIMEOUT":  "30s",
-		"TEST_TIMEOUT":     "20m",
-		"SKIP_INTEGRATION": false,
-		"DEBUG_LOGGING":    false,
-		"LOG_REQUESTS":     false,
-		"LOG_RESPONSES":    false,
+		"REQUEST_TIMEOUT":        "30s",
+		"TEST_TIMEOUT":           "20m",
+		"SKIP_INTEGRATION":       false,
+		"ENABLE_SSH_INTEGRATION": true,
+		"DEBUG_LOGGING":          false,
+		"LOG_REQUESTS":           false,
+		"LOG_RESPONSES":          false,
 	}
 
 	configPaths := []string{
@@ -72,13 +74,14 @@ func LoadTestConfig() (*TestConfig, error) {
 			LogRequests:     v.GetBool("LOG_REQUESTS"),
 			LogResponses:    v.GetBool("LOG_RESPONSES"),
 		},
-		RegionBaseURL: v.GetString("REGION_BASE_URL"),
-		OrgID:         v.GetString("TEST_ORG_ID"),
-		ProjectID:     v.GetString("TEST_PROJECT_ID"),
-		RegionID:      v.GetString("TEST_REGION_ID"),
-		FlavorID:      v.GetString("TEST_FLAVOR_ID"),
-		ImageID:       v.GetString("TEST_IMAGE_ID"),
-		NetworkID:     v.GetString("TEST_NETWORK_ID"),
+		RegionBaseURL:        v.GetString("REGION_BASE_URL"),
+		OrgID:                v.GetString("TEST_ORG_ID"),
+		ProjectID:            v.GetString("TEST_PROJECT_ID"),
+		RegionID:             v.GetString("TEST_REGION_ID"),
+		FlavorID:             v.GetString("TEST_FLAVOR_ID"),
+		ImageID:              v.GetString("TEST_IMAGE_ID"),
+		NetworkID:            v.GetString("TEST_NETWORK_ID"),
+		EnableSSHIntegration: v.GetBool("ENABLE_SSH_INTEGRATION"),
 	}
 
 	// Validate required fields
