@@ -21,8 +21,10 @@ package api
 import (
 	"context"
 	"fmt"
+	"net"
 	"time"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -86,6 +88,35 @@ func (b *InstancePayloadBuilder) WithImageID(imageID string) *InstancePayloadBui
 // WithNetworkID sets the network ID.
 func (b *InstancePayloadBuilder) WithNetworkID(networkID string) *InstancePayloadBuilder {
 	b.instance.Spec.NetworkId = networkID
+	return b
+}
+
+// WithPublicIP enables public IP allocation for the instance.
+func (b *InstancePayloadBuilder) WithPublicIP(enabled bool) *InstancePayloadBuilder {
+	if b.instance.Spec.Networking == nil {
+		b.instance.Spec.Networking = &openapi.InstanceNetworking{}
+	}
+
+	b.instance.Spec.Networking.PublicIP = ptr.To(enabled)
+
+	return b
+}
+
+// WithSecurityGroups sets the security group IDs applied to the instance.
+func (b *InstancePayloadBuilder) WithSecurityGroups(securityGroupIDs ...string) *InstancePayloadBuilder {
+	if b.instance.Spec.Networking == nil {
+		b.instance.Spec.Networking = &openapi.InstanceNetworking{}
+	}
+
+	b.instance.Spec.Networking.SecurityGroups = ptr.To(securityGroupIDs)
+
+	return b
+}
+
+// WithSSHCertificateAuthorityID sets the SSH CA trust anchor for the instance.
+func (b *InstancePayloadBuilder) WithSSHCertificateAuthorityID(id string) *InstancePayloadBuilder {
+	b.instance.Spec.SshCertificateAuthorityId = ptr.To(id)
+
 	return b
 }
 
@@ -166,6 +197,112 @@ func WaitForInstanceActive(client *APIClient, ctx context.Context, config *TestC
 	}).WithTimeout(config.TestTimeout).WithPolling(10 * time.Second).Should(Equal("Running"))
 
 	GinkgoWriter.Printf("Instance %s is running\n", instanceID)
+}
+
+// WaitForInstancePublicIP waits for an instance to get a public IP address.
+func WaitForInstancePublicIP(client *APIClient, ctx context.Context, config *TestConfig, instanceID string) string {
+	var publicIP string
+
+	Eventually(func() string {
+		instance, err := client.GetInstance(ctx, instanceID)
+		if err != nil {
+			GinkgoWriter.Printf("Error getting instance: %v\n", err)
+			return ""
+		}
+
+		if instance.Status.PublicIP == nil || *instance.Status.PublicIP == "" {
+			GinkgoWriter.Printf("Instance %s has no public IP yet\n", instanceID)
+			return ""
+		}
+
+		publicIP = *instance.Status.PublicIP
+		GinkgoWriter.Printf("Instance %s public IP: %s\n", instanceID, publicIP)
+
+		return publicIP
+	}).WithTimeout(config.TestTimeout).WithPolling(10 * time.Second).ShouldNot(BeEmpty())
+
+	return publicIP
+}
+
+// WaitForTCPPort waits for a TCP port to become reachable.
+func WaitForTCPPort(address string, timeout time.Duration) {
+	Eventually(func() error {
+		conn, err := net.DialTimeout("tcp", address, 5*time.Second)
+		if err != nil {
+			return err
+		}
+
+		if closeErr := conn.Close(); closeErr != nil {
+			return closeErr
+		}
+
+		return nil
+	}).WithTimeout(timeout).WithPolling(5 * time.Second).Should(Succeed())
+}
+
+// CreateSSHOpenSecurityGroupWithCleanup creates an ingress TCP/22 security group and schedules cleanup.
+func CreateSSHOpenSecurityGroupWithCleanup(regionClient *RegionAPIClient, ctx context.Context, config *TestConfig) string {
+	request := regionopenapi.SecurityGroupV2Create{
+		Metadata: coreapi.ResourceWriteMetadata{
+			Name: fmt.Sprintf("ssh-test-sg-%s", uuid.NewString()[:8]),
+		},
+		Spec: regionopenapi.SecurityGroupV2CreateSpec{
+			NetworkId: config.NetworkID,
+			Rules: regionopenapi.SecurityGroupRuleV2List{
+				{
+					Direction: regionopenapi.NetworkDirectionIngress,
+					Protocol:  regionopenapi.NetworkProtocolTcp,
+					Port:      ptr.To(22),
+				},
+			},
+		},
+	}
+
+	securityGroup, err := regionClient.CreateSecurityGroup(ctx, request)
+	Expect(err).NotTo(HaveOccurred(), "Failed to create SSH security group")
+	Expect(securityGroup.Metadata.Id).NotTo(BeEmpty())
+
+	securityGroupID := securityGroup.Metadata.Id
+
+	DeferCleanup(func() {
+		GinkgoWriter.Printf("Cleaning up SSH security group: %s\n", securityGroupID)
+
+		if err := regionClient.DeleteSecurityGroup(ctx, securityGroupID); err != nil {
+			GinkgoWriter.Printf("Warning: failed to delete security group %s: %v\n", securityGroupID, err)
+		}
+	})
+
+	return securityGroupID
+}
+
+// CreateSSHCertificateAuthorityWithCleanup creates an SSH CA and schedules cleanup.
+func CreateSSHCertificateAuthorityWithCleanup(regionClient *RegionAPIClient, ctx context.Context, config *TestConfig, publicKey string) string {
+	request := regionopenapi.SshCertificateAuthorityV2Create{
+		Metadata: coreapi.ResourceWriteMetadata{
+			Name: fmt.Sprintf("ssh-test-ca-%s", uuid.NewString()[:8]),
+		},
+		Spec: regionopenapi.SshCertificateAuthorityV2CreateSpec{
+			OrganizationId: config.OrgID,
+			ProjectId:      config.ProjectID,
+			PublicKey:      publicKey,
+		},
+	}
+
+	authority, err := regionClient.CreateSSHCertificateAuthority(ctx, request)
+	Expect(err).NotTo(HaveOccurred(), "Failed to create SSH certificate authority")
+	Expect(authority.Metadata.Id).NotTo(BeEmpty())
+
+	authorityID := authority.Metadata.Id
+
+	DeferCleanup(func() {
+		GinkgoWriter.Printf("Cleaning up SSH certificate authority: %s\n", authorityID)
+
+		if err := regionClient.DeleteSSHCertificateAuthority(ctx, authorityID); err != nil {
+			GinkgoWriter.Printf("Warning: failed to delete SSH certificate authority %s: %v\n", authorityID, err)
+		}
+	})
+
+	return authorityID
 }
 
 // ImagePayloadBuilder builds ImageCreate payloads for testing.

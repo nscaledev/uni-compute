@@ -67,6 +67,10 @@ func (e *Endpoints) GetInstanceSnapshot(instanceID string) string {
 	return fmt.Sprintf("/api/v2/instances/%s/snapshot", url.PathEscape(instanceID))
 }
 
+func (e *Endpoints) GetInstanceSSHKey(instanceID string) string {
+	return fmt.Sprintf("/api/v2/instances/%s/sshkey", url.PathEscape(instanceID))
+}
+
 func (e *Endpoints) StopInstance(instanceID string) string {
 	return fmt.Sprintf("/api/v2/instances/%s/stop", url.PathEscape(instanceID))
 }
@@ -90,4 +94,31 @@ func (e *Endpoints) OpenAPISpec() string {
 
 func (e *Endpoints) Version() string {
 	return "/api/v1/version"
+}
+
+// RegionEndpoints contains region API endpoint patterns used by integration tests.
+type RegionEndpoints struct{}
+
+func (*RegionEndpoints) ListImages(organizationID, regionID string) string {
+	return fmt.Sprintf("/api/v1/organizations/%s/regions/%s/images", organizationID, regionID)
+}
+
+func (*RegionEndpoints) DeleteImage(organizationID, regionID, imageID string) string {
+	return fmt.Sprintf("/api/v1/organizations/%s/regions/%s/images/%s", organizationID, regionID, imageID)
+}
+
+func (*RegionEndpoints) SecurityGroupsV2() string {
+	return "/api/v2/securitygroups"
+}
+
+func (*RegionEndpoints) SecurityGroupV2(securityGroupID string) string {
+	return fmt.Sprintf("/api/v2/securitygroups/%s", url.PathEscape(securityGroupID))
+}
+
+func (*RegionEndpoints) SSHCertificateAuthoritiesV2() string {
+	return "/api/v2/sshcertificateauthorities"
+}
+
+func (*RegionEndpoints) SSHCertificateAuthorityV2(sshCertificateAuthorityID string) string {
+	return fmt.Sprintf("/api/v2/sshcertificateauthorities/%s", url.PathEscape(sshCertificateAuthorityID))
 }
