@@ -32,9 +32,10 @@ import (
 )
 
 const (
-	sshUser    = "cloud-user"
 	sshCommand = "id -un"
 )
+
+var sshUsers = []string{"cloud-user", "ubuntu"}
 
 var _ = Describe("SSH Integration", func() {
 	var regionClient *api.RegionAPIClient
@@ -69,15 +70,17 @@ var _ = Describe("SSH Integration", func() {
 		signer, err := ssh.ParsePrivateKey([]byte(sshKey.PrivateKey))
 		Expect(err).NotTo(HaveOccurred(), "Failed to parse instance SSH key")
 
-		output, err := api.RunSSHCommand(
+		user, output, err := api.RunSSHCommandWithUserFallback(
 			net.JoinHostPort(publicIP, "22"),
-			sshUser,
-			[]ssh.AuthMethod{ssh.PublicKeys(signer)},
+			sshUsers,
+			func(string) ([]ssh.AuthMethod, error) {
+				return []ssh.AuthMethod{ssh.PublicKeys(signer)}, nil
+			},
 			30*time.Second,
 			sshCommand,
 		)
 		Expect(err).NotTo(HaveOccurred(), "Failed to SSH to instance %s", instanceID)
-		Expect(output).To(Equal(sshUser))
+		Expect(output).To(Equal(user))
 	})
 
 	It("should connect over SSH using a certificate authority", func() {
@@ -103,22 +106,26 @@ var _ = Describe("SSH Integration", func() {
 		publicIP := api.WaitForInstancePublicIP(client, ctx, config, instanceID)
 		api.WaitForSSHReady(publicIP, 5*time.Minute)
 
-		certificateAuth, err := api.SignSSHUserCertificate(
-			caKeyPair.PrivateKeySigner,
-			userKeyPair.PrivateKeySigner,
-			sshUser,
-			15*time.Minute,
-		)
-		Expect(err).NotTo(HaveOccurred(), "Failed to sign SSH certificate")
-
-		output, err := api.RunSSHCommand(
+		user, output, err := api.RunSSHCommandWithUserFallback(
 			net.JoinHostPort(publicIP, "22"),
-			sshUser,
-			[]ssh.AuthMethod{certificateAuth},
+			sshUsers,
+			func(user string) ([]ssh.AuthMethod, error) {
+				certificateAuth, err := api.SignSSHUserCertificate(
+					caKeyPair.PrivateKeySigner,
+					userKeyPair.PrivateKeySigner,
+					user,
+					15*time.Minute,
+				)
+				if err != nil {
+					return nil, err
+				}
+
+				return []ssh.AuthMethod{certificateAuth}, nil
+			},
 			30*time.Second,
 			sshCommand,
 		)
 		Expect(err).NotTo(HaveOccurred(), "Failed to SSH with certificate to instance %s", instanceID)
-		Expect(output).To(Equal(sshUser), fmt.Sprintf("unexpected SSH command output from instance %s", instanceID))
+		Expect(output).To(Equal(user), fmt.Sprintf("unexpected SSH command output from instance %s", instanceID))
 	})
 })

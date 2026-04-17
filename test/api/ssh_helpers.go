@@ -22,6 +22,7 @@ import (
 	"crypto/rand"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"net"
 	"time"
@@ -29,6 +30,10 @@ import (
 	"github.com/google/uuid"
 	"golang.org/x/crypto/ssh"
 )
+
+type SSHAuthMethodsFactory func(user string) ([]ssh.AuthMethod, error)
+
+var errNoSSHUsersConfigured = errors.New("no SSH users configured")
 
 type SSHKeyPair struct {
 	AuthorizedKey    string
@@ -140,6 +145,30 @@ func RunSSHCommand(address, user string, authMethods []ssh.AuthMethod, timeout t
 	}
 
 	return string(bytes.TrimSpace(output)), nil
+}
+
+func RunSSHCommandWithUserFallback(address string, users []string, authMethodsFactory SSHAuthMethodsFactory, timeout time.Duration, command string) (string, string, error) {
+	var lastErr error
+
+	for _, user := range users {
+		authMethods, err := authMethodsFactory(user)
+		if err != nil {
+			return "", "", fmt.Errorf("building SSH auth methods for user %q: %w", user, err)
+		}
+
+		output, err := RunSSHCommand(address, user, authMethods, timeout, command)
+		if err == nil {
+			return user, output, nil
+		}
+
+		lastErr = err
+	}
+
+	if lastErr == nil {
+		lastErr = errNoSSHUsersConfigured
+	}
+
+	return "", "", fmt.Errorf("running SSH command with fallback users %v: %w", users, lastErr)
 }
 
 func WaitForSSHReady(publicIP string, timeout time.Duration) {
