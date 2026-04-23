@@ -52,9 +52,8 @@ var _ = Describe("Instance Operations", func() {
 
 			DeferCleanup(func() {
 				GinkgoWriter.Printf("Cleaning up custom image: %s\n", customImageID)
-				if err := regionClient.DeleteImage(ctx, config.OrgID, config.RegionID, customImageID); err != nil {
-					GinkgoWriter.Printf("Warning: failed to delete custom image %s: %v\n", customImageID, err)
-				}
+				Expect(regionClient.DeleteImage(ctx, config.OrgID, config.RegionID, customImageID)).
+					To(Succeed(), "Failed to delete custom image %s", customImageID)
 			})
 
 			api.WaitForImageReady(regionClient, ctx, config, customImageID)
@@ -194,15 +193,11 @@ var _ = Describe("Instance Operations", func() {
 
 				DeferCleanup(func() {
 					if image != nil {
-						GinkgoWriter.Printf("Attempting to delete snapshot image %s\n", image.Metadata.Id)
-						regionClient, err := api.NewRegionClient("") // let it get the base URL from config
-						if err != nil {
-							GinkgoWriter.Printf("Warning: Failed to create region client, to delete image %s: %v\n", image.Metadata.Id, err)
-						}
-
-						if err = regionClient.DeleteImage(ctx, config.OrgID, config.RegionID, image.Metadata.Id); err != nil {
-							GinkgoWriter.Printf("Warning: Failed to delete image %s: %v\n", image.Metadata.Id, err)
-						}
+						GinkgoWriter.Printf("Cleaning up snapshot image %s\n", image.Metadata.Id)
+						regionClient, err := api.NewRegionClient("")
+						Expect(err).NotTo(HaveOccurred(), "Failed to create region client for snapshot image cleanup")
+						Expect(regionClient.DeleteImage(ctx, config.OrgID, config.RegionID, image.Metadata.Id)).
+							To(Succeed(), "Failed to delete snapshot image %s", image.Metadata.Id)
 					}
 				})
 
@@ -385,9 +380,8 @@ var _ = Describe("Instance Operations", func() {
 
 			DeferCleanup(func() {
 				GinkgoWriter.Printf("Cleaning up snapshot image: %s\n", snapshotImageID)
-				if err := regionClient.DeleteImage(ctx, config.OrgID, config.RegionID, snapshotImageID); err != nil {
-					GinkgoWriter.Printf("Warning: failed to delete snapshot image %s: %v\n", snapshotImageID, err)
-				}
+				Expect(regionClient.DeleteImage(ctx, config.OrgID, config.RegionID, snapshotImageID)).
+					To(Succeed(), "Failed to delete snapshot image %s", snapshotImageID)
 			})
 
 			api.WaitForImageReady(regionClient, ctx, config, snapshotImageID)
