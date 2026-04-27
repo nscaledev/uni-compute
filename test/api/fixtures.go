@@ -139,13 +139,13 @@ func CreateInstanceWithCleanup(client *APIClient, ctx context.Context, config *T
 		}
 
 		GinkgoWriter.Printf("Cleaning up instance: %s\n", instanceID)
+		Expect(client.DeleteInstance(ctx, instanceID)).To(Succeed())
 
-		deleteErr := client.DeleteInstance(ctx, instanceID)
-		if deleteErr != nil {
-			GinkgoWriter.Printf("Warning: Failed to delete instance %s: %v\n", instanceID, deleteErr)
-		} else {
-			GinkgoWriter.Printf("Successfully deleted instance: %s\n", instanceID)
-		}
+		GinkgoWriter.Printf("Waiting for instance %s to be fully deleted\n", instanceID)
+		Eventually(func() error {
+			_, err := client.GetInstance(ctx, instanceID)
+			return err
+		}).WithTimeout(config.TestTimeout).WithPolling(5 * time.Second).Should(HaveOccurred())
 	})
 
 	instance, err := client.CreateInstance(ctx, payload)
@@ -266,10 +266,7 @@ func CreateSSHOpenSecurityGroupWithCleanup(regionClient *RegionAPIClient, ctx co
 
 	DeferCleanup(func() {
 		GinkgoWriter.Printf("Cleaning up SSH security group: %s\n", securityGroupID)
-
-		if err := regionClient.DeleteSecurityGroup(ctx, securityGroupID); err != nil {
-			GinkgoWriter.Printf("Warning: failed to delete security group %s: %v\n", securityGroupID, err)
-		}
+		Expect(regionClient.DeleteSecurityGroup(ctx, securityGroupID)).To(Succeed())
 	})
 
 	return securityGroupID
@@ -296,10 +293,7 @@ func CreateSSHCertificateAuthorityWithCleanup(regionClient *RegionAPIClient, ctx
 
 	DeferCleanup(func() {
 		GinkgoWriter.Printf("Cleaning up SSH certificate authority: %s\n", authorityID)
-
-		if err := regionClient.DeleteSSHCertificateAuthority(ctx, authorityID); err != nil {
-			GinkgoWriter.Printf("Warning: failed to delete SSH certificate authority %s: %v\n", authorityID, err)
-		}
+		Expect(regionClient.DeleteSSHCertificateAuthority(ctx, authorityID)).To(Succeed())
 	})
 
 	return authorityID
