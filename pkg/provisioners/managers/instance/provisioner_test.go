@@ -145,3 +145,27 @@ func TestNeedsRebuild(t *testing.T) {
 		})
 	}
 }
+
+func TestUpdateInstanceStatusCopiesMACAddress(t *testing.T) {
+	t.Parallel()
+
+	provisioner := newProvisionerForTest(nil)
+	server := &regionapi.ServerV2Response{
+		Status: regionapi.ServerV2Status{
+			PrivateIP:  ptr.To("192.168.0.42"),
+			PublicIP:   ptr.To("203.0.113.10"),
+			MacAddress: ptr.To("fa:16:3e:12:34:56"),
+			PowerState: ptr.To(regionapi.InstanceLifecyclePhaseRunning),
+		},
+	}
+
+	provisioner.UpdateInstanceStatus(server)
+
+	instanceObject, ok := provisioner.Object().(*unikornv1.ComputeInstance)
+	require.True(t, ok)
+	require.Equal(t, server.Status.PrivateIP, instanceObject.Status.PrivateIP)
+	require.Equal(t, server.Status.PublicIP, instanceObject.Status.PublicIP)
+	require.Equal(t, server.Status.MacAddress, instanceObject.Status.MACAddress)
+	require.NotNil(t, instanceObject.Status.PowerState)
+	assert.Equal(t, "Running", string(*instanceObject.Status.PowerState))
+}
