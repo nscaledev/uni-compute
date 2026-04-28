@@ -44,3 +44,7 @@ func NeedsRebuild(current, desired *regionapi.ServerV2Spec) bool {
 func (p *Provisioner) CreateOrUpdateServer(ctx context.Context, region regionapi.ClientWithResponsesInterface, server *regionapi.ServerV2Read) (*regionapi.ServerV2Read, error) {
 	return p.createOrUpdateServer(ctx, region, server)
 }
+
+func (p *Provisioner) UpdateInstanceStatus(server *regionapi.ServerV2Response) {
+	p.updateInstanceStatus(server)
+}

@@ -375,6 +375,11 @@ func (in *ComputeInstanceStatus) DeepCopyInto(out *ComputeInstanceStatus) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.MACAddress != nil {
+		in, out := &in.MACAddress, &out.MACAddress
+		*out = new(string)
+		**out = **in
+	}
 	if in.PowerState != nil {
 		in, out := &in.PowerState, &out.PowerState
 		*out = new(apisunikornv1alpha1.InstanceLifecyclePhase)

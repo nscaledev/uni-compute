@@ -271,6 +271,8 @@ type ComputeInstanceStatus struct {
 	// PublicIP is the public IP address if requested.
 	// TODO: should be IPv4Address.
 	PublicIP *string `json:"publicIp,omitempty"`
+	// MACAddress is the MAC address of the instance's primary network interface.
+	MACAddress *string `json:"macAddress,omitempty"`
 	// PowerState is the current status of the machine.
 	PowerState *unikornv1region.InstanceLifecyclePhase `json:"powerState,omitempty"`
 	// Conditions is a set of status conditions for the machine.

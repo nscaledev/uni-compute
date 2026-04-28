@@ -245,6 +245,13 @@ func convertPowerState(in *regionapi.InstanceLifecyclePhase) *regionv1.InstanceL
 	}
 }
 
+func (p *Provisioner) updateInstanceStatus(server *regionapi.ServerV2Response) {
+	p.instance.Status.PrivateIP = server.Status.PrivateIP
+	p.instance.Status.PublicIP = server.Status.PublicIP
+	p.instance.Status.MACAddress = server.Status.MacAddress
+	p.instance.Status.PowerState = convertPowerState(server.Status.PowerState)
+}
+
 // Provision implements the Provision interface.
 func (p *Provisioner) Provision(ctx context.Context) error {
 	region, err := p.getRegionClient(ctx)
@@ -265,9 +272,7 @@ func (p *Provisioner) Provision(ctx context.Context) error {
 	healthStatus, healthReason, healthMessage := util.ConvertHealthStatusCondition(server.Metadata.HealthStatus)
 	unikornv1core.UpdateCondition(&p.instance.Status.Conditions, unikornv1core.ConditionHealthy, healthStatus, healthReason, healthMessage)
 
-	p.instance.Status.PrivateIP = server.Status.PrivateIP
-	p.instance.Status.PublicIP = server.Status.PublicIP
-	p.instance.Status.PowerState = convertPowerState(server.Status.PowerState)
+	p.updateInstanceStatus(server)
 
 	if server.Metadata.ProvisioningStatus != coreapi.ResourceProvisioningStatusProvisioned {
 		return provisioners.ErrYield

@@ -179,6 +179,10 @@ spec:
                   - type
                   type: object
                 type: array
+              macAddress:
+                description: MACAddress is the MAC address of the instance's primary
+                  network interface.
+                type: string
               powerState:
                 description: PowerState is the current status of the machine.
                 enum:
