@@ -169,6 +169,7 @@ func convert(in *computev1.ComputeInstance) *computeapi.InstanceRead {
 			PowerState: convertPowerState(in.Status.PowerState),
 			PrivateIP:  in.Status.PrivateIP,
 			PublicIP:   in.Status.PublicIP,
+			MacAddress: in.Status.MACAddress,
 		},
 	}
 

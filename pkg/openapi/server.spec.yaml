@@ -1014,6 +1014,9 @@ components:
         publicIP:
           description: The public IP address of the server.
           type: string
+        macAddress:
+          description: The MAC address of the server.
+          type: string
     instanceRead:
       description: A compute instance.
       type: object
@@ -1626,6 +1629,7 @@ components:
               networkId: b059b3e6-9ae5-42b7-94b4-f42fb7a6baee
               privateIP: 192.168.0.3
               publicIP: 183.45.68.162
+              macAddress: fa:16:3e:12:34:56
               powerState: Running
     instancesResponse:
       description: A list of compute instances.
@@ -1654,6 +1658,7 @@ components:
               networkId: b059b3e6-9ae5-42b7-94b4-f42fb7a6baee
               privateIP: 192.168.0.3
               publicIP: 183.45.68.162
+              macAddress: fa:16:3e:12:34:56
               powerState: Running
     computeClusterResponse:
       description: A Compute cluster.

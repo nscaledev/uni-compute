@@ -24,15 +24,19 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
+	computev1 "github.com/unikorn-cloud/compute/pkg/apis/unikorn/v1alpha1"
 	computeapi "github.com/unikorn-cloud/compute/pkg/openapi"
 	"github.com/unikorn-cloud/compute/pkg/server/handler/instance"
+	coreconstants "github.com/unikorn-cloud/core/pkg/constants"
 	coreapi "github.com/unikorn-cloud/core/pkg/openapi"
 	coreerrors "github.com/unikorn-cloud/core/pkg/server/errors"
 	identityapi "github.com/unikorn-cloud/identity/pkg/openapi"
 	identitymock "github.com/unikorn-cloud/identity/pkg/openapi/mock"
 	"github.com/unikorn-cloud/identity/pkg/rbac"
+	regionconstants "github.com/unikorn-cloud/region/pkg/constants"
 	regionapi "github.com/unikorn-cloud/region/pkg/openapi"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 )
 
@@ -249,6 +253,34 @@ func TestInstanceCreateRBACNoPermissions(t *testing.T) {
 
 	require.Error(t, err)
 	require.True(t, coreerrors.IsForbidden(err), "expected forbidden, got: %v", err)
+}
+
+func TestConvertReturnsMACAddress(t *testing.T) {
+	t.Parallel()
+
+	resource := &computev1.ComputeInstance{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "instance-1",
+			Labels: map[string]string{
+				coreconstants.OrganizationLabel: "org-1",
+				coreconstants.ProjectLabel:      "project-1",
+				regionconstants.RegionLabel:     "region-1",
+				regionconstants.NetworkLabel:    "network-1",
+			},
+		},
+		Status: computev1.ComputeInstanceStatus{
+			PrivateIP:  ptr.To("192.168.0.42"),
+			PublicIP:   ptr.To("203.0.113.10"),
+			MACAddress: ptr.To("fa:16:3e:12:34:56"),
+		},
+	}
+
+	result := instance.Convert(resource)
+
+	require.NotNil(t, result)
+	require.Equal(t, resource.Status.PrivateIP, result.Status.PrivateIP)
+	require.Equal(t, resource.Status.PublicIP, result.Status.PublicIP)
+	require.Equal(t, resource.Status.MACAddress, result.Status.MacAddress)
 }
 
 func TestValidateUserDataForSSHCertificateAuthority(t *testing.T) {

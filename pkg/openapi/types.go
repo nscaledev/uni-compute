@@ -379,6 +379,9 @@ type InstanceSpec struct {
 
 // InstanceStatus Read only status information about a compute instance.
 type InstanceStatus struct {
+	// MacAddress The MAC address of the server.
+	MacAddress *string `json:"macAddress,omitempty"`
+
 	// NetworkId The network a security group belongs to.
 	NetworkId string `json:"networkId"`
 
