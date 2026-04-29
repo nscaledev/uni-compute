@@ -17,6 +17,8 @@ limitations under the License.
 package instance
 
 import (
+	computev1 "github.com/unikorn-cloud/compute/pkg/apis/unikorn/v1alpha1"
+	computeapi "github.com/unikorn-cloud/compute/pkg/openapi"
 	identityapi "github.com/unikorn-cloud/identity/pkg/openapi"
 	regionapi "github.com/unikorn-cloud/region/pkg/openapi"
 )
@@ -31,4 +33,8 @@ func ValidateUserDataForSSHCertificateAuthority(sshCertificateAuthorityID *strin
 
 func ValidateSSHCertificateAuthorityScope(resource *regionapi.SshCertificateAuthorityV2Response, organizationID, projectID string) error {
 	return validateSSHCertificateAuthorityScope(resource, organizationID, projectID)
+}
+
+func Convert(resource *computev1.ComputeInstance) *computeapi.InstanceRead {
+	return convert(resource)
 }
