@@ -15,7 +15,7 @@ require (
 	github.com/stretchr/testify v1.11.1
 	github.com/unikorn-cloud/core v1.14.0-rc1.0.20260422145135-733e5169a07e
 	github.com/unikorn-cloud/identity v1.14.0-rc1.0.20260421095602-a005bcea5bed
-	github.com/unikorn-cloud/region v1.16.1
+	github.com/unikorn-cloud/region v1.16.2
 	go.uber.org/mock v0.5.2
 	golang.org/x/crypto v0.49.0
 	k8s.io/api v0.33.1
