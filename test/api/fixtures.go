@@ -199,8 +199,42 @@ func WaitForInstanceActive(client *APIClient, ctx context.Context, config *TestC
 	GinkgoWriter.Printf("Instance %s is running\n", instanceID)
 }
 
-// WaitForInstancePublicIP waits for an instance to get a public IP address.
-func WaitForInstancePublicIP(client *APIClient, ctx context.Context, config *TestConfig, instanceID string) string {
+func hasStringValue(value *string) bool {
+	return value != nil && *value != ""
+}
+
+func publicIPRequested(instance openapi.InstanceRead) bool {
+	return instance.Spec.Networking != nil &&
+		instance.Spec.Networking.PublicIP != nil &&
+		*instance.Spec.Networking.PublicIP
+}
+
+func readyNetworkIdentity(instance openapi.InstanceRead, instanceID string) (string, bool) {
+	if !hasStringValue(instance.Status.PrivateIP) {
+		GinkgoWriter.Printf("Instance %s has no private IP yet\n", instanceID)
+		return "", false
+	}
+
+	if !hasStringValue(instance.Status.MacAddress) {
+		GinkgoWriter.Printf("Instance %s has no MAC address yet\n", instanceID)
+		return "", false
+	}
+
+	if publicIPRequested(instance) {
+		if !hasStringValue(instance.Status.PublicIP) {
+			GinkgoWriter.Printf("Instance %s has no public IP yet\n", instanceID)
+			return "", false
+		}
+
+		return *instance.Status.PublicIP, true
+	}
+
+	return "", true
+}
+
+// WaitForInstanceNetworkIdentity waits for an instance to persist its network identity.
+// privateIP and macAddress must always be present; publicIP is required only when requested.
+func WaitForInstanceNetworkIdentity(client *APIClient, ctx context.Context, config *TestConfig, instanceID string) string {
 	var publicIP string
 
 	Eventually(func() string {
@@ -210,15 +244,21 @@ func WaitForInstancePublicIP(client *APIClient, ctx context.Context, config *Tes
 			return ""
 		}
 
-		if instance.Status.PublicIP == nil || *instance.Status.PublicIP == "" {
-			GinkgoWriter.Printf("Instance %s has no public IP yet\n", instanceID)
+		var ready bool
+		publicIP, ready = readyNetworkIdentity(instance, instanceID)
+		if !ready {
 			return ""
 		}
 
-		publicIP = *instance.Status.PublicIP
-		GinkgoWriter.Printf("Instance %s public IP: %s\n", instanceID, publicIP)
+		GinkgoWriter.Printf(
+			"Instance %s network identity ready: private IP=%s, MAC=%s, public IP=%s\n",
+			instanceID,
+			*instance.Status.PrivateIP,
+			*instance.Status.MacAddress,
+			publicIP,
+		)
 
-		return publicIP
+		return *instance.Status.PrivateIP
 	}).WithTimeout(config.TestTimeout).WithPolling(10 * time.Second).ShouldNot(BeEmpty())
 
 	return publicIP

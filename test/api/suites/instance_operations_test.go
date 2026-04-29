@@ -65,6 +65,7 @@ var _ = Describe("Instance Operations", func() {
 
 			GinkgoWriter.Printf("Launched instance %s from custom image %s\n", instanceID, customImageID)
 
+			api.WaitForInstanceNetworkIdentity(client, ctx, config, instanceID)
 			api.WaitForInstanceActive(client, ctx, config, instanceID)
 		})
 	})
@@ -80,7 +81,8 @@ var _ = Describe("Instance Operations", func() {
 
 				instanceID = iID
 
-				// Wait for instance to be running so console output is available
+				// Wait for network identity and running state so console output is available
+				api.WaitForInstanceNetworkIdentity(client, ctx, config, instanceID)
 				api.WaitForInstanceActive(client, ctx, config, instanceID)
 
 				GinkgoWriter.Printf("Using instance %s for console output tests\n", instanceID)
@@ -182,7 +184,8 @@ var _ = Describe("Instance Operations", func() {
 
 				instanceID = iID
 
-				// Wait for instance to be running so it can be snapshotted
+				// Wait for network identity and running state so it can be snapshotted
+				api.WaitForInstanceNetworkIdentity(client, ctx, config, instanceID)
 				api.WaitForInstanceActive(client, ctx, config, instanceID)
 
 				GinkgoWriter.Printf("Using instance %s for snapshot tests\n", instanceID)
@@ -236,7 +239,8 @@ var _ = Describe("Instance Operations", func() {
 
 				instanceID = iID
 
-				// Wait for instance to be running before performing power operations
+				// Wait for network identity and running state before performing power operations
+				api.WaitForInstanceNetworkIdentity(client, ctx, config, instanceID)
 				api.WaitForInstanceActive(client, ctx, config, instanceID)
 
 				GinkgoWriter.Printf("Using instance %s for power operations\n", instanceID)
@@ -365,6 +369,7 @@ var _ = Describe("Instance Operations", func() {
 			_, sourceInstanceID := api.CreateInstanceWithCleanup(client, ctx, config,
 				api.NewInstancePayload().Build())
 
+			api.WaitForInstanceNetworkIdentity(client, ctx, config, sourceInstanceID)
 			api.WaitForInstanceActive(client, ctx, config, sourceInstanceID)
 
 			GinkgoWriter.Printf("Taking snapshot of instance %s\n", sourceInstanceID)
@@ -393,6 +398,7 @@ var _ = Describe("Instance Operations", func() {
 
 			GinkgoWriter.Printf("Launched instance %s from snapshot image %s\n", instanceID, snapshotImageID)
 
+			api.WaitForInstanceNetworkIdentity(client, ctx, config, instanceID)
 			api.WaitForInstanceActive(client, ctx, config, instanceID)
 		})
 	})
