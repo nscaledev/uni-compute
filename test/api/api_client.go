@@ -206,6 +206,29 @@ func (c *APIClient) DeleteInstance(ctx context.Context, instanceID string) error
 	return nil
 }
 
+// UpdateInstance updates an instance via PUT and returns the updated resource.
+func (c *APIClient) UpdateInstance(ctx context.Context, instanceID string, request openapi.InstanceUpdate) (openapi.InstanceRead, error) {
+	path := c.endpoints.UpdateInstance(instanceID)
+
+	reqBody, err := json.Marshal(request)
+	if err != nil {
+		return openapi.InstanceRead{}, fmt.Errorf("marshaling instance update request: %w", err)
+	}
+
+	//nolint:bodyclose // response body is closed in DoRequest
+	_, respBody, err := c.DoRequest(ctx, http.MethodPut, path, bytes.NewReader(reqBody), http.StatusAccepted)
+	if err != nil {
+		return openapi.InstanceRead{}, fmt.Errorf("updating instance: %w", err)
+	}
+
+	var instance openapi.InstanceRead
+	if err := json.Unmarshal(respBody, &instance); err != nil {
+		return openapi.InstanceRead{}, fmt.Errorf("unmarshaling instance response: %w", err)
+	}
+
+	return instance, nil
+}
+
 // GetInstanceConsoleOutput retrieves console output for an instance.
 func (c *APIClient) GetInstanceConsoleOutput(ctx context.Context, instanceID string, length *int) (*regionopenapi.ConsoleOutputResponse, error) {
 	path := c.endpoints.GetInstanceConsoleOutput(instanceID)

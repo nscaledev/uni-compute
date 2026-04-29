@@ -64,6 +64,10 @@ func (e *Endpoints) DeleteInstance(instanceID string) string {
 	return fmt.Sprintf("/api/v2/instances/%s", url.PathEscape(instanceID))
 }
 
+func (e *Endpoints) UpdateInstance(instanceID string) string {
+	return fmt.Sprintf("/api/v2/instances/%s", url.PathEscape(instanceID))
+}
+
 func (e *Endpoints) GetInstanceConsoleOutput(instanceID string) string {
 	return fmt.Sprintf("/api/v2/instances/%s/consoleoutput", url.PathEscape(instanceID))
 }
