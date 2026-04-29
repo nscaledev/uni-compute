@@ -61,7 +61,7 @@ var _ = Describe("SSH Integration", func() {
 		)
 
 		api.WaitForInstanceActive(client, ctx, config, instanceID)
-		publicIP := api.WaitForInstancePublicIP(client, ctx, config, instanceID)
+		publicIP := api.WaitForInstanceNetworkIdentity(client, ctx, config, instanceID)
 		api.WaitForSSHReady(publicIP, 5*time.Minute)
 
 		sshKey, err := client.GetInstanceSSHKey(ctx, instanceID)
@@ -103,7 +103,7 @@ var _ = Describe("SSH Integration", func() {
 		)
 
 		api.WaitForInstanceActive(client, ctx, config, instanceID)
-		publicIP := api.WaitForInstancePublicIP(client, ctx, config, instanceID)
+		publicIP := api.WaitForInstanceNetworkIdentity(client, ctx, config, instanceID)
 		api.WaitForSSHReady(publicIP, 5*time.Minute)
 
 		user, output, err := api.RunSSHCommandWithUserFallback(
