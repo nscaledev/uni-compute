@@ -119,6 +119,21 @@ func (c *APIClient) ListImages(ctx context.Context, orgID, regionID string) (reg
 	return coreclient.ListResource[regionopenapi.Image](ctx, c.APIClient, path, config)
 }
 
+// ListInstances returns all instances visible to the caller, filtered by org and project.
+func (c *APIClient) ListInstances(ctx context.Context, orgID, projectID string) (openapi.InstancesRead, error) {
+	path := c.endpoints.ListInstances(orgID, projectID)
+
+	config := coreclient.ResponseHandlerConfig{
+		ResourceType:   "instances",
+		ResourceID:     orgID,
+		ResourceIDType: "organization",
+		AllowForbidden: true,
+		AllowNotFound:  true,
+	}
+
+	return coreclient.ListResource[openapi.InstanceRead](ctx, c.APIClient, path, config)
+}
+
 // CreateInstance creates a new instance.
 func (c *APIClient) CreateInstance(ctx context.Context, payload openapi.InstanceCreate) (openapi.InstanceRead, error) {
 	path := c.endpoints.CreateInstance()

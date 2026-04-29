@@ -26,6 +26,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	coreapi "github.com/unikorn-cloud/core/pkg/openapi"
+
 	"github.com/unikorn-cloud/compute/pkg/openapi"
 	"github.com/unikorn-cloud/compute/test/api"
 )
@@ -33,6 +35,41 @@ import (
 const nonExistentInstanceID = "non-existent-instance-12345"
 
 var _ = Describe("Instance Operations", func() {
+	Context("When listing instances", func() {
+		Describe("Given a provisioned instance", func() {
+			var instanceID string
+
+			BeforeEach(func() {
+				_, iID := api.CreateInstanceWithCleanup(client, ctx, config,
+					api.NewInstancePayload().Build())
+				instanceID = iID
+				GinkgoWriter.Printf("Using instance %s for list test\n", instanceID)
+			})
+
+			It("should return the provisioned instance in the list", func() {
+				instances, err := client.ListInstances(ctx, config.OrgID, config.ProjectID)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(instances).NotTo(BeEmpty())
+
+				instanceIDs := make([]string, len(instances))
+				for i, inst := range instances {
+					instanceIDs[i] = inst.Metadata.Id
+				}
+				Expect(instanceIDs).To(ContainElement(instanceID),
+					"provisioned instance %s should appear in list", instanceID)
+
+				for _, inst := range instances {
+					if inst.Metadata.Id == instanceID {
+						Expect(inst.Metadata.ProvisioningStatus).To(Equal(coreapi.ResourceProvisioningStatusProvisioned))
+						break
+					}
+				}
+
+				GinkgoWriter.Printf("Found instance %s in list with status provisioned\n", instanceID)
+			})
+		})
+	})
+
 	Context("When creating an instance", func() {
 		Context("from a custom image", func() {
 			var (

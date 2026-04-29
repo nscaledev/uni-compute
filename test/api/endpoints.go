@@ -47,6 +47,11 @@ func (e *Endpoints) ListImages(orgID, regionID string) string {
 }
 
 // Instance management endpoints (V2 API).
+func (e *Endpoints) ListInstances(orgID, projectID string) string {
+	return fmt.Sprintf("/api/v2/instances?organizationID=%s&projectID=%s",
+		url.QueryEscape(orgID), url.QueryEscape(projectID))
+}
+
 func (e *Endpoints) CreateInstance() string {
 	return "/api/v2/instances"
 }
