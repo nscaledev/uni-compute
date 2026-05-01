@@ -26,48 +26,110 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/unikorn-cloud/compute/pkg/openapi"
 	"github.com/unikorn-cloud/compute/test/api"
 )
 
+const nonExistentInstanceID = "non-existent-instance-12345"
+
 var _ = Describe("Instance Operations", func() {
-	Context("When launching an instance from a custom image", func() {
-		var (
-			regionClient  *api.RegionAPIClient
-			customImageID string
-		)
+	Context("When creating an instance", func() {
+		Context("from a custom image", func() {
+			var (
+				regionClient  *api.RegionAPIClient
+				customImageID string
+			)
 
-		BeforeEach(func() {
-			var err error
+			BeforeEach(func() {
+				var err error
 
-			regionClient, err = api.NewRegionClient("")
-			Expect(err).NotTo(HaveOccurred(), "Failed to create region client")
+				regionClient, err = api.NewRegionClient("")
+				Expect(err).NotTo(HaveOccurred(), "Failed to create region client")
 
-			image, err := regionClient.CreateImage(ctx, config.OrgID, config.RegionID,
-				api.NewImagePayload().Build())
-			Expect(err).NotTo(HaveOccurred(), "Failed to create custom image")
-			Expect(image.Metadata.Id).NotTo(BeEmpty())
+				image, err := regionClient.CreateImage(ctx, config.OrgID, config.RegionID,
+					api.NewImagePayload().Build())
+				Expect(err).NotTo(HaveOccurred(), "Failed to create custom image")
+				Expect(image.Metadata.Id).NotTo(BeEmpty())
 
-			customImageID = image.Metadata.Id
-			GinkgoWriter.Printf("Created custom image: %s\n", customImageID)
+				customImageID = image.Metadata.Id
+				GinkgoWriter.Printf("Created custom image: %s\n", customImageID)
 
-			DeferCleanup(func() {
-				GinkgoWriter.Printf("Cleaning up custom image: %s\n", customImageID)
-				Expect(regionClient.DeleteImage(ctx, config.OrgID, config.RegionID, customImageID)).
-					To(Succeed(), "Failed to delete custom image %s", customImageID)
+				DeferCleanup(func() {
+					GinkgoWriter.Printf("Cleaning up custom image: %s\n", customImageID)
+					Expect(regionClient.DeleteImage(ctx, config.OrgID, config.RegionID, customImageID)).
+						To(Succeed(), "Failed to delete custom image %s", customImageID)
+				})
+
+				api.WaitForImageReady(regionClient, ctx, config, customImageID)
 			})
 
-			api.WaitForImageReady(regionClient, ctx, config, customImageID)
+			It("should launch an instance successfully", func() {
+				_, instanceID := api.CreateInstanceWithCleanup(client, ctx, config,
+					api.NewInstancePayload().WithImageID(customImageID).Build())
+
+				GinkgoWriter.Printf("Launched instance %s from custom image %s\n", instanceID, customImageID)
+
+				api.WaitForInstanceNetworkIdentity(client, ctx, config, instanceID)
+				api.WaitForInstanceActive(client, ctx, config, instanceID)
+			})
 		})
 
-		It("should launch an instance successfully from the custom image", func() {
-			_, instanceID := api.CreateInstanceWithCleanup(client, ctx, config,
-				api.NewInstancePayload().WithImageID(customImageID).Build())
+		Context("from a snapshot image", func() {
+			var (
+				regionClient    *api.RegionAPIClient
+				snapshotImageID string
+			)
 
-			GinkgoWriter.Printf("Launched instance %s from custom image %s\n", instanceID, customImageID)
+			BeforeEach(func() {
+				var err error
 
-			api.WaitForInstanceNetworkIdentity(client, ctx, config, instanceID)
-			api.WaitForInstanceActive(client, ctx, config, instanceID)
+				_, sourceInstanceID := api.CreateInstanceWithCleanup(client, ctx, config,
+					api.NewInstancePayload().Build())
+
+				api.WaitForInstanceNetworkIdentity(client, ctx, config, sourceInstanceID)
+				api.WaitForInstanceActive(client, ctx, config, sourceInstanceID)
+
+				GinkgoWriter.Printf("Taking snapshot of instance %s\n", sourceInstanceID)
+
+				image, err := client.SnapshotInstance(ctx, sourceInstanceID, "snapshot-for-launch-test")
+				Expect(err).NotTo(HaveOccurred(), "Failed to take snapshot")
+				Expect(image).NotTo(BeNil(), "Snapshot image should not be nil")
+
+				snapshotImageID = image.Metadata.Id
+
+				regionClient, err = api.NewRegionClient("")
+				Expect(err).NotTo(HaveOccurred(), "Failed to create region client")
+
+				DeferCleanup(func() {
+					GinkgoWriter.Printf("Cleaning up snapshot image: %s\n", snapshotImageID)
+					Expect(regionClient.DeleteImage(ctx, config.OrgID, config.RegionID, snapshotImageID)).
+						To(Succeed(), "Failed to delete snapshot image %s", snapshotImageID)
+				})
+
+				api.WaitForImageReady(regionClient, ctx, config, snapshotImageID)
+			})
+
+			It("should launch an instance successfully", func() {
+				_, instanceID := api.CreateInstanceWithCleanup(client, ctx, config,
+					api.NewInstancePayload().WithImageID(snapshotImageID).Build())
+
+				GinkgoWriter.Printf("Launched instance %s from snapshot image %s\n", instanceID, snapshotImageID)
+
+				api.WaitForInstanceNetworkIdentity(client, ctx, config, instanceID)
+				api.WaitForInstanceActive(client, ctx, config, instanceID)
+			})
 		})
+
+		Describe("Given an invalid payload", func() {
+			It("should return bad request for missing required fields", func() {
+				_, err := client.CreateInstance(ctx, openapi.InstanceCreate{})
+
+				Expect(err).To(HaveOccurred())
+				Expect(err).To(MatchError(ContainSubstring("400")), "Error should indicate HTTP 400 Bad Request")
+				Expect(err).To(MatchError(ContainSubstring("invalid_request")), "Error should indicate schema validation failure")
+			})
+		})
+
 	})
 
 	Context("When retrieving console output for an instance", func() {
@@ -127,12 +189,11 @@ var _ = Describe("Instance Operations", func() {
 
 		Describe("Given an invalid instance ID", func() {
 			It("should return appropriate error for non-existent instance", func() {
-				invalidInstanceID := "non-existent-instance-12345"
-				consoleOutput, err := client.GetInstanceConsoleOutput(ctx, invalidInstanceID, nil)
+				consoleOutput, err := client.GetInstanceConsoleOutput(ctx, nonExistentInstanceID, nil)
 
-				Expect(err).To(HaveOccurred(), "Should return error for non-existent instance (expected HTTP 404)")
+				Expect(err).To(HaveOccurred(), "Should return error for non-existent instance")
 				Expect(consoleOutput).To(BeNil(), "Console output should be nil for non-existent instance")
-				Expect(err.Error()).To(ContainSubstring("404"), "Error should indicate HTTP 404 Not Found")
+				Expect(err).To(MatchError(ContainSubstring("404")), "Error should indicate HTTP 404 Not Found")
 				GinkgoWriter.Printf("Expected HTTP 404 error for non-existent instance: %v\n", err)
 			})
 
@@ -215,12 +276,11 @@ var _ = Describe("Instance Operations", func() {
 
 		Describe("Given an invalid instance ID", func() {
 			It("should return appropriate error for non-existent instance", func() {
-				invalidInstanceID := "non-existent-instance-12345"
-				image, err := client.SnapshotInstance(ctx, invalidInstanceID, "snapshot-image")
+				image, err := client.SnapshotInstance(ctx, nonExistentInstanceID, "snapshot-image")
 
-				Expect(err).To(HaveOccurred(), "Should return error for non-existent instance (expected HTTP 404)")
+				Expect(err).To(HaveOccurred(), "Should return error for non-existent instance")
 				Expect(image).To(BeNil(), "Image response should be nil for non-existent instance")
-				Expect(err.Error()).To(ContainSubstring("404"), "Error should indicate HTTP 404 Not Found")
+				Expect(err).To(MatchError(ContainSubstring("404")), "Error should indicate HTTP 404 Not Found")
 				GinkgoWriter.Printf("Expected HTTP 404 error for non-existent instance: %v\n", err)
 			})
 		})
@@ -228,9 +288,7 @@ var _ = Describe("Instance Operations", func() {
 
 	Context("When performing power operations on an instance", func() {
 		Describe("Given a valid instance exists", func() {
-			var (
-				instanceID string
-			)
+			var instanceID string
 
 			BeforeEach(func() {
 				// Create an instance for power operation tests
@@ -355,51 +413,65 @@ var _ = Describe("Instance Operations", func() {
 				}).WithTimeout(5 * time.Minute).WithPolling(10 * time.Second).Should(Equal("Running"))
 			})
 		})
-	})
 
-	Context("When launching an instance from a snapshot image", func() {
-		var (
-			regionClient    *api.RegionAPIClient
-			snapshotImageID string
-		)
+		Describe("Given an invalid instance ID", func() {
+			It("should return not found when stopping", func() {
+				err := client.StopInstance(ctx, nonExistentInstanceID)
 
-		BeforeEach(func() {
-			var err error
-
-			_, sourceInstanceID := api.CreateInstanceWithCleanup(client, ctx, config,
-				api.NewInstancePayload().Build())
-
-			api.WaitForInstanceNetworkIdentity(client, ctx, config, sourceInstanceID)
-			api.WaitForInstanceActive(client, ctx, config, sourceInstanceID)
-
-			GinkgoWriter.Printf("Taking snapshot of instance %s\n", sourceInstanceID)
-
-			image, err := client.SnapshotInstance(ctx, sourceInstanceID, "snapshot-for-launch-test")
-			Expect(err).NotTo(HaveOccurred(), "Failed to take snapshot")
-			Expect(image).NotTo(BeNil(), "Snapshot image should not be nil")
-
-			snapshotImageID = image.Metadata.Id
-
-			regionClient, err = api.NewRegionClient("")
-			Expect(err).NotTo(HaveOccurred(), "Failed to create region client")
-
-			DeferCleanup(func() {
-				GinkgoWriter.Printf("Cleaning up snapshot image: %s\n", snapshotImageID)
-				Expect(regionClient.DeleteImage(ctx, config.OrgID, config.RegionID, snapshotImageID)).
-					To(Succeed(), "Failed to delete snapshot image %s", snapshotImageID)
+				Expect(err).To(HaveOccurred(), "Should return error for non-existent instance")
+				Expect(err).To(MatchError(ContainSubstring("404")), "Error should indicate HTTP 404 Not Found")
+				GinkgoWriter.Printf("Expected HTTP 404 error for non-existent instance: %v\n", err)
 			})
 
-			api.WaitForImageReady(regionClient, ctx, config, snapshotImageID)
-		})
+			It("should return not found when starting", func() {
+				err := client.StartInstance(ctx, nonExistentInstanceID)
 
-		It("should launch an instance successfully from the snapshot image", func() {
-			_, instanceID := api.CreateInstanceWithCleanup(client, ctx, config,
-				api.NewInstancePayload().WithImageID(snapshotImageID).Build())
+				Expect(err).To(HaveOccurred(), "Should return error for non-existent instance")
+				Expect(err).To(MatchError(ContainSubstring("404")), "Error should indicate HTTP 404 Not Found")
+				GinkgoWriter.Printf("Expected HTTP 404 error for non-existent instance: %v\n", err)
+			})
 
-			GinkgoWriter.Printf("Launched instance %s from snapshot image %s\n", instanceID, snapshotImageID)
+			It("should return not found when rebooting", func() {
+				err := client.RebootInstance(ctx, nonExistentInstanceID, false)
 
-			api.WaitForInstanceNetworkIdentity(client, ctx, config, instanceID)
-			api.WaitForInstanceActive(client, ctx, config, instanceID)
+				Expect(err).To(HaveOccurred(), "Should return error for non-existent instance")
+				Expect(err).To(MatchError(ContainSubstring("404")), "Error should indicate HTTP 404 Not Found")
+				GinkgoWriter.Printf("Expected HTTP 404 error for non-existent instance: %v\n", err)
+			})
 		})
 	})
+
+	Context("When retrieving an instance", func() {
+		Describe("Given a valid instance exists", func() {
+			var instanceID string
+
+			BeforeEach(func() {
+				// Create an instance for retrieval tests
+				_, iID := api.CreateInstanceWithCleanup(client, ctx, config,
+					api.NewInstancePayload().Build())
+
+				instanceID = iID
+			})
+
+			It("should return the instance with correct metadata", func() {
+				instance, err := client.GetInstance(ctx, instanceID)
+
+				Expect(err).NotTo(HaveOccurred())
+				Expect(instance.Metadata.Id).To(Equal(instanceID))
+				Expect(instance.Metadata.Name).NotTo(BeEmpty())
+				GinkgoWriter.Printf("Successfully retrieved instance %s\n", instanceID)
+			})
+		})
+
+		Describe("Given an invalid instance ID", func() {
+			It("should return not found", func() {
+				_, err := client.GetInstance(ctx, nonExistentInstanceID)
+
+				Expect(err).To(HaveOccurred(), "Should return error for non-existent instance")
+				Expect(err).To(MatchError(ContainSubstring("404")), "Error should indicate HTTP 404 Not Found")
+				GinkgoWriter.Printf("Expected HTTP 404 error for non-existent instance: %v\n", err)
+			})
+		})
+	})
+
 })
