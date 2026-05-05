@@ -180,7 +180,7 @@ func (c *APIClient) GetInstance(ctx context.Context, instanceID string) (openapi
 
 		return instance, nil
 	case http.StatusNotFound:
-		return openapi.InstanceRead{}, fmt.Errorf("instance '%s' not found (status: %d)", instanceID, resp.StatusCode)
+		return openapi.InstanceRead{}, fmt.Errorf("instance '%s': %w", instanceID, coreclient.ErrResourceNotFound)
 	case http.StatusForbidden:
 		return openapi.InstanceRead{}, fmt.Errorf("instance '%s' access denied (status: %d)", instanceID, resp.StatusCode)
 	default:
@@ -227,6 +227,20 @@ func (c *APIClient) UpdateInstance(ctx context.Context, instanceID string, reque
 	}
 
 	return instance, nil
+}
+
+// DeleteInstanceWithStatus deletes an instance and returns the raw HTTP status code,
+// allowing callers to assert the exact response (e.g. 202 vs 404).
+func (c *APIClient) DeleteInstanceWithStatus(ctx context.Context, instanceID string) (int, error) {
+	path := c.endpoints.DeleteInstance(instanceID)
+
+	//nolint:bodyclose // response body is closed in DoRequest
+	resp, _, err := c.DoRequest(ctx, http.MethodDelete, path, nil, 0)
+	if err != nil {
+		return 0, fmt.Errorf("deleting instance: %w", err)
+	}
+
+	return resp.StatusCode, nil
 }
 
 // GetInstanceConsoleOutput retrieves console output for an instance.

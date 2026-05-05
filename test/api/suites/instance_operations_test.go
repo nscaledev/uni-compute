@@ -21,12 +21,14 @@ limitations under the License.
 package suites
 
 import (
+	"net/http"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	coreapi "github.com/unikorn-cloud/core/pkg/openapi"
+	coreclient "github.com/unikorn-cloud/core/pkg/testing/client"
 
 	"github.com/unikorn-cloud/compute/pkg/openapi"
 	"github.com/unikorn-cloud/compute/test/api"
@@ -104,6 +106,33 @@ var _ = Describe("Instance Operations", func() {
 					"updated description should persist in subsequent GET")
 
 				GinkgoWriter.Printf("Instance %s description updated and verified via GET\n", instance.Metadata.Id)
+			})
+		})
+	})
+
+	Context("When deleting an instance", func() {
+		Describe("Given a provisioned instance", func() {
+			var instanceID string
+
+			BeforeEach(func() {
+				_, iID := api.CreateInstanceWithCleanup(client, ctx, config,
+					api.NewInstancePayload().Build())
+				instanceID = iID
+				GinkgoWriter.Printf("Using instance %s for delete lifecycle test\n", instanceID)
+			})
+
+			It("should successfully delete and return not found on subsequent get", func() {
+				status, err := client.DeleteInstanceWithStatus(ctx, instanceID)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(status).To(Equal(http.StatusAccepted),
+					"DELETE should return 202 Accepted, got %d", status)
+
+				Eventually(func() error {
+					_, err := client.GetInstance(ctx, instanceID)
+					return err
+				}).WithTimeout(config.TestTimeout).WithPolling(5 * time.Second).Should(MatchError(coreclient.ErrResourceNotFound))
+
+				GinkgoWriter.Printf("Instance %s confirmed deleted\n", instanceID)
 			})
 		})
 	})
