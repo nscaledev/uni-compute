@@ -70,6 +70,44 @@ var _ = Describe("Instance Operations", func() {
 		})
 	})
 
+	Context("When updating an instance", func() {
+		Describe("Given a provisioned instance", func() {
+			var instance openapi.InstanceRead
+
+			BeforeEach(func() {
+				var iID string
+				instance, iID = api.CreateInstanceWithCleanup(client, ctx, config,
+					api.NewInstancePayload().Build())
+				GinkgoWriter.Printf("Using instance %s for update test\n", iID)
+			})
+
+			It("should update the instance description and persist it", func() {
+				updatedDescription := "updated description for test"
+
+				updateReq := openapi.InstanceUpdate{
+					Metadata: coreapi.ResourceWriteMetadata{
+						Name:        instance.Metadata.Name,
+						Description: &updatedDescription,
+					},
+					Spec: instance.Spec,
+				}
+
+				updated, err := client.UpdateInstance(ctx, instance.Metadata.Id, updateReq)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(updated.Metadata.Description).NotTo(BeNil())
+				Expect(*updated.Metadata.Description).To(Equal(updatedDescription))
+
+				retrieved, err := client.GetInstance(ctx, instance.Metadata.Id)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(retrieved.Metadata.Description).NotTo(BeNil())
+				Expect(*retrieved.Metadata.Description).To(Equal(updatedDescription),
+					"updated description should persist in subsequent GET")
+
+				GinkgoWriter.Printf("Instance %s description updated and verified via GET\n", instance.Metadata.Id)
+			})
+		})
+	})
+
 	Context("When creating an instance", func() {
 		Context("from a custom image", func() {
 			var (
