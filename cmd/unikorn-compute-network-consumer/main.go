@@ -26,7 +26,6 @@ import (
 	computev1 "github.com/unikorn-cloud/compute/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/compute/pkg/constants"
 	"github.com/unikorn-cloud/core/pkg/client"
-	coreconstants "github.com/unikorn-cloud/core/pkg/constants"
 	"github.com/unikorn-cloud/core/pkg/messaging/consumer"
 	"github.com/unikorn-cloud/core/pkg/messaging/kubernetes"
 	"github.com/unikorn-cloud/core/pkg/options"
@@ -60,7 +59,6 @@ func main() {
 	}
 
 	deleteInstanceConsumer := consumer.NewCascadingDelete(cli, &computev1.ComputeInstanceList{}, consumer.WithNamespace(options.Namespace), consumer.WithResourceLabel(regionconstants.NetworkLabel))
-	deleteClusterConsumer := consumer.NewCascadingDelete(cli, &computev1.ComputeClusterList{}, consumer.WithNamespace(options.Namespace), consumer.WithResourceLabel(coreconstants.NetworkLabel))
 
 	scheme, err := client.NewScheme(regionv1.AddToScheme)
 	if err != nil {
@@ -68,7 +66,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := kubernetes.New(cr.GetConfigOrDie(), scheme, &regionv1.Network{}).Run(ctx, deleteInstanceConsumer, deleteClusterConsumer); err != nil {
+	if err := kubernetes.New(cr.GetConfigOrDie(), scheme, &regionv1.Network{}).Run(ctx, deleteInstanceConsumer); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}

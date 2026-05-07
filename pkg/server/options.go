@@ -42,9 +42,8 @@ type Options struct {
 
 	// WriteTimeout defines how long we take to respond before we give up.
 	// Ideally we'd like this to be short, but Openstack in general sucks
-	// for performance.  Additionally some calls like cluster creation can
-	// do a cascading create, e.g. create a default control plane, than in
-	// turn creates a project.
+	// for performance. Some operations may still involve multiple dependent
+	// API calls before a response can be returned.
 	WriteTimeout time.Duration
 
 	// RequestTimeout places a hard limit on all requests lengths.

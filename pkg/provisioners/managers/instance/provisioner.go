@@ -25,7 +25,6 @@ import (
 
 	unikornv1 "github.com/unikorn-cloud/compute/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/compute/pkg/constants"
-	"github.com/unikorn-cloud/compute/pkg/provisioners/managers/cluster/util"
 	unikornv1core "github.com/unikorn-cloud/core/pkg/apis/unikorn/v1alpha1"
 	coreclient "github.com/unikorn-cloud/core/pkg/client"
 	coreconstants "github.com/unikorn-cloud/core/pkg/constants"
@@ -39,6 +38,7 @@ import (
 	regionconstants "github.com/unikorn-cloud/region/pkg/constants"
 	regionapi "github.com/unikorn-cloud/region/pkg/openapi"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/ptr"
 )
 
@@ -245,6 +245,21 @@ func convertPowerState(in *regionapi.InstanceLifecyclePhase) *regionv1.InstanceL
 	}
 }
 
+func convertHealthStatusCondition(in coreapi.ResourceHealthStatus) (corev1.ConditionStatus, unikornv1core.ConditionReason, string) {
+	switch in {
+	case coreapi.ResourceHealthStatusUnknown:
+		return corev1.ConditionFalse, unikornv1core.ConditionReasonUnknown, "health unknown"
+	case coreapi.ResourceHealthStatusHealthy:
+		return corev1.ConditionTrue, unikornv1core.ConditionReasonHealthy, "healthy"
+	case coreapi.ResourceHealthStatusDegraded:
+		return corev1.ConditionFalse, unikornv1core.ConditionReasonDegraded, "degraded"
+	case coreapi.ResourceHealthStatusError:
+		return corev1.ConditionFalse, unikornv1core.ConditionReasonErrored, "error"
+	}
+
+	return corev1.ConditionFalse, unikornv1core.ConditionReasonUnknown, "health unknown"
+}
+
 func (p *Provisioner) updateInstanceStatus(server *regionapi.ServerV2Response) {
 	p.instance.Status.PrivateIP = server.Status.PrivateIP
 	p.instance.Status.PublicIP = server.Status.PublicIP
@@ -269,7 +284,7 @@ func (p *Provisioner) Provision(ctx context.Context) error {
 		return err
 	}
 
-	healthStatus, healthReason, healthMessage := util.ConvertHealthStatusCondition(server.Metadata.HealthStatus)
+	healthStatus, healthReason, healthMessage := convertHealthStatusCondition(server.Metadata.HealthStatus)
 	unikornv1core.UpdateCondition(&p.instance.Status.Conditions, unikornv1core.ConditionHealthy, healthStatus, healthReason, healthMessage)
 
 	p.updateInstanceStatus(server)

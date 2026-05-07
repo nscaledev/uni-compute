@@ -48,7 +48,7 @@ func (p *Provisioner) getRegionClient(ctx context.Context) (regionapi.ClientWith
 	return client, nil
 }
 
-// getServer lists all servers that are part of this cluster.
+// getServer lists the server that belongs to this instance.
 func (p *Provisioner) getServer(ctx context.Context, client regionapi.ClientWithResponsesInterface) (*regionapi.ServerV2Response, error) {
 	params := &regionapi.GetApiV2ServersParams{
 		OrganizationID: &regionapi.OrganizationIDQueryParameter{
