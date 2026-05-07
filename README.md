@@ -83,7 +83,7 @@ spec:
 
 The [Identity Service](https://github.com/nscaledev/uni-identity) describes how to configure a service organization, groups and role mappings for services that require them.
 
-This service requires asynchronous access to the Region API in order to poll cloud identity and physical network status during cluster creation, and delete those resources on cluster deletion.
+This service requires asynchronous access to the Region API in order to poll cloud identity and physical network status during instance provisioning, and delete those resources on instance deletion.
 
 This service defines the `unikorn-compute` user that will need to be added to a group in the service organization.
 It will need the built in role `infra-manager-service` that allows:
@@ -321,7 +321,7 @@ For complete examples, see:
 
 The compute service defines consumer contracts for interactions with the identity service resource allocation API:
 
-- Create allocation - Track resource usage when clusters/instances are created
+- Create allocation - Track resource usage when instances are created
 - Update allocation - Update resource counts when scaling operations occur
 - Delete allocation - Release resource allocations during cleanup
 

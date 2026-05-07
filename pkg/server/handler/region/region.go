@@ -23,8 +23,6 @@ import (
 	"net/http"
 	"slices"
 
-	unikornv1 "github.com/unikorn-cloud/compute/pkg/apis/unikorn/v1alpha1"
-	"github.com/unikorn-cloud/compute/pkg/provisioners/managers/cluster/util"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
 	regionapi "github.com/unikorn-cloud/region/pkg/openapi"
 )
@@ -74,10 +72,7 @@ func (c *Client) Flavors(ctx context.Context, organizationID, regionID string) (
 		return nil, errors.PropagateError(resp.HTTPResponse, resp)
 	}
 
-	flavors := *resp.JSON200
-
-	// TODO: filtering.
-	return flavors, nil
+	return *resp.JSON200, nil
 }
 
 // Images returns all compute compatible images.
@@ -94,30 +89,10 @@ func (c *Client) Images(ctx context.Context, organizationID, regionID string) ([
 	images := *resp.JSON200
 
 	filtered := slices.DeleteFunc(images, func(image regionapi.Image) bool {
-		// Delete images that declare any software versions - if it doesn't exist, assume general purpose.
 		return image.Spec.SoftwareVersions != nil && len(*image.Spec.SoftwareVersions) > 0
 	})
 
 	return filtered, nil
-}
-
-func (c *Client) Servers(ctx context.Context, organizationID string, cluster *unikornv1.ComputeCluster) ([]regionapi.ServerRead, error) {
-	params := &regionapi.GetApiV1OrganizationsOrganizationIDServersParams{
-		Tag: util.ClusterTagSelector(cluster),
-	}
-
-	resp, err := c.client.GetApiV1OrganizationsOrganizationIDServersWithResponse(ctx, organizationID, params)
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.StatusCode() != http.StatusOK {
-		return nil, errors.PropagateError(resp.HTTPResponse, resp)
-	}
-
-	servers := *resp.JSON200
-
-	return servers, nil
 }
 
 func (c *Client) DeleteServer(ctx context.Context, organizationID, projectID, identityID, serverID string) error {
@@ -139,7 +114,6 @@ func (c *Client) HardRebootServer(ctx context.Context, organizationID, projectID
 		return err
 	}
 
-	// FIXME: We should rethrow the not found error.
 	if resp.StatusCode() != http.StatusAccepted && resp.StatusCode() != http.StatusNotFound {
 		return errors.PropagateError(resp.HTTPResponse, resp)
 	}
@@ -153,7 +127,6 @@ func (c *Client) SoftRebootServer(ctx context.Context, organizationID, projectID
 		return err
 	}
 
-	// FIXME: We should rethrow the not found error.
 	if resp.StatusCode() != http.StatusAccepted && resp.StatusCode() != http.StatusNotFound {
 		return errors.PropagateError(resp.HTTPResponse, resp)
 	}
@@ -167,7 +140,6 @@ func (c *Client) StartServer(ctx context.Context, organizationID, projectID, ide
 		return err
 	}
 
-	// FIXME: We should rethrow the not found error.
 	if resp.StatusCode() != http.StatusAccepted && resp.StatusCode() != http.StatusNotFound {
 		return errors.PropagateError(resp.HTTPResponse, resp)
 	}
@@ -181,7 +153,6 @@ func (c *Client) StopServer(ctx context.Context, organizationID, projectID, iden
 		return err
 	}
 
-	// FIXME: We should rethrow the not found error.
 	if resp.StatusCode() != http.StatusAccepted && resp.StatusCode() != http.StatusNotFound {
 		return errors.PropagateError(resp.HTTPResponse, resp)
 	}

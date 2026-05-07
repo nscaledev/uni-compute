@@ -37,65 +37,6 @@ var (
 )
 
 // Paused implements the ReconcilePauser interface.
-func (c *ComputeCluster) Paused() bool {
-	return c.Spec.Pause
-}
-
-// StatusConditionRead scans the status conditions for an existing condition whose type
-// matches.
-func (c *ComputeCluster) StatusConditionRead(t unikornv1core.ConditionType) (*unikornv1core.Condition, error) {
-	return unikornv1core.GetCondition(c.Status.Conditions, t)
-}
-
-// StatusConditionWrite either adds or updates a condition in the cluster status.
-// If the condition, status and message match an existing condition the update is
-// ignored.
-func (c *ComputeCluster) StatusConditionWrite(t unikornv1core.ConditionType, status corev1.ConditionStatus, reason unikornv1core.ConditionReason, message string) {
-	unikornv1core.UpdateCondition(&c.Status.Conditions, t, status, reason, message)
-}
-
-// ResourceLabels generates a set of labels to uniquely identify the resource
-// if it were to be placed in a single global namespace.
-func (c *ComputeCluster) ResourceLabels() (labels.Set, error) {
-	//nolint:nilnil
-	return nil, nil
-}
-
-func (c *ComputeCluster) GetWorkloadPoolStatus(name string) *WorkloadPoolStatus {
-	for i, status := range c.Status.WorkloadPools {
-		if name == status.Name {
-			return &c.Status.WorkloadPools[i]
-		}
-	}
-
-	status := WorkloadPoolStatus{
-		Name: name,
-	}
-
-	c.Status.WorkloadPools = append(c.Status.WorkloadPools, status)
-
-	return &c.Status.WorkloadPools[len(c.Status.WorkloadPools)-1]
-}
-
-// GetWorkloadPool looks up a workload pool by name.
-func (c *ComputeCluster) GetWorkloadPool(name string) (*ComputeClusterWorkloadPoolSpec, bool) {
-	for i := range c.Spec.WorkloadPools.Pools {
-		pool := &c.Spec.WorkloadPools.Pools[i]
-
-		if pool.Name == name {
-			return pool, true
-		}
-	}
-
-	return nil, false
-}
-
-// HasFirewallRules tells us if the pool as an firewall rules defined.
-func (p *ComputeClusterWorkloadPoolSpec) HasFirewallRules() bool {
-	return len(p.Firewall) > 0
-}
-
-// Paused implements the ReconcilePauser interface.
 func (c *ComputeInstance) Paused() bool {
 	return c.Spec.Pause
 }
@@ -106,7 +47,7 @@ func (c *ComputeInstance) StatusConditionRead(t unikornv1core.ConditionType) (*u
 	return unikornv1core.GetCondition(c.Status.Conditions, t)
 }
 
-// StatusConditionWrite either adds or updates a condition in the cluster status.
+// StatusConditionWrite either adds or updates a condition in the instance status.
 // If the condition, status and message match an existing condition the update is
 // ignored.
 func (c *ComputeInstance) StatusConditionWrite(t unikornv1core.ConditionType, status corev1.ConditionStatus, reason unikornv1core.ConditionReason, message string) {

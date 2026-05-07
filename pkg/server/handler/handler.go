@@ -21,10 +21,8 @@ package handler
 import (
 	"fmt"
 	"net/http"
-	"slices"
 
 	"github.com/unikorn-cloud/compute/pkg/openapi"
-	"github.com/unikorn-cloud/compute/pkg/server/handler/cluster"
 	"github.com/unikorn-cloud/compute/pkg/server/handler/region"
 	coreapi "github.com/unikorn-cloud/core/pkg/openapi"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
@@ -38,36 +36,21 @@ import (
 )
 
 type Handler struct {
-	// client gives cached access to Compute.
-	client client.Client
-
-	// namespace is where the controller is running.
+	client    client.Client
 	namespace string
-
-	// options allows behaviour to be defined on the CLI.
-	options *Options
-
-	// identity is a client to access the identity service.
-	identity identityapi.ClientWithResponsesInterface
-
-	// region is a client to access regions.
-	region regionapi.ClientWithResponsesInterface
+	options   *Options
+	identity  identityapi.ClientWithResponsesInterface
+	region    regionapi.ClientWithResponsesInterface
 }
 
 func New(client client.Client, namespace string, options *Options, identity identityapi.ClientWithResponsesInterface, region regionapi.ClientWithResponsesInterface) (*Handler, error) {
-	h := &Handler{
+	return &Handler{
 		client:    client,
 		namespace: namespace,
 		options:   options,
 		identity:  identity,
 		region:    region,
-	}
-
-	return h, nil
-}
-
-func (h *Handler) setUncacheable(w http.ResponseWriter) {
-	w.Header().Add("Cache-Control", "no-cache")
+	}, nil
 }
 
 // GetWellKnownOpenidProtectedResource implements RFC 9728.
@@ -156,237 +139,4 @@ func (h *Handler) GetApiV1OrganizationsOrganizationIDRegionsRegionIDImages(w htt
 	}
 
 	util.WriteJSONResponse(w, r, http.StatusOK, result)
-}
-
-func (h *Handler) clusterClient() *cluster.Client {
-	return cluster.NewClient(h.client, h.namespace, &h.options.Cluster, h.identity, h.region)
-}
-
-func (h *Handler) GetApiV1OrganizationsOrganizationIDClusters(w http.ResponseWriter, r *http.Request, organizationID openapi.OrganizationIDParameter, params openapi.GetApiV1OrganizationsOrganizationIDClustersParams) {
-	ctx := r.Context()
-
-	result, err := h.clusterClient().List(ctx, organizationID, params)
-	if err != nil {
-		errors.HandleError(w, r, err)
-		return
-	}
-
-	result = slices.DeleteFunc(result, func(resource openapi.ComputeClusterRead) bool {
-		return rbac.AllowProjectScope(ctx, "compute:clusters", identityapi.Read, organizationID, resource.Metadata.ProjectId) != nil
-	})
-
-	h.setUncacheable(w)
-	util.WriteJSONResponse(w, r, http.StatusOK, result)
-}
-
-func (h *Handler) PostApiV1OrganizationsOrganizationIDProjectsProjectIDClusters(w http.ResponseWriter, r *http.Request, organizationID openapi.OrganizationIDParameter, projectID openapi.ProjectIDParameter) {
-	ctx := r.Context()
-
-	if err := rbac.AllowProjectScope(ctx, "compute:clusters", identityapi.Create, organizationID, projectID); err != nil {
-		errors.HandleError(w, r, err)
-		return
-	}
-
-	request := &openapi.ComputeClusterWrite{}
-
-	if err := util.ReadJSONBody(r, request); err != nil {
-		errors.HandleError(w, r, err)
-		return
-	}
-
-	result, err := h.clusterClient().Create(ctx, organizationID, projectID, request)
-	if err != nil {
-		errors.HandleError(w, r, err)
-		return
-	}
-
-	h.setUncacheable(w)
-	util.WriteJSONResponse(w, r, http.StatusAccepted, result)
-}
-
-func (h *Handler) DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterID(w http.ResponseWriter, r *http.Request, organizationID openapi.OrganizationIDParameter, projectID openapi.ProjectIDParameter, clusterID openapi.ClusterIDParameter) {
-	ctx := r.Context()
-
-	if err := rbac.AllowProjectScope(ctx, "compute:clusters", identityapi.Delete, organizationID, projectID); err != nil {
-		errors.HandleError(w, r, err)
-		return
-	}
-
-	if err := h.clusterClient().Delete(ctx, organizationID, projectID, clusterID); err != nil {
-		errors.HandleError(w, r, err)
-		return
-	}
-
-	h.setUncacheable(w)
-	w.WriteHeader(http.StatusAccepted)
-}
-
-func (h *Handler) GetApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterID(w http.ResponseWriter, r *http.Request, organizationID openapi.OrganizationIDParameter, projectID openapi.ProjectIDParameter, clusterID openapi.ClusterIDParameter) {
-	ctx := r.Context()
-
-	result, err := h.clusterClient().Get(ctx, organizationID, projectID, clusterID)
-	if err != nil {
-		errors.HandleError(w, r, err)
-		return
-	}
-
-	if err = rbac.AllowProjectScope(ctx, "compute:clusters", identityapi.Read, organizationID, result.Metadata.ProjectId); err != nil {
-		errors.HandleError(w, r, err)
-		return
-	}
-
-	h.setUncacheable(w)
-	util.WriteJSONResponse(w, r, http.StatusOK, result)
-}
-
-func (h *Handler) PutApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterID(w http.ResponseWriter, r *http.Request, organizationID openapi.OrganizationIDParameter, projectID openapi.ProjectIDParameter, clusterID openapi.ClusterIDParameter) {
-	ctx := r.Context()
-
-	if err := rbac.AllowProjectScope(ctx, "compute:clusters", identityapi.Update, organizationID, projectID); err != nil {
-		errors.HandleError(w, r, err)
-		return
-	}
-
-	request := &openapi.ComputeClusterWrite{}
-
-	if err := util.ReadJSONBody(r, request); err != nil {
-		errors.HandleError(w, r, err)
-		return
-	}
-
-	if err := h.clusterClient().Update(ctx, organizationID, projectID, clusterID, request); err != nil {
-		errors.HandleError(w, r, err)
-		return
-	}
-
-	h.setUncacheable(w)
-	w.WriteHeader(http.StatusAccepted)
-}
-
-func (h *Handler) PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDEvict(w http.ResponseWriter, r *http.Request, organizationID openapi.OrganizationIDParameter, projectID openapi.ProjectIDParameter, clusterID openapi.ClusterIDParameter) {
-	ctx := r.Context()
-
-	if err := rbac.AllowProjectScope(ctx, "compute:clusters", identityapi.Update, organizationID, projectID); err != nil {
-		errors.HandleError(w, r, err)
-		return
-	}
-
-	request := &openapi.EvictionWrite{}
-
-	if err := util.ReadJSONBody(r, request); err != nil {
-		errors.HandleError(w, r, err)
-		return
-	}
-
-	if err := h.clusterClient().Evict(ctx, organizationID, projectID, clusterID, request); err != nil {
-		errors.HandleError(w, r, err)
-		return
-	}
-
-	h.setUncacheable(w)
-	w.WriteHeader(http.StatusAccepted)
-}
-
-func (h *Handler) GetApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDConsoleoutput(w http.ResponseWriter, r *http.Request, organizationID openapi.OrganizationIDParameter, projectID openapi.ProjectIDParameter, clusterID openapi.ClusterIDParameter, machineID openapi.MachineIDParameter, params openapi.GetApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDConsoleoutputParams) {
-	ctx := r.Context()
-
-	if err := rbac.AllowProjectScope(r.Context(), "compute:clusters", identityapi.Read, organizationID, projectID); err != nil {
-		errors.HandleError(w, r, err)
-		return
-	}
-
-	result, err := h.clusterClient().GetConsoleOutput(ctx, organizationID, projectID, clusterID, machineID, &params)
-	if err != nil {
-		errors.HandleError(w, r, err)
-		return
-	}
-
-	h.setUncacheable(w)
-	util.WriteJSONResponse(w, r, http.StatusOK, result)
-}
-
-func (h *Handler) GetApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDConsolesessions(w http.ResponseWriter, r *http.Request, organizationID openapi.OrganizationIDParameter, projectID openapi.ProjectIDParameter, clusterID openapi.ClusterIDParameter, machineID openapi.MachineIDParameter) {
-	ctx := r.Context()
-
-	if err := rbac.AllowProjectScope(r.Context(), "compute:clusters", identityapi.Read, organizationID, projectID); err != nil {
-		errors.HandleError(w, r, err)
-		return
-	}
-
-	result, err := h.clusterClient().CreateConsoleSession(ctx, organizationID, projectID, clusterID, machineID)
-	if err != nil {
-		errors.HandleError(w, r, err)
-		return
-	}
-
-	h.setUncacheable(w)
-	util.WriteJSONResponse(w, r, http.StatusOK, result)
-}
-
-func (h *Handler) PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDHardreboot(w http.ResponseWriter, r *http.Request, organizationID openapi.OrganizationIDParameter, projectID openapi.ProjectIDParameter, clusterID openapi.ClusterIDParameter, machineID openapi.MachineIDParameter) {
-	ctx := r.Context()
-
-	if err := rbac.AllowProjectScope(ctx, "compute:clusters", identityapi.Update, organizationID, projectID); err != nil {
-		errors.HandleError(w, r, err)
-		return
-	}
-
-	if err := h.clusterClient().HardRebootMachine(ctx, organizationID, projectID, clusterID, machineID); err != nil {
-		errors.HandleError(w, r, err)
-		return
-	}
-
-	h.setUncacheable(w)
-	w.WriteHeader(http.StatusAccepted)
-}
-
-func (h *Handler) PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDSoftreboot(w http.ResponseWriter, r *http.Request, organizationID openapi.OrganizationIDParameter, projectID openapi.ProjectIDParameter, clusterID openapi.ClusterIDParameter, machineID openapi.MachineIDParameter) {
-	ctx := r.Context()
-
-	if err := rbac.AllowProjectScope(ctx, "compute:clusters", identityapi.Update, organizationID, projectID); err != nil {
-		errors.HandleError(w, r, err)
-		return
-	}
-
-	if err := h.clusterClient().SoftRebootMachine(ctx, organizationID, projectID, clusterID, machineID); err != nil {
-		errors.HandleError(w, r, err)
-		return
-	}
-
-	h.setUncacheable(w)
-	w.WriteHeader(http.StatusAccepted)
-}
-
-func (h *Handler) PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDStart(w http.ResponseWriter, r *http.Request, organizationID openapi.OrganizationIDParameter, projectID openapi.ProjectIDParameter, clusterID openapi.ClusterIDParameter, machineID openapi.MachineIDParameter) {
-	ctx := r.Context()
-
-	if err := rbac.AllowProjectScope(ctx, "compute:clusters", identityapi.Update, organizationID, projectID); err != nil {
-		errors.HandleError(w, r, err)
-		return
-	}
-
-	if err := h.clusterClient().StartMachine(ctx, organizationID, projectID, clusterID, machineID); err != nil {
-		errors.HandleError(w, r, err)
-		return
-	}
-
-	h.setUncacheable(w)
-	w.WriteHeader(http.StatusAccepted)
-}
-
-func (h *Handler) PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDStop(w http.ResponseWriter, r *http.Request, organizationID openapi.OrganizationIDParameter, projectID openapi.ProjectIDParameter, clusterID openapi.ClusterIDParameter, machineID openapi.MachineIDParameter) {
-	ctx := r.Context()
-
-	if err := rbac.AllowProjectScope(ctx, "compute:clusters", identityapi.Update, organizationID, projectID); err != nil {
-		errors.HandleError(w, r, err)
-		return
-	}
-
-	if err := h.clusterClient().StopMachine(ctx, organizationID, projectID, clusterID, machineID); err != nil {
-		errors.HandleError(w, r, err)
-		return
-	}
-
-	h.setUncacheable(w)
-	w.WriteHeader(http.StatusAccepted)
 }

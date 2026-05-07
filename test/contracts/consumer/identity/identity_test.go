@@ -69,8 +69,8 @@ var _ = Describe("Identity Service Contract", func() {
 	})
 
 	Describe("ResourceAllocations", func() {
-		Context("when creating a cluster allocation", func() {
-			It("creates allocation for compute resources", func() {
+		Context("when creating an instance allocation", func() {
+			It("creates allocation for instance quotas", func() {
 				organizationID := "c3d4e5f6-a7b8-4c9d-0e1f-2a3b4c5d6e7f"
 				projectID := "d4e5f6a7-b8c9-4d0e-1f2a-3b4c5d6e7f8a"
 				allocationID := "e5f6a7b8-c9d0-4e1f-2a3b-4c5d6e7f8a9b"
@@ -83,30 +83,30 @@ var _ = Describe("Identity Service Contract", func() {
 							"projectID":      projectID,
 						},
 					}).
-					UponReceiving("a request to create cluster allocation").
+					UponReceiving("a request to create instance allocation").
 					WithRequest("POST", fmt.Sprintf("/api/v1/organizations/%s/projects/%s/allocations", organizationID, projectID), func(b *consumer.V4RequestBuilder) {
 						b.JSONBody(map[string]interface{}{
 							"metadata": map[string]interface{}{
-								"name": matchers.String("test-cluster"),
+								"name": matchers.String("test-instance"),
 							},
 							"spec": map[string]interface{}{
 								"id":   matchers.String(allocationID),
-								"kind": matchers.String("cluster"),
+								"kind": matchers.String("instance"),
 								"allocations": []map[string]interface{}{
 									{
-										"kind":      matchers.String("clusters"),
+										"kind":      matchers.String("servers"),
 										"committed": matchers.Integer(1),
 										"reserved":  matchers.Integer(1),
-									},
-									{
-										"kind":      matchers.String("servers"),
-										"committed": matchers.Integer(3),
-										"reserved":  matchers.Integer(3),
 									},
 									{
 										"kind":      matchers.String("gpus"),
 										"committed": matchers.Integer(2),
 										"reserved":  matchers.Integer(2),
+									},
+									{
+										"kind":      matchers.String("floatingips"),
+										"committed": matchers.Integer(1),
+										"reserved":  matchers.Integer(1),
 									},
 								},
 							},
@@ -116,27 +116,27 @@ var _ = Describe("Identity Service Contract", func() {
 						b.JSONBody(map[string]interface{}{
 							"metadata": map[string]interface{}{
 								"id":           matchers.UUID(),
-								"name":         matchers.String("test-cluster"),
+								"name":         matchers.String("test-instance"),
 								"creationTime": matchers.Timestamp(),
 							},
 							"spec": map[string]interface{}{
 								"id":   matchers.String(allocationID),
-								"kind": matchers.String("cluster"),
+								"kind": matchers.String("instance"),
 								"allocations": []map[string]interface{}{
 									{
-										"kind":      matchers.String("clusters"),
+										"kind":      matchers.String("servers"),
 										"committed": matchers.Integer(1),
 										"reserved":  matchers.Integer(1),
-									},
-									{
-										"kind":      matchers.String("servers"),
-										"committed": matchers.Integer(3),
-										"reserved":  matchers.Integer(3),
 									},
 									{
 										"kind":      matchers.String("gpus"),
 										"committed": matchers.Integer(2),
 										"reserved":  matchers.Integer(2),
+									},
+									{
+										"kind":      matchers.String("floatingips"),
+										"committed": matchers.Integer(1),
+										"reserved":  matchers.Integer(1),
 									},
 								},
 							},
@@ -149,29 +149,28 @@ var _ = Describe("Identity Service Contract", func() {
 						return fmt.Errorf("creating identity client: %w", err)
 					}
 
-					// Create allocation request
 					allocationReq := identityapi.AllocationWrite{
 						Metadata: coreclient.ResourceWriteMetadata{
-							Name: "test-cluster",
+							Name: "test-instance",
 						},
 						Spec: identityapi.AllocationSpec{
 							Id:   allocationID,
-							Kind: "cluster",
+							Kind: "instance",
 							Allocations: identityapi.ResourceAllocationList{
 								{
-									Kind:      "clusters",
+									Kind:      "servers",
 									Committed: 1,
 									Reserved:  1,
-								},
-								{
-									Kind:      "servers",
-									Committed: 3,
-									Reserved:  3,
 								},
 								{
 									Kind:      "gpus",
 									Committed: 2,
 									Reserved:  2,
+								},
+								{
+									Kind:      "floatingips",
+									Committed: 1,
+									Reserved:  1,
 								},
 							},
 						},
@@ -195,8 +194,8 @@ var _ = Describe("Identity Service Contract", func() {
 			})
 		})
 
-		Context("when updating an allocation", func() {
-			It("updates allocation with new resource counts", func() {
+		Context("when updating an instance allocation", func() {
+			It("updates allocation with new instance quota counts", func() {
 				organizationID := "c3d4e5f6-a7b8-4c9d-0e1f-2a3b4c5d6e7f"
 				projectID := "d4e5f6a7-b8c9-4d0e-1f2a-3b4c5d6e7f8a"
 				allocationID := "e5f6a7b8-c9d0-4e1f-2a3b-4c5d6e7f8a9b"
@@ -210,32 +209,32 @@ var _ = Describe("Identity Service Contract", func() {
 							"allocationID":   allocationID,
 						},
 					}).
-					UponReceiving("a request to update cluster allocation").
+					UponReceiving("a request to update instance allocation").
 					WithRequest("PUT",
 						fmt.Sprintf("/api/v1/organizations/%s/projects/%s/allocations/%s",
 							organizationID, projectID, allocationID), func(b *consumer.V4RequestBuilder) {
 							b.JSONBody(map[string]interface{}{
 								"metadata": map[string]interface{}{
-									"name": matchers.String("test-cluster"),
+									"name": matchers.String("test-instance"),
 								},
 								"spec": map[string]interface{}{
 									"id":   matchers.String(allocationID),
-									"kind": matchers.String("cluster"),
+									"kind": matchers.String("instance"),
 									"allocations": []map[string]interface{}{
 										{
-											"kind":      matchers.String("clusters"),
+											"kind":      matchers.String("servers"),
 											"committed": matchers.Integer(1),
 											"reserved":  matchers.Integer(1),
-										},
-										{
-											"kind":      matchers.String("servers"),
-											"committed": matchers.Integer(5),
-											"reserved":  matchers.Integer(5),
 										},
 										{
 											"kind":      matchers.String("gpus"),
 											"committed": matchers.Integer(4),
 											"reserved":  matchers.Integer(4),
+										},
+										{
+											"kind":      matchers.String("floatingips"),
+											"committed": matchers.Integer(0),
+											"reserved":  matchers.Integer(0),
 										},
 									},
 								},
@@ -245,27 +244,27 @@ var _ = Describe("Identity Service Contract", func() {
 						b.JSONBody(map[string]interface{}{
 							"metadata": map[string]interface{}{
 								"id":           matchers.UUID(),
-								"name":         matchers.String("test-cluster"),
+								"name":         matchers.String("test-instance"),
 								"creationTime": matchers.Timestamp(),
 							},
 							"spec": map[string]interface{}{
 								"id":   matchers.String(allocationID),
-								"kind": matchers.String("cluster"),
+								"kind": matchers.String("instance"),
 								"allocations": []map[string]interface{}{
 									{
-										"kind":      matchers.String("clusters"),
+										"kind":      matchers.String("servers"),
 										"committed": matchers.Integer(1),
 										"reserved":  matchers.Integer(1),
-									},
-									{
-										"kind":      matchers.String("servers"),
-										"committed": matchers.Integer(5),
-										"reserved":  matchers.Integer(5),
 									},
 									{
 										"kind":      matchers.String("gpus"),
 										"committed": matchers.Integer(4),
 										"reserved":  matchers.Integer(4),
+									},
+									{
+										"kind":      matchers.String("floatingips"),
+										"committed": matchers.Integer(0),
+										"reserved":  matchers.Integer(0),
 									},
 								},
 							},
@@ -278,29 +277,28 @@ var _ = Describe("Identity Service Contract", func() {
 						return fmt.Errorf("creating identity client: %w", err)
 					}
 
-					// Update allocation request with scaled resources
 					allocationReq := identityapi.AllocationWrite{
 						Metadata: coreclient.ResourceWriteMetadata{
-							Name: "test-cluster",
+							Name: "test-instance",
 						},
 						Spec: identityapi.AllocationSpec{
 							Id:   allocationID,
-							Kind: "cluster",
+							Kind: "instance",
 							Allocations: identityapi.ResourceAllocationList{
 								{
-									Kind:      "clusters",
+									Kind:      "servers",
 									Committed: 1,
 									Reserved:  1,
-								},
-								{
-									Kind:      "servers",
-									Committed: 5,
-									Reserved:  5,
 								},
 								{
 									Kind:      "gpus",
 									Committed: 4,
 									Reserved:  4,
+								},
+								{
+									Kind:      "floatingips",
+									Committed: 0,
+									Reserved:  0,
 								},
 							},
 						},
@@ -324,7 +322,7 @@ var _ = Describe("Identity Service Contract", func() {
 			})
 		})
 
-		Context("when deleting an allocation", func() {
+		Context("when deleting an instance allocation", func() {
 			It("removes allocation successfully", func() {
 				organizationID := "c3d4e5f6-a7b8-4c9d-0e1f-2a3b4c5d6e7f"
 				projectID := "d4e5f6a7-b8c9-4d0e-1f2a-3b4c5d6e7f8a"
@@ -359,117 +357,6 @@ var _ = Describe("Identity Service Contract", func() {
 
 					// Verify the response
 					Expect(resp.StatusCode()).To(Equal(202))
-
-					return nil
-				}
-
-				Expect(pact.ExecuteTest(testingT, test)).To(Succeed())
-			})
-		})
-
-		Context("when creating an instance allocation", func() {
-			It("creates allocation for instance with GPU", func() {
-				organizationID := "f6a7b8c9-d0e1-4f2a-3b4c-5d6e7f8a9b0c"
-				projectID := "a7b8c9d0-e1f2-4a3b-4c5d-6e7f8a9b0c1d"
-				allocationID := "b8c9d0e1-f2a3-4b4c-5d6e-7f8a9b0c1d2e"
-
-				pact.AddInteraction().
-					GivenWithParameter(models.ProviderState{
-						Name: "project exists",
-						Parameters: map[string]interface{}{
-							"organizationID": organizationID,
-							"projectID":      projectID,
-						},
-					}).
-					UponReceiving("a request to create instance allocation with GPU").
-					WithRequest("POST", fmt.Sprintf("/api/v1/organizations/%s/projects/%s/allocations", organizationID, projectID), func(b *consumer.V4RequestBuilder) {
-						b.JSONBody(map[string]interface{}{
-							"metadata": map[string]interface{}{
-								"name": matchers.String("test-instance"),
-							},
-							"spec": map[string]interface{}{
-								"id":   matchers.String(allocationID),
-								"kind": matchers.String("instance"),
-								"allocations": []map[string]interface{}{
-									{
-										"kind":      matchers.String("servers"),
-										"committed": matchers.Integer(1),
-										"reserved":  matchers.Integer(1),
-									},
-									{
-										"kind":      matchers.String("gpus"),
-										"committed": matchers.Integer(1),
-										"reserved":  matchers.Integer(1),
-									},
-								},
-							},
-						})
-					}).
-					WillRespondWith(201, func(b *consumer.V4ResponseBuilder) {
-						b.JSONBody(map[string]interface{}{
-							"metadata": map[string]interface{}{
-								"id":           matchers.UUID(),
-								"name":         matchers.String("test-instance"),
-								"creationTime": matchers.Timestamp(),
-							},
-							"spec": map[string]interface{}{
-								"id":   matchers.String(allocationID),
-								"kind": matchers.String("instance"),
-								"allocations": []map[string]interface{}{
-									{
-										"kind":      matchers.String("servers"),
-										"committed": matchers.Integer(1),
-										"reserved":  matchers.Integer(1),
-									},
-									{
-										"kind":      matchers.String("gpus"),
-										"committed": matchers.Integer(1),
-										"reserved":  matchers.Integer(1),
-									},
-								},
-							},
-						})
-					})
-
-				test := func(config consumer.MockServerConfig) error {
-					identityClient, err := createIdentityClient(config)
-					if err != nil {
-						return fmt.Errorf("creating identity client: %w", err)
-					}
-
-					// Create instance allocation
-					allocationReq := identityapi.AllocationWrite{
-						Metadata: coreclient.ResourceWriteMetadata{
-							Name: "test-instance",
-						},
-						Spec: identityapi.AllocationSpec{
-							Id:   allocationID,
-							Kind: "instance",
-							Allocations: identityapi.ResourceAllocationList{
-								{
-									Kind:      "servers",
-									Committed: 1,
-									Reserved:  1,
-								},
-								{
-									Kind:      "gpus",
-									Committed: 1,
-									Reserved:  1,
-								},
-							},
-						},
-					}
-
-					resp, err := identityClient.PostApiV1OrganizationsOrganizationIDProjectsProjectIDAllocationsWithResponse(
-						ctx, organizationID, projectID, allocationReq)
-					if err != nil {
-						return fmt.Errorf("creating allocation: %w", err)
-					}
-
-					// Verify the response
-					Expect(resp.StatusCode()).To(Equal(201))
-					Expect(resp.JSON201).NotTo(BeNil())
-					Expect(resp.JSON201.Spec.Id).To(Equal(allocationID))
 
 					return nil
 				}
