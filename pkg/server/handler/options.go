@@ -23,8 +23,6 @@ import (
 	"time"
 
 	"github.com/spf13/pflag"
-
-	"github.com/unikorn-cloud/compute/pkg/server/handler/cluster"
 )
 
 // Options defines configurable handler options.
@@ -32,16 +30,11 @@ type Options struct {
 	// cacheMaxAge defines the max age for cachable items e.g. images and
 	// flavors don't change all that often.
 	CacheMaxAge time.Duration
-
-	// Cluster is a set of options for managed clusters.
-	Cluster cluster.Options
 }
 
 // AddFlags adds the options flags to the given flag set.
 func (o *Options) AddFlags(f *pflag.FlagSet) {
 	f.DurationVar(&o.CacheMaxAge, "cache-max-age", 24*time.Hour, "How long to cache long-lived queries in the browser.")
-
-	o.Cluster.AddFlags(f)
 }
 
 // setCacheable allows the client to cache the response for this request for a

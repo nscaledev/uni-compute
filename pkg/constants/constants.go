@@ -60,11 +60,7 @@ const (
 	// for filtering purposes.
 	ResourceAPIVersionLabel = "resource.unikorn-cloud.org/api-version"
 
-	ServerDeletionHintAnnotation = "cluster.compute.unikorn-cloud.org/deletion-hint"
-
 	InstanceLabel = "compute.unikorn-cloud.org/instance-id"
-
-	ClusterLabel = "compute.unikorn-cloud.org/cluster-id"
 )
 
 const (

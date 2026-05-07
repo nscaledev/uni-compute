@@ -12,7 +12,6 @@ REVISION := $(shell git rev-parse HEAD)
 # want to be amd64.
 CONTROLLERS = \
   unikorn-compute-instance-controller\
-  unikorn-compute-cluster-controller\
   unikorn-compute-network-consumer \
   unikorn-compute-server \
   unikorn-compute-monitor

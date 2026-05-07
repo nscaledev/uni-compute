@@ -5,21 +5,6 @@ metadata:
   labels:
     {{- include "unikorn.labels" . | nindent 4 }}
 rules:
-# Manage kubernetes clusters and control planes (my job).
-- apiGroups:
-  - compute.unikorn-cloud.org
-  resources:
-  - computeclusters
-  verbs:
-  - list
-  - watch
-# Update status conditions
-- apiGroups:
-  - compute.unikorn-cloud.org
-  resources:
-  - computeclusters/status
-  verbs:
-  - patch
 # Get region credentials.
 - apiGroups:
   - ""

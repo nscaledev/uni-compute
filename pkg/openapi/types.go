@@ -4,10 +4,6 @@
 package openapi
 
 import (
-	"encoding/json"
-	"fmt"
-
-	"github.com/oapi-codegen/runtime"
 	externalRef0 "github.com/unikorn-cloud/core/pkg/openapi"
 	externalRef1 "github.com/unikorn-cloud/region/pkg/openapi"
 )
@@ -16,267 +12,11 @@ const (
 	Oauth2AuthenticationScopes = "oauth2Authentication.Scopes"
 )
 
-// Defines values for FirewallRuleDirection.
-const (
-	Egress  FirewallRuleDirection = "egress"
-	Ingress FirewallRuleDirection = "ingress"
-)
-
-// Defines values for FirewallRuleProtocol.
-const (
-	Tcp FirewallRuleProtocol = "tcp"
-	Udp FirewallRuleProtocol = "udp"
-)
-
-// AllowedAddressPair Allow multiple MAC/IP address (range) pairs to pass through this network port.
-// Typically required when the machine is operating as a router.
-type AllowedAddressPair struct {
-	// Cidr The CIDR to allow.
-	Cidr string `json:"cidr"`
-
-	// MacAddress The MAC address to allow.
-	MacAddress *string `json:"macAddress,omitempty"`
-}
-
-// AllowedAddressPairList A list of allowed address pairs.
-type AllowedAddressPairList = []AllowedAddressPair
-
 // AllowedSourceAddresses A list of network prefixes that are allowed to egress from the server.
 // By default, only packets from the server's network interface's IP address
 // are allowed to enter the network.  Use of this option allows the server
 // to act as a router without SNAT rules.
 type AllowedSourceAddresses = []string
-
-// ClusterV2Create A cluster creation request.
-type ClusterV2Create struct {
-	// Metadata Metadata required for all API resource reads and writes.
-	Metadata externalRef0.ResourceWriteMetadata `json:"metadata"`
-
-	// Spec A cluster creation specification.
-	Spec ClusterV2CreateSpec `json:"spec"`
-}
-
-// ClusterV2CreateSpec defines model for clusterV2CreateSpec.
-type ClusterV2CreateSpec struct {
-	// NetworkId The network ID to attach the compute instance to.
-	NetworkId string `json:"networkId"`
-
-	// OrganizationId The organization to provision the resource in.
-	OrganizationId string `json:"organizationId"`
-
-	// Pools A list of workload pools.
-	Pools PoolV2List `json:"pools"`
-
-	// ProjectId The project to provision the resource in.
-	ProjectId string `json:"projectId"`
-}
-
-// ClusterV2Read A compute cluster.
-type ClusterV2Read struct {
-	// Metadata Metadata required by project scoped resource reads.
-	Metadata externalRef0.ProjectScopedResourceReadMetadata `json:"metadata"`
-
-	// Spec A cluster specification.
-	Spec ClusterV2Spec `json:"spec"`
-
-	// Status A cluster status.
-	Status ClusterV2Status `json:"status"`
-}
-
-// ClusterV2ReadList A list of compute clusters.
-type ClusterV2ReadList = []ClusterV2Read
-
-// ClusterV2Spec A cluster specification.
-type ClusterV2Spec struct {
-	// Pools A list of workload pools.
-	Pools PoolV2List `json:"pools"`
-}
-
-// ClusterV2Status A cluster status.
-type ClusterV2Status struct {
-	// NetworkId The network ID the cluster is running on.
-	NetworkId string `json:"networkId"`
-
-	// Pools A list of workload pool statuses.
-	Pools PoolV2StatusList `json:"pools"`
-
-	// RegionId The region ID the cluster is running in.
-	RegionId string `json:"regionId"`
-}
-
-// ClusterV2Update A cluster update request.
-type ClusterV2Update struct {
-	// Metadata Metadata required for all API resource reads and writes.
-	Metadata externalRef0.ResourceWriteMetadata `json:"metadata"`
-
-	// Spec A cluster specification.
-	Spec ClusterV2Spec `json:"spec"`
-}
-
-// ComputeClusterMachineStatus Compute cluster machine status.
-type ComputeClusterMachineStatus struct {
-	// FlavorID Machine flavorID.
-	FlavorID string `json:"flavorID"`
-
-	// HealthStatus The health state of a resource.
-	HealthStatus externalRef0.ResourceHealthStatus `json:"healthStatus"`
-
-	// Hostname Machine hostname.
-	Hostname string `json:"hostname"`
-
-	// Id Machine ID.
-	Id string `json:"id"`
-
-	// ImageID Machine image ID.
-	ImageID string `json:"imageID"`
-
-	// PrivateIP Machine private IP address.
-	PrivateIP *string `json:"privateIP,omitempty"`
-
-	// ProvisioningStatus The provisioning state of a resource.
-	ProvisioningStatus externalRef0.ResourceProvisioningStatus `json:"provisioningStatus"`
-
-	// PublicIP Machine public IP address.
-	PublicIP *string `json:"publicIP,omitempty"`
-
-	// Status The lifecycle phase of an instance.
-	Status externalRef1.InstanceLifecyclePhase `json:"status"`
-}
-
-// ComputeClusterMachinesStatus A list of Compute cluster machines status.
-type ComputeClusterMachinesStatus = []ComputeClusterMachineStatus
-
-// ComputeClusterRead Compute cluster read.
-type ComputeClusterRead struct {
-	// Metadata Metadata required by project scoped resource reads.
-	Metadata externalRef0.ProjectScopedResourceReadMetadata `json:"metadata"`
-
-	// Spec Compute cluster creation parameters.
-	Spec ComputeClusterSpec `json:"spec"`
-
-	// Status Compute cluster status.
-	Status *ComputeClusterStatus `json:"status,omitempty"`
-}
-
-// ComputeClusterSpec Compute cluster creation parameters.
-type ComputeClusterSpec struct {
-	// RegionId The region to provision the cluster in.
-	RegionId string `json:"regionId"`
-
-	// WorkloadPools A list of Compute cluster workload pools.
-	WorkloadPools ComputeClusterWorkloadPools `json:"workloadPools"`
-}
-
-// ComputeClusterStatus Compute cluster status.
-type ComputeClusterStatus struct {
-	// SshPrivateKey SSH private key that allows access to the cluster.
-	SshPrivateKey *string `json:"sshPrivateKey,omitempty"`
-
-	// WorkloadPools A list of Compute cluster workload pools status.
-	WorkloadPools *ComputeClusterWorkloadPoolsStatus `json:"workloadPools,omitempty"`
-}
-
-// ComputeClusterWorkloadPool A Compute cluster workload pool.
-type ComputeClusterWorkloadPool struct {
-	// Machine A Compute cluster machine pool.
-	Machine MachinePool `json:"machine"`
-
-	// Name A valid Kubernetes label value, typically used for resource names that can be
-	// indexed in the database.
-	Name externalRef0.KubernetesLabelValue `json:"name"`
-}
-
-// ComputeClusterWorkloadPoolStatus Compute cluster workload pool status.
-type ComputeClusterWorkloadPoolStatus struct {
-	// Machines A list of Compute cluster machines status.
-	Machines *ComputeClusterMachinesStatus `json:"machines,omitempty"`
-
-	// Name A valid Kubernetes label value, typically used for resource names that can be
-	// indexed in the database.
-	Name externalRef0.KubernetesLabelValue `json:"name"`
-
-	// Replicas Number of machines.
-	Replicas int `json:"replicas"`
-}
-
-// ComputeClusterWorkloadPools A list of Compute cluster workload pools.
-type ComputeClusterWorkloadPools = []ComputeClusterWorkloadPool
-
-// ComputeClusterWorkloadPoolsStatus A list of Compute cluster workload pools status.
-type ComputeClusterWorkloadPoolsStatus = []ComputeClusterWorkloadPoolStatus
-
-// ComputeClusterWrite Compute cluster create or update.
-type ComputeClusterWrite struct {
-	// Metadata Metadata required for all API resource reads and writes.
-	Metadata externalRef0.ResourceWriteMetadata `json:"metadata"`
-
-	// Spec Compute cluster creation parameters.
-	Spec ComputeClusterSpec `json:"spec"`
-}
-
-// ComputeClusters A list of Compute clusters.
-type ComputeClusters = []ComputeClusterRead
-
-// ComputeImage The image to use for a server.
-type ComputeImage struct {
-	// Id The image ID.
-	Id *string `json:"id,omitempty"`
-
-	// Selector A server image selector.
-	Selector *ImageSelector `json:"selector,omitempty"`
-	union    json.RawMessage
-}
-
-// ComputeImage0 defines model for .
-type ComputeImage0 = interface{}
-
-// ComputeImage1 defines model for .
-type ComputeImage1 = interface{}
-
-// EvictionWrite A set of machines to evict from a cluster.
-type EvictionWrite struct {
-	// MachineIDs A list of machine IDs, these are returned in the cluster status.
-	MachineIDs MachineIDList `json:"machineIDs"`
-}
-
-// FirewallRule A firewall rule applied to a workload pool.
-type FirewallRule struct {
-	// Direction The direction of network traffic to apply the rule to.
-	Direction FirewallRuleDirection `json:"direction"`
-
-	// Port The port to allow, or start of a port range.
-	Port int `json:"port"`
-
-	// PortMax The end of a port range, inclusive of this this port, if specified.
-	PortMax *int `json:"portMax,omitempty"`
-
-	// Prefixes A list of CIDR prefixes to allow, it might be any IPv4 or IPv6 in CIDR notation.
-	Prefixes []string `json:"prefixes"`
-
-	// Protocol The protocol to allow.
-	Protocol FirewallRuleProtocol `json:"protocol"`
-}
-
-// FirewallRuleDirection The direction of network traffic to apply the rule to.
-type FirewallRuleDirection string
-
-// FirewallRuleProtocol The protocol to allow.
-type FirewallRuleProtocol string
-
-// FirewallRules A list of firewall rules applied to a workload pool.
-type FirewallRules = []FirewallRule
-
-// ImageSelector A server image selector.
-type ImageSelector struct {
-	// Distro A distribution name.
-	Distro externalRef1.OsDistro `json:"distro"`
-
-	// Variant The operating system variant.
-	Variant *string `json:"variant,omitempty"`
-
-	// Version The operating system version to use.
-	Version string `json:"version"`
-}
 
 // InstanceCreate A compute instance creation request.
 type InstanceCreate struct {
@@ -416,91 +156,8 @@ type InstancesRead = []InstanceRead
 // KubernetesNameParameter A Kubernetes name. Must be a valid DNS containing only lower case characters, numbers or hyphens, start and end with a character or number, and be at most 63 characters in length.
 type KubernetesNameParameter = string
 
-// MachineIDList A list of machine IDs, these are returned in the cluster status.
-type MachineIDList = []string
-
-// MachinePool A Compute cluster machine pool.
-type MachinePool struct {
-	// AllowedAddressPairs A list of allowed address pairs.
-	AllowedAddressPairs *AllowedAddressPairList `json:"allowedAddressPairs,omitempty"`
-
-	// Disk A volume.  This is currently only valid for VM based flavors.
-	Disk *Volume `json:"disk,omitempty"`
-
-	// Firewall A list of firewall rules applied to a workload pool.
-	Firewall *FirewallRules `json:"firewall,omitempty"`
-
-	// FlavorId Flavor ID.
-	FlavorId string `json:"flavorId"`
-
-	// Image The image to use for a server.
-	Image ComputeImage `json:"image"`
-
-	// PublicIPAllocation A public IP allocation settings.
-	PublicIPAllocation *PublicIPAllocation `json:"publicIPAllocation,omitempty"`
-
-	// Replicas Number of machines.
-	Replicas int `json:"replicas"`
-
-	// UserData UserData contains base64-encoded configuration information or scripts to use upon launch.
-	UserData *[]byte `json:"userData,omitempty"`
-}
-
-// PoolV2 A workload pool.
-type PoolV2 struct {
-	// FlavorId The flavor CPU/RAM of a compute instance.
-	FlavorId string `json:"flavorId"`
-
-	// ImageId The image of a compute instance.
-	ImageId string `json:"imageId"`
-
-	// Name The name of the pool.  Instances will inherit this name plus a short suffix.
-	Name string `json:"name"`
-
-	// Networking A compute instance's network  configuration.
-	Networking *InstanceNetworking `json:"networking,omitempty"`
-
-	// Replicas The number of instances to maintain.
-	Replicas int `json:"replicas"`
-
-	// UserData Contains base64-encoded configuration information or scripts to use upon launch.
-	// The format of the data is governed by the cloud-init standard, and may be a script,
-	// a MIME multipart archive, etc.
-	UserData *[]byte `json:"userData,omitempty"`
-}
-
-// PoolV2List A list of workload pools.
-type PoolV2List = []PoolV2
-
-// PoolV2Status A workload pool.
-type PoolV2Status struct {
-	// Name The name of the pool.
-	Name string `json:"name"`
-
-	// Replicas The number of instances that exist.
-	Replicas int `json:"replicas"`
-}
-
-// PoolV2StatusList A list of workload pool statuses.
-type PoolV2StatusList = []PoolV2Status
-
-// PublicIPAllocation A public IP allocation settings.
-type PublicIPAllocation struct {
-	// Enabled Enable public IP allocation.
-	Enabled bool `json:"enabled"`
-}
-
 // SecurityGroupIDList A list of security group IDs.
 type SecurityGroupIDList = []string
-
-// Volume A volume.  This is currently only valid for VM based flavors.
-type Volume struct {
-	// Size Disk size in GiB.
-	Size int `json:"size"`
-}
-
-// ClusterIDParameter A Kubernetes name. Must be a valid DNS containing only lower case characters, numbers or hyphens, start and end with a character or number, and be at most 63 characters in length.
-type ClusterIDParameter = KubernetesNameParameter
 
 // HardRebootParameter defines model for hardRebootParameter.
 type HardRebootParameter = bool
@@ -511,9 +168,6 @@ type InstanceIDParameter = KubernetesNameParameter
 // LengthParameter defines model for lengthParameter.
 type LengthParameter = int
 
-// MachineIDParameter A Kubernetes name. Must be a valid DNS containing only lower case characters, numbers or hyphens, start and end with a character or number, and be at most 63 characters in length.
-type MachineIDParameter = KubernetesNameParameter
-
 // NetworkIDQueryParameter defines model for networkIDQueryParameter.
 type NetworkIDQueryParameter = []string
 
@@ -522,9 +176,6 @@ type OrganizationIDParameter = KubernetesNameParameter
 
 // OrganizationIDQueryParameter defines model for organizationIDQueryParameter.
 type OrganizationIDQueryParameter = []string
-
-// ProjectIDParameter A Kubernetes name. Must be a valid DNS containing only lower case characters, numbers or hyphens, start and end with a character or number, and be at most 63 characters in length.
-type ProjectIDParameter = KubernetesNameParameter
 
 // ProjectIDQueryParameter defines model for projectIDQueryParameter.
 type ProjectIDQueryParameter = []string
@@ -535,38 +186,11 @@ type RegionIDParameter = KubernetesNameParameter
 // RegionIDQueryParameter defines model for regionIDQueryParameter.
 type RegionIDQueryParameter = []string
 
-// ClusterV2ListResponse A list of compute clusters.
-type ClusterV2ListResponse = ClusterV2ReadList
-
-// ClusterV2Response A compute cluster.
-type ClusterV2Response = ClusterV2Read
-
-// ComputeClusterDetailResponse Compute cluster read.
-type ComputeClusterDetailResponse = ComputeClusterRead
-
-// ComputeClusterResponse Compute cluster read.
-type ComputeClusterResponse = ComputeClusterRead
-
-// ComputeClustersResponse A list of Compute clusters.
-type ComputeClustersResponse = ComputeClusters
-
 // InstanceResponse A compute instance.
 type InstanceResponse = InstanceRead
 
 // InstancesResponse A list of compute instances.
 type InstancesResponse = InstancesRead
-
-// ClusterV2CreateRequest A cluster creation request.
-type ClusterV2CreateRequest = ClusterV2Create
-
-// ClusterV2UpdateRequest A cluster update request.
-type ClusterV2UpdateRequest = ClusterV2Update
-
-// CreateComputeClusterRequest Compute cluster create or update.
-type CreateComputeClusterRequest = ComputeClusterWrite
-
-// EvictionRequest A set of machines to evict from a cluster.
-type EvictionRequest = EvictionWrite
 
 // InstanceCreateRequest A compute instance creation request.
 type InstanceCreateRequest = InstanceCreate
@@ -576,38 +200,6 @@ type InstanceSnapshotRequest = InstanceSnapshotCreate
 
 // InstanceUpdateRequest A compute instance update request.
 type InstanceUpdateRequest = InstanceUpdate
-
-// GetApiV1OrganizationsOrganizationIDClustersParams defines parameters for GetApiV1OrganizationsOrganizationIDClusters.
-type GetApiV1OrganizationsOrganizationIDClustersParams struct {
-	// Tag A set of tags to match against resources in the form "name=value",
-	// thus when encoded you get "?tag=foo%3Dcat&tag=bar%3Ddog".
-	Tag *externalRef0.TagSelectorParameter `form:"tag,omitempty" json:"tag,omitempty"`
-}
-
-// GetApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDConsoleoutputParams defines parameters for GetApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDConsoleoutput.
-type GetApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDMachinesMachineIDConsoleoutputParams struct {
-	// Length The requested output length.
-	Length *LengthParameter `form:"length,omitempty" json:"length,omitempty"`
-}
-
-// GetApiV2ClustersParams defines parameters for GetApiV2Clusters.
-type GetApiV2ClustersParams struct {
-	// Tag A set of tags to match against resources in the form "name=value",
-	// thus when encoded you get "?tag=foo%3Dcat&tag=bar%3Ddog".
-	Tag *externalRef0.TagSelectorParameter `form:"tag,omitempty" json:"tag,omitempty"`
-
-	// OrganizationID Allows resources to be filtered by organization.
-	OrganizationID *OrganizationIDQueryParameter `form:"organizationID,omitempty" json:"organizationID,omitempty"`
-
-	// ProjectID Allows resources to be filtered by project.
-	ProjectID *ProjectIDQueryParameter `form:"projectID,omitempty" json:"projectID,omitempty"`
-
-	// RegionID Allows resources to be filtered by region.
-	RegionID *RegionIDQueryParameter `form:"regionID,omitempty" json:"regionID,omitempty"`
-
-	// NetworkID Allows resources to be filtered by network.
-	NetworkID *NetworkIDQueryParameter `form:"networkID,omitempty" json:"networkID,omitempty"`
-}
 
 // GetApiV2InstancesParams defines parameters for GetApiV2Instances.
 type GetApiV2InstancesParams struct {
@@ -640,21 +232,6 @@ type PostApiV2InstancesInstanceIDRebootParams struct {
 	Hard *HardRebootParameter `form:"hard,omitempty" json:"hard,omitempty"`
 }
 
-// PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersJSONRequestBody defines body for PostApiV1OrganizationsOrganizationIDProjectsProjectIDClusters for application/json ContentType.
-type PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersJSONRequestBody = ComputeClusterWrite
-
-// PutApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDJSONRequestBody defines body for PutApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterID for application/json ContentType.
-type PutApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDJSONRequestBody = ComputeClusterWrite
-
-// PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDEvictJSONRequestBody defines body for PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDEvict for application/json ContentType.
-type PostApiV1OrganizationsOrganizationIDProjectsProjectIDClustersClusterIDEvictJSONRequestBody = EvictionWrite
-
-// PostApiV2ClustersJSONRequestBody defines body for PostApiV2Clusters for application/json ContentType.
-type PostApiV2ClustersJSONRequestBody = ClusterV2Create
-
-// PutApiV2ClustersClusterIDJSONRequestBody defines body for PutApiV2ClustersClusterID for application/json ContentType.
-type PutApiV2ClustersClusterIDJSONRequestBody = ClusterV2Update
-
 // PostApiV2InstancesJSONRequestBody defines body for PostApiV2Instances for application/json ContentType.
 type PostApiV2InstancesJSONRequestBody = InstanceCreate
 
@@ -663,113 +240,3 @@ type PutApiV2InstancesInstanceIDJSONRequestBody = InstanceUpdate
 
 // PostApiV2InstancesInstanceIDSnapshotJSONRequestBody defines body for PostApiV2InstancesInstanceIDSnapshot for application/json ContentType.
 type PostApiV2InstancesInstanceIDSnapshotJSONRequestBody = InstanceSnapshotCreate
-
-// AsComputeImage0 returns the union data inside the ComputeImage as a ComputeImage0
-func (t ComputeImage) AsComputeImage0() (ComputeImage0, error) {
-	var body ComputeImage0
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromComputeImage0 overwrites any union data inside the ComputeImage as the provided ComputeImage0
-func (t *ComputeImage) FromComputeImage0(v ComputeImage0) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeComputeImage0 performs a merge with any union data inside the ComputeImage, using the provided ComputeImage0
-func (t *ComputeImage) MergeComputeImage0(v ComputeImage0) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsComputeImage1 returns the union data inside the ComputeImage as a ComputeImage1
-func (t ComputeImage) AsComputeImage1() (ComputeImage1, error) {
-	var body ComputeImage1
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromComputeImage1 overwrites any union data inside the ComputeImage as the provided ComputeImage1
-func (t *ComputeImage) FromComputeImage1(v ComputeImage1) error {
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeComputeImage1 performs a merge with any union data inside the ComputeImage, using the provided ComputeImage1
-func (t *ComputeImage) MergeComputeImage1(v ComputeImage1) error {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-func (t ComputeImage) MarshalJSON() ([]byte, error) {
-	b, err := t.union.MarshalJSON()
-	if err != nil {
-		return nil, err
-	}
-	object := make(map[string]json.RawMessage)
-	if t.union != nil {
-		err = json.Unmarshal(b, &object)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if t.Id != nil {
-		object["id"], err = json.Marshal(t.Id)
-		if err != nil {
-			return nil, fmt.Errorf("error marshaling 'id': %w", err)
-		}
-	}
-
-	if t.Selector != nil {
-		object["selector"], err = json.Marshal(t.Selector)
-		if err != nil {
-			return nil, fmt.Errorf("error marshaling 'selector': %w", err)
-		}
-	}
-	b, err = json.Marshal(object)
-	return b, err
-}
-
-func (t *ComputeImage) UnmarshalJSON(b []byte) error {
-	err := t.union.UnmarshalJSON(b)
-	if err != nil {
-		return err
-	}
-	object := make(map[string]json.RawMessage)
-	err = json.Unmarshal(b, &object)
-	if err != nil {
-		return err
-	}
-
-	if raw, found := object["id"]; found {
-		err = json.Unmarshal(raw, &t.Id)
-		if err != nil {
-			return fmt.Errorf("error reading 'id': %w", err)
-		}
-	}
-
-	if raw, found := object["selector"]; found {
-		err = json.Unmarshal(raw, &t.Selector)
-		if err != nil {
-			return fmt.Errorf("error reading 'selector': %w", err)
-		}
-	}
-
-	return err
-}
