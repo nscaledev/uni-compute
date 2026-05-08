@@ -48,7 +48,6 @@ var (
 
 //nolint:gochecknoinits
 func init() {
-	SchemeBuilder.Register(&ComputeCluster{}, &ComputeClusterList{})
 	SchemeBuilder.Register(&ComputeInstance{}, &ComputeInstanceList{})
 }
 

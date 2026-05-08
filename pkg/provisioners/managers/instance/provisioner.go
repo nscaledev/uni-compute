@@ -25,7 +25,6 @@ import (
 
 	unikornv1 "github.com/unikorn-cloud/compute/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/compute/pkg/constants"
-	"github.com/unikorn-cloud/compute/pkg/provisioners/managers/cluster/util"
 	unikornv1core "github.com/unikorn-cloud/core/pkg/apis/unikorn/v1alpha1"
 	coreclient "github.com/unikorn-cloud/core/pkg/client"
 	coreconstants "github.com/unikorn-cloud/core/pkg/constants"
@@ -39,6 +38,7 @@ import (
 	regionconstants "github.com/unikorn-cloud/region/pkg/constants"
 	regionapi "github.com/unikorn-cloud/region/pkg/openapi"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/ptr"
 )
 
@@ -174,7 +174,7 @@ func (p *Provisioner) generateServerUpdateRequest() *regionapi.ServerV2Update {
 	return &regionapi.ServerV2Update{
 		Metadata: coreapi.ResourceWriteMetadata{
 			Name:        p.instance.Labels[coreconstants.NameLabel],
-			Description: ptr.To("Server for instance" + p.instance.Name),
+			Description: ptr.To("Server for instance " + p.instance.Name),
 			Tags: &coreapi.TagList{
 				{
 					Name:  constants.InstanceLabel,
@@ -191,7 +191,7 @@ func (p *Provisioner) generateServerUpdateRequest() *regionapi.ServerV2Update {
 	}
 }
 
-func needsRebuild(a, b *regionapi.ServerV2Spec) bool {
+func needsRebuildSpec(a, b *regionapi.ServerV2Spec) bool {
 	// Problematically, the region controller doesn't have access to the server's
 	// flavor (due to a more recent microversion returning metadata, not the ID)
 	// so spotting this change is complex and fragile.  Ideally we would also
@@ -207,6 +207,14 @@ func needsRebuild(a, b *regionapi.ServerV2Spec) bool {
 	return false
 }
 
+func needsRebuild(current *regionapi.ServerV2Read, desired *regionapi.ServerV2Update) bool {
+	if current.Metadata.Name != desired.Metadata.Name {
+		return true
+	}
+
+	return needsRebuildSpec(&current.Spec, &desired.Spec)
+}
+
 func (p *Provisioner) createOrUpdateServer(ctx context.Context, region regionapi.ClientWithResponsesInterface, server *regionapi.ServerV2Read) (*regionapi.ServerV2Read, error) {
 	if server == nil {
 		return p.createServer(ctx, region, p.generateServerCreateRequest())
@@ -214,14 +222,16 @@ func (p *Provisioner) createOrUpdateServer(ctx context.Context, region regionapi
 
 	request := p.generateServerUpdateRequest()
 
-	if reflect.DeepEqual(server.Spec, request.Spec) {
-		return server, nil
-	}
-
-	if needsRebuild(&server.Spec, &request.Spec) {
+	if needsRebuild(server, request) {
 		if err := p.deleteServer(ctx, region, server.Metadata.Id); err != nil {
 			return nil, provisioners.ErrYield
 		}
+
+		return nil, provisioners.ErrYield
+	}
+
+	if reflect.DeepEqual(server.Spec, request.Spec) {
+		return server, nil
 	}
 
 	return p.updateServer(ctx, region, server.Metadata.Id, request)
@@ -243,6 +253,21 @@ func convertPowerState(in *regionapi.InstanceLifecyclePhase) *regionv1.InstanceL
 	default:
 		return ptr.To(regionv1.InstanceLifecyclePhasePending)
 	}
+}
+
+func convertHealthStatusCondition(in coreapi.ResourceHealthStatus) (corev1.ConditionStatus, unikornv1core.ConditionReason, string) {
+	switch in {
+	case coreapi.ResourceHealthStatusUnknown:
+		return corev1.ConditionFalse, unikornv1core.ConditionReasonUnknown, "health unknown"
+	case coreapi.ResourceHealthStatusHealthy:
+		return corev1.ConditionTrue, unikornv1core.ConditionReasonHealthy, "healthy"
+	case coreapi.ResourceHealthStatusDegraded:
+		return corev1.ConditionFalse, unikornv1core.ConditionReasonDegraded, "degraded"
+	case coreapi.ResourceHealthStatusError:
+		return corev1.ConditionFalse, unikornv1core.ConditionReasonErrored, "error"
+	}
+
+	return corev1.ConditionFalse, unikornv1core.ConditionReasonUnknown, "health unknown"
 }
 
 func (p *Provisioner) updateInstanceStatus(server *regionapi.ServerV2Response) {
@@ -269,7 +294,7 @@ func (p *Provisioner) Provision(ctx context.Context) error {
 		return err
 	}
 
-	healthStatus, healthReason, healthMessage := util.ConvertHealthStatusCondition(server.Metadata.HealthStatus)
+	healthStatus, healthReason, healthMessage := convertHealthStatusCondition(server.Metadata.HealthStatus)
 	unikornv1core.UpdateCondition(&p.instance.Status.Conditions, unikornv1core.ConditionHealthy, healthStatus, healthReason, healthMessage)
 
 	p.updateInstanceStatus(server)
