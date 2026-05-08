@@ -174,7 +174,7 @@ func (p *Provisioner) generateServerUpdateRequest() *regionapi.ServerV2Update {
 	return &regionapi.ServerV2Update{
 		Metadata: coreapi.ResourceWriteMetadata{
 			Name:        p.instance.Labels[coreconstants.NameLabel],
-			Description: ptr.To("Server for instance" + p.instance.Name),
+			Description: ptr.To("Server for instance " + p.instance.Name),
 			Tags: &coreapi.TagList{
 				{
 					Name:  constants.InstanceLabel,
@@ -191,7 +191,7 @@ func (p *Provisioner) generateServerUpdateRequest() *regionapi.ServerV2Update {
 	}
 }
 
-func needsRebuild(a, b *regionapi.ServerV2Spec) bool {
+func needsRebuildSpec(a, b *regionapi.ServerV2Spec) bool {
 	// Problematically, the region controller doesn't have access to the server's
 	// flavor (due to a more recent microversion returning metadata, not the ID)
 	// so spotting this change is complex and fragile.  Ideally we would also
@@ -207,6 +207,14 @@ func needsRebuild(a, b *regionapi.ServerV2Spec) bool {
 	return false
 }
 
+func needsRebuild(current *regionapi.ServerV2Read, desired *regionapi.ServerV2Update) bool {
+	if current.Metadata.Name != desired.Metadata.Name {
+		return true
+	}
+
+	return needsRebuildSpec(&current.Spec, &desired.Spec)
+}
+
 func (p *Provisioner) createOrUpdateServer(ctx context.Context, region regionapi.ClientWithResponsesInterface, server *regionapi.ServerV2Read) (*regionapi.ServerV2Read, error) {
 	if server == nil {
 		return p.createServer(ctx, region, p.generateServerCreateRequest())
@@ -214,14 +222,16 @@ func (p *Provisioner) createOrUpdateServer(ctx context.Context, region regionapi
 
 	request := p.generateServerUpdateRequest()
 
-	if reflect.DeepEqual(server.Spec, request.Spec) {
-		return server, nil
-	}
-
-	if needsRebuild(&server.Spec, &request.Spec) {
+	if needsRebuild(server, request) {
 		if err := p.deleteServer(ctx, region, server.Metadata.Id); err != nil {
 			return nil, provisioners.ErrYield
 		}
+
+		return nil, provisioners.ErrYield
+	}
+
+	if reflect.DeepEqual(server.Spec, request.Spec) {
+		return server, nil
 	}
 
 	return p.updateServer(ctx, region, server.Metadata.Id, request)
