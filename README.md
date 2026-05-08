@@ -2,9 +2,38 @@
 
 ## Overview
 
-The compute service is essentially a cut down version of the [Kubernetes service](https://github.com/nscaledev/uni-kubernetes) that provisions its own compute servers using hardware abstraction provided by the [Region service](https://github.com/nscaledev/uni-region).
+The compute service exposes a higher-level `Instance` abstraction backed by
+hidden compute-server lifecycle provided by the
+[Region service](https://github.com/nscaledev/uni-region).
 
-Where possible, as the Compute service is very similar to the Kubernetes service, we must maintain type and API parity to ease creation of UX tools and services.
+Users interact with `ComputeInstance` resources and the `/api/v2/instances`
+API. The compute controller then realizes that desired state as hidden
+`region.Server` lifecycle, projects server status back onto the instance, and
+coordinates quota/accounting at the instance abstraction boundary.
+
+Historically this service is close to the
+[Kubernetes service](https://github.com/nscaledev/uni-kubernetes), and where
+possible type and API parity are still useful for UX tooling and shared service
+integration. That historical similarity is not the main architectural fact
+about this repository though: the important distinction is the visible
+instance-versus-hidden-server split.
+
+## Architecture Documentation
+
+Package-level architecture and lifecycle documentation lives under
+[`pkg/README.md`](./pkg/README.md).
+
+Recommended entry points:
+
+- [`pkg/README.md`](./pkg/README.md) for the service-level package graph and
+  lifecycle summary
+- [`pkg/apis/unikorn/v1alpha1/README.md`](./pkg/apis/unikorn/v1alpha1/README.md)
+  for the persisted `ComputeInstance` resource model
+- [`pkg/server/handler/instance/README.md`](./pkg/server/handler/instance/README.md)
+  for the public `Instance` API behaviour
+- [`pkg/provisioners/managers/instance/README.md`](./pkg/provisioners/managers/instance/README.md)
+  for the controller-side realization of hidden backing `region.Server`
+  lifecycle
 
 ## Installation
 
@@ -83,15 +112,29 @@ spec:
 
 The [Identity Service](https://github.com/nscaledev/uni-identity) describes how to configure a service organization, groups and role mappings for services that require them.
 
-This service requires asynchronous access to the Region API in order to poll cloud identity and physical network status during instance provisioning, and delete those resources on instance deletion.
+This service requires access to both identity and region APIs in order to:
+
+- authorize instance operations
+- charge and release project-scoped resource allocations
+- validate region-owned resources such as networks, flavors, images, security
+  groups, and SSH certificate authorities
+- create, update, delete, and operate the hidden backing `region.Server`
+  associated with each instance
 
 This service defines the `unikorn-compute` user that will need to be added to a group in the service organization.
 It will need the built in role `infra-manager-service` that allows:
 
-* Read access to the `region` endpoints to access external networks
-* Read/delete access to the `identites` endpoints to poll and delete cloud identities
-* Read/delete access to the `physicalnetworks` endpoints to poll and delete physical networks
-* Create/Read/Delete access to the `servers` endpoints to manage compute instances
+* Access to allocation endpoints in `identity` to create, update, and delete
+  compute-related resource allocations
+* Read access to `region` resources used to validate and scope instances, such
+  as networks, flavors, images, security groups, and SSH certificate
+  authorities
+* Create/Read/Update/Delete and operational access to `region` `servers`
+  endpoints in order to realize and operate hidden backing server lifecycle for
+  compute instances
+
+For the code-level architecture behind that split, start with
+[`pkg/README.md`](./pkg/README.md).
 
 ## Testing
 
@@ -144,7 +187,7 @@ Tests are configured via environment variables using a `.env` file in the `test/
 make test-api
 ```
 
-**Run all tests in parallel (not yet implemeted):**
+**Run all tests in parallel:**
 ```bash
 make test-api-parallel
 ```
@@ -187,11 +230,18 @@ The API tests can be triggered manually via GitHub Actions using `workflow_dispa
 | `run_dev` | boolean | Run Dev environment tests | `true` |
 | `run_uat` | boolean | Run UAT environment tests | `false` |
 | `focus` | choice | Test suite to run | `All` |
+| `region_id_override` | string | Override region ID for manual runs | unset |
+| `flavor_id_override` | string | Override flavor ID when overriding region | unset |
+| `image_id_override` | string | Override image ID when overriding region | unset |
+| `network_id_override` | string | Override network ID when overriding region | unset |
 
 **Available Test Suite Options:**
 - `All` - Run all test suites
 - `Instance Operations` - Instance lifecycle and power operation tests
 - `Security and Authentication` - Authentication and input validation tests
+
+If `region_id_override` is set, `flavor_id_override`, `image_id_override`, and
+`network_id_override` must also be provided.
 
 **Triggering Manually:**
 
