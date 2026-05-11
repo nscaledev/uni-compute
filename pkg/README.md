@@ -1,0 +1,132 @@
+# Packages
+
+## Purpose
+
+This tree contains the compute service implementation.
+
+The useful way to read it is not as an isolated CRUD service, but as a
+specialized façade over a lower-level region compute primitive:
+
+- handlers expose a user-facing `Instance` abstraction
+- handlers charge and validate that abstraction against identity and region
+- controllers realize it later as a hidden `region.Server`
+- reverse watches and command-level consumers keep the visible instance root in
+  sync with lower-level server and network lifecycle
+
+Compared with `identity` and `region`, the most important difference is that
+compute's visible lifecycle root is not the resource that actually performs the
+work.
+
+## Recommended Reading Order
+
+### Stored Resource Model
+
+- [apis/unikorn/v1alpha1](./apis/unikorn/v1alpha1/README.md)
+
+This package defines the persisted `ComputeInstance` object that compute
+exposes as its user-facing root.
+
+### API Behaviour
+
+- [server/handler/instance](./server/handler/instance/README.md)
+
+This package explains the public contract:
+
+- instance creation and mutation
+- validation against region-owned resources
+- quota coupling to identity
+- operational verbs delegated to the hidden backing server
+
+### Controller Realization
+
+- [provisioners/managers/instance](./provisioners/managers/instance/README.md)
+- [managers/instance](./managers/instance/README.md)
+
+These packages explain how stored instance intent becomes backing
+`region.Server` lifecycle and how server events are mapped back into instance
+reconciliation.
+
+## Important Cross-Cutting Themes
+
+### Hidden Primitive, Visible Abstraction
+
+Compute intentionally exposes `Instance` while preserving `Server` as a hidden
+primitive in region.
+
+That buys architectural freedom:
+
+- end users interact with the higher-level abstraction
+- compute can stabilize a narrower contract than raw server lifecycle
+- the platform keeps the option to use `region.Server` for other internal or
+  future behind-the-scenes purposes
+
+But it also creates documentation obligations:
+
+- the visible root is `ComputeInstance`
+- the execution primitive is `region.Server`
+- the link between them is currently recovered through scoped tag-based lookup
+  rather than a stored foreign key
+
+### Region-Dependent Compute
+
+Unlike `region`, this repo does not own a direct provider abstraction layer.
+
+Compute depends on region for:
+
+- network scoping and authorization
+- flavor and image catalog visibility
+- security-group and SSH CA validation
+- the actual server lifecycle and operational verbs
+- projected runtime status
+
+So compute should be read as an application/service layer over region compute,
+not as a separate cloud-control implementation.
+
+### Accounting Lives At The Abstraction Boundary
+
+Quota charging happens at the compute instance layer, not at the hidden server
+layer.
+
+The allocation model is deliberately phrased in user-facing terms such as:
+
+- `servers`
+- `gpus`
+- `floatingips`
+
+That makes compute the accounting façade over region-backed server capacity.
+
+### Lifecycle DAG, Not Just Package Imports
+
+The key runtime graph is:
+
+1. API create/update writes `ComputeInstance` plus allocation state
+2. controller translates the instance into backing `region.Server` lifecycle
+3. reverse watch on `region.Server` feeds status and deletion changes back to
+   instance reconcile
+4. network deletion is bridged into instance deletion by
+   [../cmd/unikorn-compute-network-consumer](../cmd/unikorn-compute-network-consumer/README.md)
+
+This is the right abstraction for the service. Describing compute as a bag of
+CRUD handlers would hide the important coordination edges.
+
+## Caveats
+
+- The instance-to-server link is currently implicit and tag-based.
+- Some instance updates are effectively destructive rebuilds because the
+  controller may delete and recreate the backing server for flavor/image change.
+- The monitor binary exists, but `pkg/monitor` does not yet register active
+  checkers, so compute does not currently have a meaningful region-style polling
+  architecture.
+- Parts of the controller wiring still carry scoping-transition debt around
+  project namespaces versus the intended flatter shared-namespace model.
+
+## TODO
+
+- Document additional helper packages such as `client`, `constants`, `openapi`,
+  and `server` once their usage context has been reviewed in more detail.
+- Decide whether the hidden server linkage should remain purely tag-based or be
+  made more explicit.
+- Make destructive rebuild semantics clearer in user-visible status,
+  documentation, or API shape.
+- Tighten the remaining namespace/scoping transition points in controller-side
+  reverse lookup.
