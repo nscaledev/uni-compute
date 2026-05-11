@@ -128,10 +128,25 @@ jobs:
         environment: dev
         title: 'Compute API Test Results'
 
-  API-Tests-UAT:
-    name: API Tests (uat)
+  find-staging-constellation:
+    name: Find staging constellation
     runs-on: ubuntu-latest
     if: github.event_name == 'schedule' || github.event.inputs.run_uat == 'true'
+    outputs:
+      tag: ${{ steps.find.outputs.tag }}
+    steps:
+    - uses: nscaledev/quality-tooling/.github/actions/uni-find-staging-constellation@main
+      id: find
+      with:
+        service: uni-compute
+        releases-read-token: ${{ secrets.RELEASES_READ_TOKEN }}
+
+  API-Tests-UAT:
+    name: API Tests (uat)
+    needs: find-staging-constellation
+    runs-on: ubuntu-latest
+    # Runs only when find-staging-constellation resolved a tag.
+    if: needs.find-staging-constellation.outputs.tag != ''
     env:
       ENVIRONMENT: uat
       API_BASE_URL: ${{ vars.UAT_API_BASE_URL }}
@@ -159,6 +174,8 @@ jobs:
 
     - name: Checkout
       uses: actions/checkout@v4
+      with:
+        ref: ${{ needs.find-staging-constellation.outputs.tag }}
 
     - name: Setup Go
       uses: actions/setup-go@v3
