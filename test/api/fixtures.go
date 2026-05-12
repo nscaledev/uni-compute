@@ -176,6 +176,23 @@ func CreateInstanceWithCleanup(client *APIClient, ctx context.Context, config *T
 	return instance, instanceID
 }
 
+// UseReadOnlyInstanceOrCreateWithCleanup returns the configured read-only fixture when present,
+// otherwise it creates a disposable instance and schedules cleanup for local/default runs.
+func UseReadOnlyInstanceOrCreateWithCleanup(client *APIClient, ctx context.Context, config *TestConfig, payload openapi.InstanceCreate) (openapi.InstanceRead, string) {
+	if config.ReadOnlyInstanceID == "" {
+		return CreateInstanceWithCleanup(client, ctx, config, payload)
+	}
+
+	instance, err := client.GetInstance(ctx, config.ReadOnlyInstanceID)
+	Expect(err).NotTo(HaveOccurred(), "Failed to get configured read-only instance %s", config.ReadOnlyInstanceID)
+	Expect(instance.Metadata.Id).To(Equal(config.ReadOnlyInstanceID))
+	Expect(instance.Metadata.ProvisioningStatus).To(Equal(coreapi.ResourceProvisioningStatusProvisioned))
+
+	GinkgoWriter.Printf("Using configured read-only instance: %s\n", config.ReadOnlyInstanceID)
+
+	return instance, config.ReadOnlyInstanceID
+}
+
 // WaitForInstanceActive waits for an instance to reach active/running power state.
 func WaitForInstanceActive(client *APIClient, ctx context.Context, config *TestConfig, instanceID string) {
 	Eventually(func() string {

@@ -42,7 +42,7 @@ var _ = Describe("Instance Operations", func() {
 			var instanceID string
 
 			BeforeEach(func() {
-				_, iID := api.CreateInstanceWithCleanup(client, ctx, config,
+				_, iID := api.UseReadOnlyInstanceOrCreateWithCleanup(client, ctx, config,
 					api.NewInstancePayload().Build())
 				instanceID = iID
 				GinkgoWriter.Printf("Using instance %s for list test\n", instanceID)
@@ -241,13 +241,11 @@ var _ = Describe("Instance Operations", func() {
 			var instanceID string
 
 			BeforeEach(func() {
-				// Create an instance for console output tests
-				_, iID := api.CreateInstanceWithCleanup(client, ctx, config,
+				_, iID := api.UseReadOnlyInstanceOrCreateWithCleanup(client, ctx, config,
 					api.NewInstancePayload().Build())
 
 				instanceID = iID
 
-				// Wait for network identity and running state so console output is available
 				api.WaitForInstanceNetworkIdentity(client, ctx, config, instanceID)
 				api.WaitForInstanceActive(client, ctx, config, instanceID)
 
@@ -550,8 +548,7 @@ var _ = Describe("Instance Operations", func() {
 			var instanceID string
 
 			BeforeEach(func() {
-				// Create an instance for retrieval tests
-				_, iID := api.CreateInstanceWithCleanup(client, ctx, config,
+				_, iID := api.UseReadOnlyInstanceOrCreateWithCleanup(client, ctx, config,
 					api.NewInstancePayload().Build())
 
 				instanceID = iID

@@ -177,6 +177,8 @@ Tests are configured via environment variables using a `.env` file in the `test/
    - `TEST_REGION_ID` - Test region ID
    - `TEST_NETWORK_ID` - Test network ID
    - `TEST_FLAVOR_ID`, `TEST_IMAGE_ID` - Test flavor and image IDs
+   - `TEST_READONLY_INSTANCE_ID` - Optional pre-provisioned instance ID used by read-only
+     list, get, and console-output tests. Leave unset to create disposable instances.
 
 **Note:** All `test/.env` and `test/.env.*` files are gitignored and contain sensitive credentials. They should never be committed to the repository. You can use either `test/.env` directly or create environment-specific files like `test/.env.dev`, `test/.env.uat`, etc.
 
@@ -234,6 +236,11 @@ The API tests can be triggered manually via GitHub Actions using `workflow_dispa
 | `flavor_id_override` | string | Override flavor ID when overriding region | unset |
 | `image_id_override` | string | Override image ID when overriding region | unset |
 | `network_id_override` | string | Override network ID when overriding region | unset |
+
+The workflow also accepts optional repository or environment variables named
+`DEV_TEST_READONLY_INSTANCE_ID` and `UAT_TEST_READONLY_INSTANCE_ID`. When set,
+the read-only instance list, get, and console-output tests reuse that existing
+instance instead of creating one instance per spec.
 
 **Available Test Suite Options:**
 - `All` - Run all test suites

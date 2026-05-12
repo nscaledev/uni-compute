@@ -33,6 +33,7 @@ type TestConfig struct {
 	FlavorID             string
 	ImageID              string
 	NetworkID            string
+	ReadOnlyInstanceID   string
 	EnableSSHIntegration bool
 }
 
@@ -81,6 +82,7 @@ func LoadTestConfig() (*TestConfig, error) {
 		FlavorID:             v.GetString("TEST_FLAVOR_ID"),
 		ImageID:              v.GetString("TEST_IMAGE_ID"),
 		NetworkID:            v.GetString("TEST_NETWORK_ID"),
+		ReadOnlyInstanceID:   v.GetString("TEST_READONLY_INSTANCE_ID"),
 		EnableSSHIntegration: v.GetBool("ENABLE_SSH_INTEGRATION"),
 	}
 

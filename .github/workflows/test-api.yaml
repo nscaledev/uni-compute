@@ -57,6 +57,7 @@ jobs:
       TEST_FLAVOR_ID: ${{ inputs.flavor_id_override || vars.DEV_TEST_FLAVOR_ID }}
       TEST_IMAGE_ID: ${{ inputs.image_id_override || vars.DEV_TEST_IMAGE_ID }}
       TEST_NETWORK_ID: ${{ inputs.network_id_override || vars.DEV_TEST_NETWORK_ID }}
+      TEST_READONLY_INSTANCE_ID: ${{ vars.DEV_TEST_READONLY_INSTANCE_ID }}
 
     steps:
     - name: Validate region override inputs
@@ -158,6 +159,7 @@ jobs:
       TEST_FLAVOR_ID: ${{ inputs.flavor_id_override || vars.UAT_TEST_FLAVOR_ID }}
       TEST_IMAGE_ID: ${{ inputs.image_id_override || vars.UAT_TEST_IMAGE_ID }}
       TEST_NETWORK_ID: ${{ inputs.network_id_override || vars.UAT_TEST_NETWORK_ID }}
+      TEST_READONLY_INSTANCE_ID: ${{ vars.UAT_TEST_READONLY_INSTANCE_ID }}
 
     steps:
     - name: Validate region override inputs
