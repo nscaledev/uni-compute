@@ -21,6 +21,7 @@ limitations under the License.
 package suites
 
 import (
+	"context"
 	"net/http"
 	"time"
 
@@ -36,7 +37,18 @@ import (
 
 const nonExistentInstanceID = "non-existent-instance-12345"
 
-var _ = Describe("Instance Operations", func() {
+// Ginkgo supports BeforeAll only inside ordered containers. ContinueOnFailure
+// keeps later instance specs eligible to run after a spec failure.
+var _ = Describe("Instance Operations", Ordered, ContinueOnFailure, func() {
+	BeforeAll(func() {
+		cleanupConfig, err := api.LoadTestConfig()
+		Expect(err).NotTo(HaveOccurred(), "Failed to load test configuration for stale instance cleanup")
+
+		cleanupClient := api.NewAPIClientWithConfig(cleanupConfig)
+		Expect(api.CleanupStaleTestInstances(context.Background(), cleanupClient, cleanupConfig.OrgID, cleanupConfig.ProjectID, api.TestResourceEnvironmentPrefix()+"-")).
+			To(Succeed(), "stale instance cleanup failed")
+	})
+
 	Context("When listing instances", func() {
 		Describe("Given a provisioned instance", func() {
 			var instanceID string

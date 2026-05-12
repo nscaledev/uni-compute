@@ -177,7 +177,6 @@ Tests are configured via environment variables using a `.env` file in the `test/
    - `TEST_REGION_ID` - Test region ID
    - `TEST_NETWORK_ID` - Test network ID
    - `TEST_FLAVOR_ID`, `TEST_IMAGE_ID` - Test flavor and image IDs
-
 **Note:** All `test/.env` and `test/.env.*` files are gitignored and contain sensitive credentials. They should never be committed to the repository. You can use either `test/.env` directly or create environment-specific files like `test/.env.dev`, `test/.env.uat`, etc.
 
 #### Running Tests Locally (run from project root)
@@ -203,6 +202,13 @@ make test-api-focus FOCUS="Instance Operations"
 # Example: run only a specific test spec by name
 make test-api-focus FOCUS="should successfully stop a running instance"
 ```
+
+The instance operations suite checks for leftover API test instances in the
+configured project before running its specs. CI-created instances use the
+`e2e-uni-compute-ci-` prefix, local instances use `e2e-uni-compute-local-`, and
+cleanup only requests deletion for instances older than one hour whose names
+match the current environment prefix. It prints GitHub Actions `::error::`
+annotations and continues without deleting instances from other active builds.
 
 **Advanced Ginkgo options:**
 ```bash

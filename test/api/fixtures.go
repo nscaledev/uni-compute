@@ -22,6 +22,8 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -35,6 +37,16 @@ import (
 	"k8s.io/utils/ptr"
 )
 
+const TestResourceNamePrefix = "e2e-uni-compute"
+
+func TestResourceEnvironmentPrefix() string {
+	if strings.EqualFold(os.Getenv("GITHUB_ACTIONS"), "true") || strings.EqualFold(os.Getenv("CI"), "true") {
+		return TestResourceNamePrefix + "-ci"
+	}
+
+	return TestResourceNamePrefix + "-local"
+}
+
 // InstancePayloadBuilder builds instance payloads for testing using type-safe OpenAPI structs.
 type InstancePayloadBuilder struct {
 	instance openapi.InstanceCreate
@@ -46,7 +58,7 @@ func NewInstancePayload() *InstancePayloadBuilder {
 	config, err := LoadTestConfig()
 	Expect(err).NotTo(HaveOccurred(), "Failed to load test configuration")
 
-	uniqueName := fmt.Sprintf("testinstance-%s", uuid.NewString()[:8])
+	uniqueName := fmt.Sprintf("%s-%s", TestResourceEnvironmentPrefix(), uuid.NewString()[:8])
 
 	return &InstancePayloadBuilder{
 		config: config,
@@ -137,7 +149,7 @@ func CreateInstanceWithCleanup(client *APIClient, ctx context.Context, config *T
 			return
 		}
 
-		GinkgoWriter.Printf("Cleaning up instance: %s\n", instanceID)
+		GinkgoWriter.Printf("Cleaning up instance %q (%s)\n", instanceName, instanceID)
 		Expect(client.DeleteInstance(ctx, instanceID)).To(Succeed())
 
 		GinkgoWriter.Printf("Waiting for instance %s to be fully deleted\n", instanceID)
@@ -154,7 +166,7 @@ func CreateInstanceWithCleanup(client *APIClient, ctx context.Context, config *T
 
 	instanceID = instance.Metadata.Id
 
-	GinkgoWriter.Printf("Created instance with ID: %s\n", instanceID)
+	GinkgoWriter.Printf("Created instance %q with ID: %s\n", instanceName, instanceID)
 
 	// Wait for instance to be provisioned
 	Eventually(func() string {
