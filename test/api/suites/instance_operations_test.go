@@ -237,17 +237,16 @@ var _ = Describe("Instance Operations", func() {
 	})
 
 	Context("When retrieving console output for an instance", func() {
-		Describe("Given a valid instance exists", func() {
+		Describe("Given a valid instance exists", Ordered, func() {
 			var instanceID string
 
-			BeforeEach(func() {
-				// Create an instance for console output tests
+			BeforeAll(func() {
+				// Create a single instance shared across all console output specs.
 				_, iID := api.CreateInstanceWithCleanup(client, ctx, config,
 					api.NewInstancePayload().Build())
 
 				instanceID = iID
 
-				// Wait for network identity and running state so console output is available
 				api.WaitForInstanceNetworkIdentity(client, ctx, config, instanceID)
 				api.WaitForInstanceActive(client, ctx, config, instanceID)
 

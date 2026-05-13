@@ -46,8 +46,7 @@ func NewInstancePayload() *InstancePayloadBuilder {
 	config, err := LoadTestConfig()
 	Expect(err).NotTo(HaveOccurred(), "Failed to load test configuration")
 
-	timestamp := time.Now().Format("20060102-150405")
-	uniqueName := fmt.Sprintf("testinstance-%s", timestamp)
+	uniqueName := fmt.Sprintf("testinstance-%s", uuid.NewString()[:8])
 
 	return &InstancePayloadBuilder{
 		config: config,
@@ -183,6 +182,10 @@ func WaitForInstanceActive(client *APIClient, ctx context.Context, config *TestC
 		if err != nil {
 			GinkgoWriter.Printf("Error getting instance: %v\n", err)
 			return "error"
+		}
+
+		if instance.Metadata.HealthStatus == coreapi.ResourceHealthStatusError {
+			Fail(fmt.Sprintf("Instance %s entered error health status", instanceID))
 		}
 
 		if instance.Status.PowerState == nil {
@@ -346,12 +349,10 @@ type ImagePayloadBuilder struct {
 
 // NewImagePayload creates a builder with sensible defaults.
 func NewImagePayload() *ImagePayloadBuilder {
-	timestamp := time.Now().Format("20060102-150405")
-
 	return &ImagePayloadBuilder{
 		image: regionopenapi.ImageCreate{
 			Metadata: coreapi.ResourceWriteMetadata{
-				Name: fmt.Sprintf("ginkgo-test-image-%s", timestamp),
+				Name: fmt.Sprintf("ginkgo-test-image-%s", uuid.NewString()[:8]),
 			},
 			Spec: regionopenapi.ImageCreateSpec{
 				Architecture:   regionopenapi.ArchitectureX8664,
