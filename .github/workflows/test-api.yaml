@@ -127,7 +127,7 @@ jobs:
         max-failures: '5'
 
     - name: Report API Test Results
-      uses: nscaledev/quality-tooling/.github/actions/test-results-report@feat/test-results-report-action
+      uses: nscaledev/quality-tooling/.github/actions/test-results-report@main
       if: ${{ !cancelled() }}
       with:
         test-results-path: test/api/suites/test-results.json
@@ -236,7 +236,7 @@ jobs:
         max-failures: '5'
 
     - name: Report API Test Results
-      uses: nscaledev/quality-tooling/.github/actions/test-results-report@feat/test-results-report-action
+      uses: nscaledev/quality-tooling/.github/actions/test-results-report@main
       if: ${{ !cancelled() }}
       with:
         test-results-path: test/api/suites/test-results.json
