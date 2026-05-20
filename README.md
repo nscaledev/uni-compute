@@ -229,6 +229,8 @@ The API tests can be triggered manually via GitHub Actions using `workflow_dispa
 |-------|------|-------------|---------|
 | `run_dev` | boolean | Run Dev environment tests | `true` |
 | `run_uat` | boolean | Run UAT environment tests | `false` |
+| `use_staging_constellation` | boolean | Use the staged constellation tag for UAT checkout | `true` |
+| `skip_slack_notifications` | boolean | Skip Slack notifications for this run | `false` |
 | `focus` | choice | Test suite to run | `All` |
 | `region_id_override` | string | Override region ID for manual runs | unset |
 | `flavor_id_override` | string | Override flavor ID when overriding region | unset |
@@ -243,6 +245,13 @@ The API tests can be triggered manually via GitHub Actions using `workflow_dispa
 If `region_id_override` is set, `flavor_id_override`, `image_id_override`, and
 `network_id_override` must also be provided.
 
+Scheduled UAT runs check out the staged constellation tag resolved by the
+workflow. Manual UAT runs use the same staged constellation lookup by default.
+To run UAT against the branch or tag selected in GitHub's manual workflow
+picker instead, set `use_staging_constellation` to `false`. Disabling
+`use_staging_constellation` is enough to trigger the UAT job for that selected
+ref.
+
 **Triggering Manually:**
 
 1. Navigate to **Actions** tab in GitHub
@@ -252,7 +261,11 @@ If `region_id_override` is set, `flavor_id_override`, `image_id_override`, and
    - **Run Dev tests** (checked by default)
    - **Run UAT tests** (unchecked by default)
 5. Choose test suite from the **focus** dropdown
-6. Click **Run workflow**
+6. To test UAT from the selected workflow branch or tag, set
+   **use_staging_constellation** to `false`
+7. To suppress Slack messages for the run, set
+   **skip_slack_notifications** to `true`
+8. Click **Run workflow**
 
 **Test Artifacts:**
 
