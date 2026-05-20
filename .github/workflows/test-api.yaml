@@ -67,6 +67,33 @@ jobs:
       TEST_NETWORK_ID: ${{ inputs.network_id_override || vars.DEV_TEST_NETWORK_ID }}
 
     steps:
+    - name: Log workflow inputs
+      env:
+        EVENT_NAME: ${{ github.event_name }}
+        RUN_DEV: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.run_dev || 'true' }}
+        RUN_UAT: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.run_uat || 'false' }}
+        USE_STAGING_CONSTELLATION: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.use_staging_constellation || 'true' }}
+        SKIP_SLACK_NOTIFICATIONS: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.skip_slack_notifications || 'false' }}
+        FOCUS: ${{ github.event.inputs.focus || 'All' }}
+        REGION_ID_OVERRIDE: ${{ inputs.region_id_override || '<default>' }}
+        FLAVOR_ID_OVERRIDE: ${{ inputs.flavor_id_override || '<default>' }}
+        IMAGE_ID_OVERRIDE: ${{ inputs.image_id_override || '<default>' }}
+        NETWORK_ID_OVERRIDE: ${{ inputs.network_id_override || '<default>' }}
+      run: |
+        cat <<EOF >> "$GITHUB_STEP_SUMMARY"
+        ### Workflow Input Parameters
+        - **Event:** \`$EVENT_NAME\`
+        - **Run Dev:** \`$RUN_DEV\`
+        - **Run UAT:** \`$RUN_UAT\`
+        - **Use Staging Constellation:** \`$USE_STAGING_CONSTELLATION\`
+        - **Skip Slack Notifications:** \`$SKIP_SLACK_NOTIFICATIONS\`
+        - **Focus:** \`$FOCUS\`
+        - **Region ID Override:** \`$REGION_ID_OVERRIDE\`
+        - **Flavor ID Override:** \`$FLAVOR_ID_OVERRIDE\`
+        - **Image ID Override:** \`$IMAGE_ID_OVERRIDE\`
+        - **Network ID Override:** \`$NETWORK_ID_OVERRIDE\`
+        EOF
+
     - name: Validate region override inputs
       if: github.event_name == 'workflow_dispatch' && inputs.region_id_override != ''
       run: |
@@ -174,6 +201,35 @@ jobs:
       TEST_NETWORK_ID: ${{ inputs.network_id_override || vars.UAT_TEST_NETWORK_ID }}
 
     steps:
+    - name: Log workflow inputs
+      env:
+        EVENT_NAME: ${{ github.event_name }}
+        RUN_DEV: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.run_dev || 'true' }}
+        RUN_UAT: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.run_uat || 'false' }}
+        USE_STAGING_CONSTELLATION: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.use_staging_constellation || 'true' }}
+        SKIP_SLACK_NOTIFICATIONS: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.skip_slack_notifications || 'false' }}
+        FOCUS: ${{ github.event.inputs.focus || 'All' }}
+        REGION_ID_OVERRIDE: ${{ inputs.region_id_override || '<default>' }}
+        FLAVOR_ID_OVERRIDE: ${{ inputs.flavor_id_override || '<default>' }}
+        IMAGE_ID_OVERRIDE: ${{ inputs.image_id_override || '<default>' }}
+        NETWORK_ID_OVERRIDE: ${{ inputs.network_id_override || '<default>' }}
+        UAT_CHECKOUT_REF: ${{ needs.find-staging-constellation.outputs.ref }}
+      run: |
+        cat <<EOF >> "$GITHUB_STEP_SUMMARY"
+        ### Workflow Input Parameters
+        - **Event:** \`$EVENT_NAME\`
+        - **Run Dev:** \`$RUN_DEV\`
+        - **Run UAT:** \`$RUN_UAT\`
+        - **Use Staging Constellation:** \`$USE_STAGING_CONSTELLATION\`
+        - **Skip Slack Notifications:** \`$SKIP_SLACK_NOTIFICATIONS\`
+        - **Focus:** \`$FOCUS\`
+        - **Region ID Override:** \`$REGION_ID_OVERRIDE\`
+        - **Flavor ID Override:** \`$FLAVOR_ID_OVERRIDE\`
+        - **Image ID Override:** \`$IMAGE_ID_OVERRIDE\`
+        - **Network ID Override:** \`$NETWORK_ID_OVERRIDE\`
+        - **UAT Checkout Ref:** \`$UAT_CHECKOUT_REF\`
+        EOF
+
     - name: Validate region override inputs
       if: github.event_name == 'workflow_dispatch' && inputs.region_id_override != ''
       run: |
