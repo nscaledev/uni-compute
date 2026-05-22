@@ -107,6 +107,22 @@ var _ = Describe("Instance Operations", func() {
 
 				GinkgoWriter.Printf("Instance %s description updated and verified via GET\n", instance.Metadata.Id)
 			})
+
+			It("should reject a rename with 422 Unprocessable Content", func() {
+				updateReq := openapi.InstanceUpdate{
+					Metadata: coreapi.ResourceWriteMetadata{
+						Name: instance.Metadata.Name + "-renamed",
+					},
+					Spec: instance.Spec,
+				}
+
+				status, err := client.UpdateInstanceRawStatus(ctx, instance.Metadata.Id, updateReq)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(status).To(Equal(http.StatusUnprocessableEntity),
+					"rename attempt must return 422 Unprocessable Content")
+
+				GinkgoWriter.Printf("Instance %s rename correctly rejected with 422\n", instance.Metadata.Id)
+			})
 		})
 	})
 
@@ -231,6 +247,30 @@ var _ = Describe("Instance Operations", func() {
 				Expect(err).To(HaveOccurred())
 				Expect(err).To(MatchError(ContainSubstring("400")), "Error should indicate HTTP 400 Bad Request")
 				Expect(err).To(MatchError(ContainSubstring("invalid_request")), "Error should indicate schema validation failure")
+			})
+		})
+
+		Describe("Given an instance already exists with the same name on the same network", func() {
+			It("should reject a duplicate create with 409 Conflict", func() {
+				payload := api.NewInstancePayload().Build()
+
+				first, err := client.CreateInstance(ctx, payload)
+				Expect(err).NotTo(HaveOccurred())
+
+				DeferCleanup(func() {
+					GinkgoWriter.Printf("Cleaning up first instance %s\n", first.Metadata.Id)
+					Expect(client.DeleteInstance(ctx, first.Metadata.Id)).To(Succeed())
+				})
+
+				GinkgoWriter.Printf("Created first instance %s with name %q; attempting duplicate create\n",
+					first.Metadata.Id, payload.Metadata.Name)
+
+				status, err := client.CreateInstanceRawStatus(ctx, payload)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(status).To(Equal(http.StatusConflict),
+					"duplicate create on same network must return 409 Conflict")
+
+				GinkgoWriter.Printf("Duplicate create correctly rejected with 409\n")
 			})
 		})
 

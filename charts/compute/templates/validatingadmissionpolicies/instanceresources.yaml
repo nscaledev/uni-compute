@@ -18,6 +18,8 @@ spec:
   validations:
   - expression: "object.metadata.?labels[?'unikorn-cloud.org/name'].orValue('') != ''"
     message: Resource must contain a unikorn-cloud.org/name label
+  - expression: "oldObject == null || oldObject.metadata.?labels[?'unikorn-cloud.org/name'].orValue('') == object.metadata.?labels[?'unikorn-cloud.org/name'].orValue('')"
+    message: Resource unikorn-cloud.org/name label is immutable
   - expression: "object.metadata.?labels[?'unikorn-cloud.org/organization'].orValue('') != ''"
     message: Resource must contain a unikorn-cloud.org/organization label
   - expression: "oldObject == null || oldObject.metadata.?labels[?'principal.unikorn-cloud.org/organization'].orValue('') ==  object.metadata.?labels[?'principal.unikorn-cloud.org/organization'].orValue('')"

@@ -12,7 +12,7 @@ require (
 	github.com/pact-foundation/pact-go/v2 v2.4.2
 	github.com/spf13/pflag v1.0.10
 	github.com/stretchr/testify v1.11.1
-	github.com/unikorn-cloud/core v1.14.0-rc1.0.20260422145135-733e5169a07e
+	github.com/unikorn-cloud/core v1.16.2-0.20260521095345-d5bfecbc9403
 	github.com/unikorn-cloud/identity v1.17.1
 	github.com/unikorn-cloud/region v1.16.3
 	go.uber.org/mock v0.5.2

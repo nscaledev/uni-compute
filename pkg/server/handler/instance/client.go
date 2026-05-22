@@ -28,6 +28,8 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/google/uuid"
+
 	computev1 "github.com/unikorn-cloud/compute/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/compute/pkg/constants"
 	computeapi "github.com/unikorn-cloud/compute/pkg/openapi"
@@ -317,8 +319,13 @@ func (c *Client) generate(ctx context.Context, in *computeapi.InstanceUpdate, or
 		return nil, err
 	}
 
+	networkNamespace, err := uuid.Parse(networkID)
+	if err != nil {
+		return nil, fmt.Errorf("network ID is not a valid UUID: %w", err)
+	}
+
 	out := &computev1.ComputeInstance{
-		ObjectMeta: conversion.NewObjectMetadata(&in.Metadata, c.namespace).
+		ObjectMeta: conversion.NewDeterministicObjectMetadata(&in.Metadata, c.namespace, networkNamespace, in.Metadata.Name).
 			WithOrganization(organizationID).
 			WithProject(projectID).
 			WithLabel(regionconstants.RegionLabel, regionID).
@@ -552,6 +559,10 @@ func (s *createSaga) deleteAllocation(ctx context.Context) error {
 
 func (s *createSaga) createInstance(ctx context.Context) error {
 	if err := s.client.client.Create(ctx, s.resource); err != nil {
+		if kerrors.IsAlreadyExists(err) {
+			return errors.HTTPConflict()
+		}
+
 		return fmt.Errorf("%w: unable to create instance", err)
 	}
 
@@ -563,37 +574,6 @@ func (s *createSaga) Actions() []saga.Action {
 		saga.NewAction("create quota allocation", s.createAllocation, s.deleteAllocation),
 		saga.NewAction("create instance", s.createInstance, nil),
 	}
-}
-
-// isInstanceNameInUse does a best effort attempt to ensure the instance name
-// does not already exist on the same network as that would lead to aliasing issues
-// of cloud resources and servers having the same hostname.
-func (c *Client) isInstanceNameInUse(ctx context.Context, organizationID, projectID, networkID, name string) error {
-	selector := labels.Set{
-		coreconstants.OrganizationLabel: organizationID,
-		coreconstants.ProjectLabel:      projectID,
-		regionconstants.NetworkLabel:    networkID,
-	}
-
-	options := &client.ListOptions{
-		Namespace:     c.namespace,
-		LabelSelector: labels.SelectorFromSet(selector),
-	}
-
-	instances := &computev1.ComputeInstanceList{}
-
-	if err := c.client.List(ctx, instances, options); err != nil {
-		return err
-	}
-
-	for i := range instances.Items {
-		if instances.Items[i].Labels[coreconstants.NameLabel] == name {
-			// TODO: we can be more verbose here, update the interface in core.
-			return errors.HTTPConflict()
-		}
-	}
-
-	return nil
 }
 
 func (c *Client) Create(ctx context.Context, request *computeapi.InstanceCreate) (*computeapi.InstanceRead, error) {
@@ -613,10 +593,6 @@ func (c *Client) Create(ctx context.Context, request *computeapi.InstanceCreate)
 
 	network, err := region.GetNetwork(principal.NewImpersonateContext(ctx), c.region, request.Spec.NetworkId)
 	if err != nil {
-		return nil, err
-	}
-
-	if err := c.isInstanceNameInUse(ctx, organizationID, projectID, request.Spec.NetworkId, request.Metadata.Name); err != nil {
 		return nil, err
 	}
 
@@ -718,6 +694,20 @@ func (s *updateSaga) Actions() []saga.Action {
 	}
 }
 
+func (c *Client) resolveUpdateFlavors(ctx context.Context, organizationID, regionID string, current *computev1.ComputeInstance, request *computeapi.InstanceUpdate) (*regionapi.Flavor, *regionapi.Flavor, error) {
+	currentFlavor, _, err := c.getAndValidateFlavorAndImage(ctx, organizationID, regionID, current.Spec.FlavorID, current.Spec.ImageID)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	flavor, _, err := c.getAndValidateFlavorAndImage(ctx, organizationID, regionID, request.Spec.FlavorId, request.Spec.ImageId)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return currentFlavor, flavor, nil
+}
+
 func (c *Client) Update(ctx context.Context, instanceID string, request *computeapi.InstanceUpdate) (*computeapi.InstanceRead, error) {
 	current, err := c.GetRaw(ctx, instanceID)
 	if err != nil {
@@ -737,16 +727,15 @@ func (c *Client) Update(ctx context.Context, instanceID string, request *compute
 		return nil, errors.OAuth2InvalidRequest("server is being deleted")
 	}
 
+	if request.Metadata.Name != current.Labels[coreconstants.NameLabel] {
+		return nil, errors.HTTPUnprocessableContent("instance names are immutable")
+	}
+
 	if err := util.InjectUserPrincipal(ctx, organizationID, projectID); err != nil {
 		return nil, err
 	}
 
-	currentFlavor, _, err := c.getAndValidateFlavorAndImage(principal.NewImpersonateContext(ctx), organizationID, regionID, current.Spec.FlavorID, current.Spec.ImageID)
-	if err != nil {
-		return nil, err
-	}
-
-	flavor, _, err := c.getAndValidateFlavorAndImage(principal.NewImpersonateContext(ctx), organizationID, regionID, request.Spec.FlavorId, request.Spec.ImageId)
+	currentFlavor, flavor, err := c.resolveUpdateFlavors(principal.NewImpersonateContext(ctx), organizationID, regionID, current, request)
 	if err != nil {
 		return nil, err
 	}

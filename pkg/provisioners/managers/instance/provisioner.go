@@ -210,10 +210,6 @@ func needsRebuildSpec(a, b *regionapi.ServerV2Spec) bool {
 }
 
 func needsRebuild(current *regionapi.ServerV2Read, desired *regionapi.ServerV2Update) bool {
-	if current.Metadata.Name != desired.Metadata.Name {
-		return true
-	}
-
 	return needsRebuildSpec(&current.Spec, &desired.Spec)
 }
 

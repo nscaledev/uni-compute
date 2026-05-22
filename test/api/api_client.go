@@ -161,6 +161,25 @@ func (c *APIClient) CreateInstance(ctx context.Context, payload openapi.Instance
 	return instance, nil
 }
 
+// CreateInstanceRawStatus creates an instance and returns the HTTP status code
+// without treating non-201 responses as errors, allowing callers to assert error codes.
+func (c *APIClient) CreateInstanceRawStatus(ctx context.Context, payload openapi.InstanceCreate) (int, error) {
+	path := c.endpoints.CreateInstance()
+
+	bodyBytes, err := json.Marshal(payload)
+	if err != nil {
+		return 0, fmt.Errorf("marshaling instance body: %w", err)
+	}
+
+	//nolint:bodyclose // response body is closed in DoRequest
+	resp, _, err := c.DoRequest(ctx, http.MethodPost, path, bytes.NewReader(bodyBytes), 0)
+	if err != nil {
+		return 0, fmt.Errorf("creating instance: %w", err)
+	}
+
+	return resp.StatusCode, nil
+}
+
 // GetInstance retrieves a specific instance.
 func (c *APIClient) GetInstance(ctx context.Context, instanceID string) (openapi.InstanceRead, error) {
 	path := c.endpoints.GetInstance(instanceID)
@@ -227,6 +246,25 @@ func (c *APIClient) UpdateInstance(ctx context.Context, instanceID string, reque
 	}
 
 	return instance, nil
+}
+
+// UpdateInstanceRawStatus sends an update request and returns the HTTP status code
+// without treating non-202 responses as errors, allowing callers to assert error codes.
+func (c *APIClient) UpdateInstanceRawStatus(ctx context.Context, instanceID string, request openapi.InstanceUpdate) (int, error) {
+	path := c.endpoints.UpdateInstance(instanceID)
+
+	reqBody, err := json.Marshal(request)
+	if err != nil {
+		return 0, fmt.Errorf("marshaling instance update request: %w", err)
+	}
+
+	//nolint:bodyclose // response body is closed in DoRequest
+	resp, _, err := c.DoRequest(ctx, http.MethodPut, path, bytes.NewReader(reqBody), 0)
+	if err != nil {
+		return 0, fmt.Errorf("updating instance: %w", err)
+	}
+
+	return resp.StatusCode, nil
 }
 
 // DeleteInstanceWithStatus deletes an instance and returns the raw HTTP status code,
