@@ -371,8 +371,8 @@ func NewImagePayload() *ImagePayloadBuilder {
 				Virtualization: regionopenapi.ImageVirtualizationVirtualized,
 				Os: regionopenapi.ImageOS{
 					Codename: ptr.To("cirros"),
-					Distro:   regionopenapi.OsDistroUbuntu,
-					Family:   regionopenapi.OsFamilyDebian,
+					Distro:   "ubuntu",
+					Family:   "debian",
 					Kernel:   regionopenapi.OsKernelLinux,
 					Version:  "0.6.3",
 				},
