@@ -79,9 +79,10 @@ type InstanceRead struct {
 
 	// Spec A compute instance.
 	// Some stored desired-state changes only take effect on the backing server when that server is
-	// rebuilt or recreated. Currently, changing metadata.name, flavorId or imageId causes the
-	// backing server to be rebuilt or recreated. In those cases, backing server IP addresses are
-	// not preserved and may change when the replacement server is created.
+	// rebuilt or recreated. Currently, changing flavorId or imageId causes the backing server to
+	// be rebuilt or recreated. In those cases, backing server IP addresses are not preserved and
+	// may change when the replacement server is created. Instance names are immutable; rename
+	// attempts are rejected with HTTP 422.
 	Spec InstanceSpec `json:"spec"`
 
 	// Status Read only status information about a compute instance.
@@ -96,9 +97,10 @@ type InstanceSnapshotCreate struct {
 
 // InstanceSpec A compute instance.
 // Some stored desired-state changes only take effect on the backing server when that server is
-// rebuilt or recreated. Currently, changing metadata.name, flavorId or imageId causes the
-// backing server to be rebuilt or recreated. In those cases, backing server IP addresses are
-// not preserved and may change when the replacement server is created.
+// rebuilt or recreated. Currently, changing flavorId or imageId causes the backing server to
+// be rebuilt or recreated. In those cases, backing server IP addresses are not preserved and
+// may change when the replacement server is created. Instance names are immutable; rename
+// attempts are rejected with HTTP 422.
 type InstanceSpec struct {
 	// FlavorId The flavor CPU/RAM of a compute instance.
 	FlavorId string `json:"flavorId"`
@@ -147,9 +149,10 @@ type InstanceUpdate struct {
 
 	// Spec A compute instance.
 	// Some stored desired-state changes only take effect on the backing server when that server is
-	// rebuilt or recreated. Currently, changing metadata.name, flavorId or imageId causes the
-	// backing server to be rebuilt or recreated. In those cases, backing server IP addresses are
-	// not preserved and may change when the replacement server is created.
+	// rebuilt or recreated. Currently, changing flavorId or imageId causes the backing server to
+	// be rebuilt or recreated. In those cases, backing server IP addresses are not preserved and
+	// may change when the replacement server is created. Instance names are immutable; rename
+	// attempts are rejected with HTTP 422.
 	Spec InstanceSpec `json:"spec"`
 }
 

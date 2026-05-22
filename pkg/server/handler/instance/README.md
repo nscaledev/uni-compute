@@ -30,8 +30,14 @@ key retrieval, or snapshotting are requested.
   instance.
 - User data is validated more strictly when an SSH CA is attached because
   managed user-data injection depends on recognized cloud-init formats.
-- Instance names are best-effort unique per network so the higher-level
-  abstraction does not create cloud-hostname aliasing underneath.
+- Instance names are unique per network: the Kubernetes resource name is derived
+  deterministically from `(networkID, instanceName)` via UUID v5, so a duplicate
+  create collides at the Kubernetes layer and is rejected with HTTP 409 without a
+  read-before-write; this applies only to instances created after this mechanism
+  was introduced — pre-existing randomly-named instances are not covered.
+- Instance names are immutable after creation; update requests that supply a
+  different name are rejected with HTTP 422. This mirrors the region-level
+  constraint that VM hostnames cannot change after boot.
 - Operational verbs act on exactly one backing server. If scoped lookup finds
   zero or multiple matches, the request fails as a consistency error.
 - Snapshot requests strip compute-reserved system tags from the caller payload
@@ -58,6 +64,11 @@ link is reconstructed rather than stored explicitly.
 - The instance-to-server link is implicit and tag-based. That is flexible, but
   it also means correctness depends on the reserved tag remaining exclusive and
   on scoped server queries returning exactly one match.
+- The `generate` call on the update path parses `networkID` as a UUID to derive
+  the deterministic resource name. If this label is absent or corrupt on an
+  existing object (e.g. manually edited via kubectl), the update returns a 500.
+  The admission policy guards against this for new objects, but cannot repair
+  already-corrupt state.
 - Update is not always an in-place mutation in effect. Flavor or image changes
   can lead to destructive server replacement later in the controller layer.
 - The package preserves allocation annotations manually during update, which is

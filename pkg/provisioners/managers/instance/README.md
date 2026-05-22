@@ -39,6 +39,11 @@ That is not a cosmetic implementation detail. It means an apparently simple
 instance update can imply loss of server-local state and changes to IP/disk
 continuity.
 
+Instance names are immutable end-to-end: the API handler rejects renames with
+HTTP 422 and region enforces the same at its layer. The controller therefore
+never encounters a name change at reconcile time; name-change detection has been
+removed from the rebuild heuristic.
+
 ## Caveats
 
 - The lookup contract is weaker than the handler-side one. `getServer()` returns
