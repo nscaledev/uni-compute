@@ -571,7 +571,7 @@ var _ = Describe("Instance Operations", func() {
 				_, err := client.GetInstance(ctx, nonExistentInstanceID)
 
 				Expect(err).To(HaveOccurred(), "Should return error for non-existent instance")
-				Expect(err).To(MatchError(coreclient.ErrResourceNotFound), "Error should indicate HTTP 404 Not Found")
+				Expect(err).To(MatchError(coreclient.ErrResourceNotFound), "Error should indicate resource not found")
 				GinkgoWriter.Printf("Expected HTTP 404 error for non-existent instance: %v\n", err)
 			})
 		})

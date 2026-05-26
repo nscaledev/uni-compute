@@ -180,7 +180,7 @@ func (c *APIClient) GetInstance(ctx context.Context, instanceID string) (openapi
 
 		return instance, nil
 	case http.StatusNotFound:
-		return openapi.InstanceRead{}, fmt.Errorf("instance '%s': %w", instanceID, coreclient.ErrResourceNotFound)
+		return openapi.InstanceRead{}, fmt.Errorf("instance '%s' (status: %d): %w", instanceID, resp.StatusCode, coreclient.ErrResourceNotFound)
 	case http.StatusForbidden:
 		return openapi.InstanceRead{}, fmt.Errorf("instance '%s' access denied (status: %d)", instanceID, resp.StatusCode)
 	default:
