@@ -185,7 +185,18 @@ func WaitForInstanceActive(client *APIClient, ctx context.Context, config *TestC
 		}
 
 		if instance.Metadata.HealthStatus == coreapi.ResourceHealthStatusError {
-			Fail(fmt.Sprintf("Instance %s entered error health status", instanceID))
+			powerState := "<nil>"
+			if instance.Status.PowerState != nil {
+				powerState = string(*instance.Status.PowerState)
+			}
+
+			Fail(fmt.Sprintf("Instance %s entered error health status (provisioning=%s, powerState=%s, imageID=%s, regionID=%s, networkID=%s)",
+				instanceID,
+				instance.Metadata.ProvisioningStatus,
+				powerState,
+				instance.Spec.ImageId,
+				instance.Status.RegionId,
+				instance.Status.NetworkId))
 		}
 
 		if instance.Status.PowerState == nil {

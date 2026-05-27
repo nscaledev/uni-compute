@@ -40,6 +40,8 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/utils/ptr"
+
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // Options allows access to CLI options in the provisioner.
@@ -277,6 +279,55 @@ func (p *Provisioner) updateInstanceStatus(server *regionapi.ServerV2Response) {
 	p.instance.Status.PowerState = convertPowerState(server.Status.PowerState)
 }
 
+func shouldLogUnhealthyServerTransition(serverHealth coreapi.ResourceHealthStatus, previousHealthReason unikornv1core.ConditionReason) bool {
+	var reason unikornv1core.ConditionReason
+
+	switch serverHealth {
+	case coreapi.ResourceHealthStatusDegraded:
+		reason = unikornv1core.ConditionReasonDegraded
+	case coreapi.ResourceHealthStatusError:
+		reason = unikornv1core.ConditionReasonErrored
+	case coreapi.ResourceHealthStatusHealthy, coreapi.ResourceHealthStatusUnknown:
+		return false
+	}
+
+	return previousHealthReason != reason
+}
+
+func healthConditionReason(conditions []unikornv1core.Condition) unikornv1core.ConditionReason {
+	condition, err := unikornv1core.GetCondition(conditions, unikornv1core.ConditionHealthy)
+	if err != nil {
+		return ""
+	}
+
+	return condition.Reason
+}
+
+func (p *Provisioner) logUnhealthyServer(ctx context.Context, server *regionapi.ServerV2Response, previousHealthReason unikornv1core.ConditionReason) {
+	if !shouldLogUnhealthyServerTransition(server.Metadata.HealthStatus, previousHealthReason) {
+		return
+	}
+
+	powerState := "<nil>"
+	if server.Status.PowerState != nil {
+		powerState = string(*server.Status.PowerState)
+	}
+
+	log.FromContext(ctx).Info("backing server reported unhealthy status",
+		"name", p.instance.Name,
+		"namespace", p.instance.Namespace,
+		"serverID", server.Metadata.Id,
+		"serverName", server.Metadata.Name,
+		"serverHealthStatus", server.Metadata.HealthStatus,
+		"serverProvisioningStatus", server.Metadata.ProvisioningStatus,
+		"serverPowerState", powerState,
+		"regionID", server.Status.RegionId,
+		"networkID", server.Status.NetworkId,
+		"imageID", server.Spec.ImageId,
+		"flavorID", server.Spec.FlavorId,
+	)
+}
+
 // Provision implements the Provision interface.
 func (p *Provisioner) Provision(ctx context.Context) error {
 	region, err := p.getRegionClient(ctx)
@@ -294,9 +345,11 @@ func (p *Provisioner) Provision(ctx context.Context) error {
 		return err
 	}
 
+	previousHealthReason := healthConditionReason(p.instance.Status.Conditions)
 	healthStatus, healthReason, healthMessage := convertHealthStatusCondition(server.Metadata.HealthStatus)
 	unikornv1core.UpdateCondition(&p.instance.Status.Conditions, unikornv1core.ConditionHealthy, healthStatus, healthReason, healthMessage)
 
+	p.logUnhealthyServer(ctx, server, previousHealthReason)
 	p.updateInstanceStatus(server)
 
 	if server.Metadata.ProvisioningStatus != coreapi.ResourceProvisioningStatusProvisioned {
