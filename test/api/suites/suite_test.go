@@ -37,11 +37,17 @@ var (
 )
 
 var _ = BeforeEach(func() {
+	api.StartNetworkCapture(CurrentSpecReport().FullText())
+
 	var err error
 	config, err = api.LoadTestConfig()
 	Expect(err).NotTo(HaveOccurred(), "Failed to load test configuration")
 	client = api.NewAPIClientWithConfig(config)
 	ctx = context.Background()
+})
+
+var _ = AfterEach(func() {
+	api.StopNetworkCapture()
 })
 
 func TestSuites(t *testing.T) {

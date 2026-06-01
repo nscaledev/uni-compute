@@ -7,6 +7,7 @@ cover.out
 cover.html
 test/.env
 test/.env.*
+test-artifacts/
 go.work
 go.work.sum
 .codex

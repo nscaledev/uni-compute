@@ -97,6 +97,8 @@ jobs:
       TEST_FLAVOR_ID: ${{ inputs.flavor_id_override || vars.DEV_TEST_FLAVOR_ID }}
       TEST_IMAGE_ID: ${{ inputs.image_id_override || vars.DEV_TEST_IMAGE_ID }}
       TEST_NETWORK_ID: ${{ inputs.network_id_override || vars.DEV_TEST_NETWORK_ID }}
+      CAPTURE_NETWORK_LOGS: 'true'
+      NETWORK_LOG_DIR: ${{ github.workspace }}/test-artifacts/network
 
     steps:
     - name: Validate region override inputs
@@ -144,6 +146,14 @@ jobs:
       with:
         name: api-test-junit-dev
         path: test/api/suites/junit.xml
+
+    - name: Archive API Network Logs
+      uses: actions/upload-artifact@v4
+      if: ${{ !cancelled() }}
+      with:
+        name: api-network-logs-dev
+        path: test-artifacts/network
+        if-no-files-found: ignore
     
     - name: Create Linear Issues for Test Failures
       uses: nscaledev/quality-tooling/.github/actions/linear-test-failures@main
@@ -177,6 +187,7 @@ jobs:
         grafana-loki-datasource-name: Loki
         grafana-log-lookback: 2h
         grafana-log-limit: '20'
+        grafana-log-concurrency: '4'
         grafana-log-max-failures: '6'
 
   find-staging-constellation:
@@ -211,6 +222,8 @@ jobs:
       TEST_FLAVOR_ID: ${{ inputs.flavor_id_override || vars.UAT_TEST_FLAVOR_ID }}
       TEST_IMAGE_ID: ${{ inputs.image_id_override || vars.UAT_TEST_IMAGE_ID }}
       TEST_NETWORK_ID: ${{ inputs.network_id_override || vars.UAT_TEST_NETWORK_ID }}
+      CAPTURE_NETWORK_LOGS: 'true'
+      NETWORK_LOG_DIR: ${{ github.workspace }}/test-artifacts/network
 
     steps:
     - name: Validate region override inputs
@@ -261,6 +274,14 @@ jobs:
         name: api-test-junit-uat
         path: test/api/suites/junit.xml
 
+    - name: Archive API Network Logs
+      if: ${{ !cancelled() }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: api-network-logs-uat
+        path: test-artifacts/network
+        if-no-files-found: ignore
+
     - name: Create Linear Issues for Test Failures
       uses: nscaledev/quality-tooling/.github/actions/linear-test-failures@main
       if: ${{ !cancelled() }}
@@ -293,4 +314,5 @@ jobs:
         grafana-loki-datasource-name: Loki
         grafana-log-lookback: 2h
         grafana-log-limit: '20'
+        grafana-log-concurrency: '4'
         grafana-log-max-failures: '6'
