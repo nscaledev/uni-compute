@@ -1,0 +1,83 @@
+name: Grafana MCP Log Smoke
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  grafana-mcp-log-smoke:
+    name: Grafana MCP log smoke
+    runs-on: ubuntu-latest
+    steps:
+    - name: Create synthetic failed Ginkgo result
+      run: |
+        mkdir -p tmp/grafana-mcp-smoke
+        cat > tmp/grafana-mcp-smoke/test-results.json <<'JSON'
+        [
+          {
+            "SuiteDescription": "Compute API Smoke",
+            "RunTime": 1000000000,
+            "SpecReports": [
+              {
+                "ContainerHierarchyTexts": [
+                  "Instance Operations",
+                  "When creating an instance",
+                  "from a snapshot image"
+                ],
+                "LeafNodeText": "should launch an instance successfully",
+                "State": "failed",
+                "RunTime": 1000000000,
+                "CapturedGinkgoWriterOutput": "source instance fbb6b2c4-6c44-4837-8b9f-3a43283e94b8, snapshot image 374b2103-a183-4cb4-b740-126a873ab8a5, launched instance dd8a7359-33e4-4613-93fd-c8816e28bdbb",
+                "Failure": {
+                  "Message": "Snapshot image 374b2103-a183-4cb4-b740-126a873ab8a5 was created but never appeared in the image list within the polling window; instance dd8a7359-33e4-4613-93fd-c8816e28bdbb entered error health state.",
+                  "Location": {
+                    "FileName": "test/api/suites/instance_operations_test.go",
+                    "LineNumber": 216
+                  }
+                }
+              }
+            ]
+          }
+        ]
+        JSON
+
+    - name: Query Grafana logs through MCP
+      uses: nscaledev/quality-tooling/.github/actions/test-results-report@codex/grafana-mcp-test-results-report
+      with:
+        test-results-path: tmp/grafana-mcp-smoke/test-results.json
+        format: ginkgo-json
+        workflow-url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        send-slack: 'false'
+        environment: dev
+        title: 'Compute Snapshot Failure Grafana MCP Smoke'
+        max-failures: '1'
+        include-skips: 'false'
+        enable-ai-analysis: 'false'
+        enable-grafana-log-enrichment: 'true'
+        grafana-service-account-token: ${{ secrets.GRAFANA_SERVICE_ACCOUNT_TOKEN }}
+        grafana-app: nks-dev-glo1-grafana
+        grafana-loki-datasource-name: Loki
+        grafana-log-start: '2026-06-01T07:45:00Z'
+        grafana-log-end: '2026-06-01T08:12:00Z'
+        grafana-log-limit: '50'
+        grafana-logql: '{namespace="unikorn-compute"} |~ "374b2103-a183-4cb4-b740-126a873ab8a5|dd8a7359-33e4-4613-93fd-c8816e28bdbb|fbb6b2c4-6c44-4837-8b9f-3a43283e94b8"'
+
+    - name: Dump generated step summaries
+      if: ${{ always() }}
+      run: |
+        set -euo pipefail
+
+        summary_dir="${RUNNER_TEMP}/_runner_file_commands"
+        if [[ ! -d "${summary_dir}" ]]; then
+          echo "No runner file command directory found at ${summary_dir}"
+          exit 0
+        fi
+
+        while IFS= read -r summary_file; do
+          echo "=== ${summary_file} ==="
+          cat "${summary_file}"
+          echo
+        done < <(find "${summary_dir}" -type f -name 'step_summary_*' | sort)
