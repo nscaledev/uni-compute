@@ -12,6 +12,10 @@ on:
         description: 'Run UAT tests'
         type: boolean
         default: false
+      run_teleport_grafana_smoke:
+        description: 'Run Teleport Grafana bot smoke test'
+        type: boolean
+        default: false
       focus:
         description: 'Test suite to run'
         required: false
@@ -42,6 +46,210 @@ permissions:
   contents: read
 
 jobs:
+  Teleport-Grafana-Bot-Smoke:
+    name: Teleport Grafana bot smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: github.event_name == 'workflow_dispatch' && inputs.run_teleport_grafana_smoke == true
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      GRAFANA_APP: nks-dev-glo1-grafana
+      GRAFANA_SERVICE_ACCOUNT_TOKEN: ${{ secrets.GRAFANA_SERVICE_ACCOUNT_TOKEN }}
+      ALLOWED_APPS: >-
+        nks-dev-glo1-grafana
+        nks-stg-europe-west2-grafana
+        fleet-mgr-dev-glo1-grafana
+        fleet-mgr-stg-glo1-grafana
+      DENIED_APP: nks-europe-west4-grafana
+    steps:
+    - name: Install Teleport clients
+      uses: teleport-actions/setup@a820ebbf1bc1a496efca348ad21042d6e8df73a6
+      with:
+        version: auto
+        proxy: nscale.teleport.sh:443
+
+    - name: Authenticate to Teleport
+      id: auth
+      uses: teleport-actions/auth@6fe5bb9951b2677f8a66b912fa5a6285df190bcc
+      with:
+        proxy: nscale.teleport.sh:443
+        token: github-grafana-access
+        certificate-ttl: 45m
+
+    - name: Verify scoped Grafana app visibility
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        tsh apps ls --format=json > apps.json
+
+        jq -r '.[] | .metadata.name' apps.json | sort
+
+        for app in $ALLOWED_APPS; do
+          if ! jq -e --arg app "$app" '.[] | select(.metadata.name == $app)' apps.json >/dev/null; then
+            echo "::error::Expected allowed Grafana app is not visible: $app"
+            exit 1
+          fi
+        done
+
+        if jq -e --arg app "$DENIED_APP" '.[] | select(.metadata.name == $app)' apps.json >/dev/null; then
+          echo "::error::Non-allowed Grafana app is visible: $DENIED_APP"
+          exit 1
+        fi
+
+    - name: Log Teleport bot identity
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        echo "Teleport client version:"
+        tsh version
+
+        echo "Teleport identity status:"
+        tsh status
+
+        echo "Target Grafana app: ${GRAFANA_APP}"
+        echo "CI uses teleport-actions/application-tunnel because bot identities cannot reissue app certificates with tsh app login."
+
+    - name: Open Grafana app tunnel
+      uses: teleport-actions/application-tunnel@v1
+      with:
+        proxy: nscale.teleport.sh:443
+        token: github-grafana-access
+        app: ${{ env.GRAFANA_APP }}
+        listen: tcp://127.0.0.1:3000
+        timeout-ms: '60000'
+
+    - name: Verify Grafana app tunnel readiness
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        for attempt in {1..30}; do
+          if curl --fail --silent --show-error --max-time 5 http://127.0.0.1:3000/api/health > "${RUNNER_TEMP}/grafana-health.json"; then
+            echo "Grafana tunnel is reachable on attempt ${attempt}"
+            cat "${RUNNER_TEMP}/grafana-health.json"
+            exit 0
+          fi
+
+          echo "Waiting for Grafana tunnel on 127.0.0.1:3000, attempt ${attempt}/30"
+          if command -v ss >/dev/null 2>&1; then
+            ss -ltnp || true
+          else
+            netstat -an | grep '3000' || true
+          fi
+          curl --verbose --max-time 2 http://127.0.0.1:3000/api/health || true
+          sleep 1
+        done
+
+        echo "::error::Grafana tunnel did not become reachable on 127.0.0.1:3000"
+        exit 1
+
+    - name: Install Grafana MCP server
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        set -euo pipefail
+
+        release="$(gh release view -R grafana/mcp-grafana --json tagName --jq .tagName)"
+        gh release download -R grafana/mcp-grafana "$release" \
+          --pattern mcp-grafana_Linux_x86_64.tar.gz \
+          --output /tmp/mcp-grafana.tar.gz
+        tar -xzf /tmp/mcp-grafana.tar.gz -C /tmp
+        sudo mv /tmp/mcp-grafana /usr/local/bin/mcp-grafana
+        mcp-grafana --help >/dev/null
+
+    - name: Verify Grafana service account and Loki access
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        if [ -z "$GRAFANA_SERVICE_ACCOUNT_TOKEN" ]; then
+          echo "::error::GRAFANA_SERVICE_ACCOUNT_TOKEN secret is empty or unavailable"
+          exit 1
+        fi
+
+        curl --fail --silent --show-error --max-time 20 \
+          -H "Authorization: Bearer ${GRAFANA_SERVICE_ACCOUNT_TOKEN}" \
+          http://127.0.0.1:3000/api/org > org.json
+
+        curl --fail --silent --show-error --max-time 20 \
+          -H "Authorization: Bearer ${GRAFANA_SERVICE_ACCOUNT_TOKEN}" \
+          http://127.0.0.1:3000/api/datasources > datasources.json
+
+        loki_uid="$(jq -r 'first(.[] | select(.type == "loki") | .uid) // empty' datasources.json)"
+        if [ -z "$loki_uid" ]; then
+          echo "::error::No Loki datasource is visible to the Grafana service account"
+          jq -r '.[] | [.name, .type, .uid] | @tsv' datasources.json
+          exit 1
+        fi
+
+        curl --fail --silent --show-error --max-time 20 \
+          -H "Authorization: Bearer ${GRAFANA_SERVICE_ACCOUNT_TOKEN}" \
+          "http://127.0.0.1:3000/api/datasources/proxy/uid/${loki_uid}/loki/api/v1/labels" \
+          | jq -e '.status == "success" and (.data | type == "array")'
+
+    - name: Verify Grafana MCP server starts against tunnel
+      shell: bash
+      env:
+        GRAFANA_URL: http://127.0.0.1:3000
+      run: |
+        set -euo pipefail
+
+        echo "Starting mcp-grafana with GRAFANA_URL=${GRAFANA_URL}"
+        mcp-grafana \
+          -t streamable-http \
+          --address 127.0.0.1:8000 \
+          --disable-write \
+          > "${RUNNER_TEMP}/mcp-grafana.log" 2>&1 &
+        mcp_pid="$!"
+        echo "$mcp_pid" > "${RUNNER_TEMP}/mcp-grafana.pid"
+        echo "mcp-grafana pid: ${mcp_pid}"
+
+        for attempt in {1..20}; do
+          if ! kill -0 "$mcp_pid" 2>/dev/null; then
+            echo "::error::mcp-grafana exited before /healthz became reachable"
+            cat "${RUNNER_TEMP}/mcp-grafana.log"
+            exit 1
+          fi
+
+          if curl --fail --silent --show-error --max-time 2 http://127.0.0.1:8000/healthz >/dev/null; then
+            echo "mcp-grafana /healthz is reachable on attempt ${attempt}"
+            exit 0
+          fi
+
+          echo "Waiting for mcp-grafana on 127.0.0.1:8000, attempt ${attempt}/20"
+          ps -p "$mcp_pid" -o pid,ppid,stat,cmd || true
+          if command -v ss >/dev/null 2>&1; then
+            ss -ltnp || true
+          else
+            netstat -an | grep '8000' || true
+          fi
+          curl --verbose --max-time 2 http://127.0.0.1:8000/healthz || true
+          tail -n 80 "${RUNNER_TEMP}/mcp-grafana.log" || true
+          sleep 1
+        done
+
+        echo "::error::mcp-grafana /healthz did not become reachable on 127.0.0.1:8000"
+        cat "${RUNNER_TEMP}/mcp-grafana.log"
+        exit 1
+
+    - name: Dump MCP logs
+      if: always()
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        echo "=== mcp-grafana log ==="
+        cat "${RUNNER_TEMP}/mcp-grafana.log" 2>/dev/null || true
+
+        if [ -f "${RUNNER_TEMP}/mcp-grafana.pid" ]; then
+          kill "$(cat "${RUNNER_TEMP}/mcp-grafana.pid")" 2>/dev/null || true
+        fi
+
   API-Tests-Dev:
     name: API Tests (dev)
     runs-on: ubuntu-latest
