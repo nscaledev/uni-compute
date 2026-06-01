@@ -11,10 +11,9 @@ require (
 	github.com/onsi/gomega v1.36.1
 	github.com/pact-foundation/pact-go/v2 v2.4.2
 	github.com/spf13/pflag v1.0.10
-	github.com/spjmurray/go-util v0.1.3
 	github.com/stretchr/testify v1.11.1
 	github.com/unikorn-cloud/core v1.14.0-rc1.0.20260422145135-733e5169a07e
-	github.com/unikorn-cloud/identity v1.14.0-rc1.0.20260430090955-4839bc57a519
+	github.com/unikorn-cloud/identity v1.17.1
 	github.com/unikorn-cloud/region v1.16.3
 	go.uber.org/mock v0.5.2
 	golang.org/x/crypto v0.49.0
@@ -95,6 +94,7 @@ require (
 	github.com/spf13/cast v1.10.0 // indirect
 	github.com/spf13/cobra v1.10.1 // indirect
 	github.com/spf13/viper v1.21.0 // indirect
+	github.com/spjmurray/go-util v0.1.3 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/vmware-labs/yaml-jsonpath v0.3.2 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
