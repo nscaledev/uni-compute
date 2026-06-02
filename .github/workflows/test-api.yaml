@@ -174,7 +174,7 @@ jobs:
         title: 'Compute API Test Results'
         enable-ai-analysis: 'true'
         claude-token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-        enable-grafana-log-enrichment: ${{ secrets.GRAFANA_SERVICE_ACCOUNT_TOKEN != '' && 'true' || 'false' }}
+        enable-grafana-log-enrichment: 'true'
         grafana-service-account-token: ${{ secrets.GRAFANA_SERVICE_ACCOUNT_TOKEN }}
         grafana-log-lookback: 6h
 
@@ -290,6 +290,6 @@ jobs:
         title: 'Compute API Test Results'
         enable-ai-analysis: 'true'
         claude-token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-        enable-grafana-log-enrichment: ${{ secrets.GRAFANA_SERVICE_ACCOUNT_TOKEN != '' && 'true' || 'false' }}
+        enable-grafana-log-enrichment: 'true'
         grafana-service-account-token: ${{ secrets.GRAFANA_SERVICE_ACCOUNT_TOKEN }}
         grafana-log-lookback: 6h
