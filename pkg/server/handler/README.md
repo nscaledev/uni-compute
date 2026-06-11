@@ -24,6 +24,9 @@ that ties those two pieces together under one HTTP API.
   normalization, then delegate actual policy and mutation logic downward.
 - Read-side region/flavor/image endpoints impersonate the caller into region so
   region remains the authority on visibility.
+- Flavor discovery excludes region flavors marked `pinnedOnly`, because compute
+  instances do not expose `infrastructureRef` host pinning and those flavors
+  would be rejected by region during backing server creation.
 - The `.well-known/openid-protected-resource` endpoint is cacheable and is part
   of the service trust contract, not just a convenience route.
 
