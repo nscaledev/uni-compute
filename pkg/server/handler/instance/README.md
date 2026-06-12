@@ -24,8 +24,15 @@ key retrieval, or snapshotting are requested.
 - The selected network is the main scoping root for creation. Compute injects
   org/project into the principal and asks region to resolve the network under
   impersonated access rather than trusting a caller-supplied ownership claim.
-- Flavor and image must both be visible in the chosen region and must be
-  mutually compatible for architecture, disk size, and virtualization mode.
+- Every region-owned reference the caller supplies — network, flavor, image,
+  security groups, and SSH CA — must be validated under impersonated access, so
+  region resolves RBAC against the end user rather than compute's system
+  account. The system-account ACL is global across all organizations and
+  projects, so validating any of these references without impersonation would
+  let a caller reference another tenant's resource (a privilege escalation).
+- Flavor and image must both be visible to the user in the chosen region and
+  must be mutually compatible for architecture, disk size, and virtualization
+  mode.
 - SSH CA references must stay inside the same organization and project as the
   instance.
 - User data is validated more strictly when an SSH CA is attached because
