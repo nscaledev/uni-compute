@@ -30,6 +30,7 @@ import (
 	"github.com/onsi/ginkgo/v2"
 
 	"github.com/unikorn-cloud/compute/pkg/openapi"
+	coreapi "github.com/unikorn-cloud/core/pkg/openapi"
 	coreclient "github.com/unikorn-cloud/core/pkg/testing/client"
 	regionopenapi "github.com/unikorn-cloud/region/pkg/openapi"
 )
@@ -67,6 +68,11 @@ func NewAPIClientWithConfig(config *TestConfig) *APIClient {
 	return newAPIClientWithConfig(config, config.BaseURL)
 }
 
+// GetEndpoints returns the endpoints instance for direct path access in tests.
+func (c *APIClient) GetEndpoints() *Endpoints {
+	return c.endpoints
+}
+
 // common constructor logic.
 func newAPIClientWithConfig(config *TestConfig, baseURL string) *APIClient {
 	coreClient := coreclient.NewAPIClient(baseURL, config.AuthToken, config.RequestTimeout, &GinkgoLogger{})
@@ -78,6 +84,24 @@ func newAPIClientWithConfig(config *TestConfig, baseURL string) *APIClient {
 		config:    config,
 		endpoints: NewEndpoints(),
 	}
+}
+
+// GetVersion gets the deployed compute service version.
+func (c *APIClient) GetVersion(ctx context.Context) (*coreapi.ServiceVersionRead, error) {
+	path := c.endpoints.Version()
+
+	//nolint:bodyclose // DoRequest handles response body closing internally
+	_, respBody, err := c.DoRequest(ctx, http.MethodGet, path, nil, http.StatusOK)
+	if err != nil {
+		return nil, fmt.Errorf("getting service version: %w", err)
+	}
+
+	var version coreapi.ServiceVersionRead
+	if err := json.Unmarshal(respBody, &version); err != nil {
+		return nil, fmt.Errorf("unmarshaling service version: %w", err)
+	}
+
+	return &version, nil
 }
 
 func (c *APIClient) ListRegions(ctx context.Context, orgID string) (regionopenapi.Regions, error) {
