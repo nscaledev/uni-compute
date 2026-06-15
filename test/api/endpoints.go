@@ -102,7 +102,7 @@ func (e *Endpoints) OpenAPISpec() string {
 }
 
 func (e *Endpoints) Version() string {
-	return "/api/v2/version"
+	return "/api/version"
 }
 
 // RegionEndpoints contains region API endpoint patterns used by integration tests.

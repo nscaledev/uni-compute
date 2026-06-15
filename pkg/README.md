@@ -32,7 +32,7 @@ exposes as its user-facing root.
 
 This package explains the public contract:
 
-- authenticated service version discovery through `GET /api/v2/version`
+- authenticated service version discovery through `GET /api/version`
 - instance creation and mutation
 - validation against region-owned resources
 - quota coupling to identity

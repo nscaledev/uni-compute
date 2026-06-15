@@ -21,7 +21,7 @@ that ties those two pieces together under one HTTP API.
 - `v2` `Instance` is the main intended API surface for compute lifecycle.
 - The older `v1`-shaped endpoints here are read-side capability discovery over
   region resources, not compute-owned server lifecycle.
-- `GET /api/v2/version` is an authenticated service metadata endpoint. It
+- `GET /api/version` is an authenticated service metadata endpoint. It
   returns the build name and version from the running binary, sets
   `Cache-Control: no-cache`, and does not expose or mutate compute resources.
 - Top-level handlers do final request parsing, response writing, and HTTP error
@@ -40,7 +40,7 @@ This package makes compute's split surface visible:
 
 - `GetApiV1Organizations...Regions/Flavors/Images` is effectively curated
   catalog access into region
-- `Get /api/v2/version` is authenticated deployment metadata for clients and
+- `Get /api/version` is authenticated deployment metadata for clients and
   CI gates that need to identify the exact compute server build
 - `Get/Post/Put/Delete /api/v2/instances...` is compute's own higher-level
   abstraction over hidden server lifecycle
