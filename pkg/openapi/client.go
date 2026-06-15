@@ -1651,7 +1651,6 @@ type GetApiV2VersionResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *externalRef0.ServiceVersionResponse
 	JSON401      *externalRef0.UnauthorizedResponse
-	JSON403      *externalRef0.ForbiddenResponse
 	JSON500      *externalRef0.InternalServerErrorResponse
 }
 
@@ -2788,13 +2787,6 @@ func ParseGetApiV2VersionResponse(rsp *http.Response) (*GetApiV2VersionResponse,
 			return nil, err
 		}
 		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
-		var dest externalRef0.ForbiddenResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON403 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.InternalServerErrorResponse
