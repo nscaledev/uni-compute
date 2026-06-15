@@ -63,8 +63,8 @@ type ServerInterface interface {
 	// (POST /api/v2/instances/{instanceID}/stop)
 	PostApiV2InstancesInstanceIDStop(w http.ResponseWriter, r *http.Request, instanceID InstanceIDParameter)
 	// Get the deployed service version
-	// (GET /api/v2/version)
-	GetApiV2Version(w http.ResponseWriter, r *http.Request)
+	// (GET /api/version)
+	GetApiVersion(w http.ResponseWriter, r *http.Request)
 }
 
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
@@ -167,8 +167,8 @@ func (_ Unimplemented) PostApiV2InstancesInstanceIDStop(w http.ResponseWriter, r
 }
 
 // Get the deployed service version
-// (GET /api/v2/version)
-func (_ Unimplemented) GetApiV2Version(w http.ResponseWriter, r *http.Request) {
+// (GET /api/version)
+func (_ Unimplemented) GetApiVersion(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -723,8 +723,8 @@ func (siw *ServerInterfaceWrapper) PostApiV2InstancesInstanceIDStop(w http.Respo
 	handler.ServeHTTP(w, r)
 }
 
-// GetApiV2Version operation middleware
-func (siw *ServerInterfaceWrapper) GetApiV2Version(w http.ResponseWriter, r *http.Request) {
+// GetApiVersion operation middleware
+func (siw *ServerInterfaceWrapper) GetApiVersion(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 
@@ -733,7 +733,7 @@ func (siw *ServerInterfaceWrapper) GetApiV2Version(w http.ResponseWriter, r *htt
 	r = r.WithContext(ctx)
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetApiV2Version(w, r)
+		siw.Handler.GetApiVersion(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -905,7 +905,7 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/api/v2/instances/{instanceID}/stop", wrapper.PostApiV2InstancesInstanceIDStop)
 	})
 	r.Group(func(r chi.Router) {
-		r.Get(options.BaseURL+"/api/v2/version", wrapper.GetApiV2Version)
+		r.Get(options.BaseURL+"/api/version", wrapper.GetApiVersion)
 	})
 
 	return r
