@@ -52,7 +52,7 @@ paths:
       - oauth2Authentication: []
       responses:
         '200':
-          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/region/main/pkg/openapi/server.spec.yaml#/components/responses/regionsResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/region/v1.17.2/pkg/openapi/server.spec.yaml#/components/responses/regionsResponse'
         '400':
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/v1.17.1/pkg/openapi/common.spec.yaml#/components/responses/badRequestResponse'
         '401':
@@ -77,7 +77,7 @@ paths:
       - oauth2Authentication: []
       responses:
         '200':
-          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/region/main/pkg/openapi/server.spec.yaml#/components/responses/flavorsResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/region/v1.17.2/pkg/openapi/server.spec.yaml#/components/responses/flavorsResponse'
         '400':
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/v1.17.1/pkg/openapi/common.spec.yaml#/components/responses/badRequestResponse'
         '401':
@@ -104,7 +104,7 @@ paths:
       - oauth2Authentication: []
       responses:
         '200':
-          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/region/main/pkg/openapi/server.spec.yaml#/components/responses/imagesResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/region/v1.17.2/pkg/openapi/server.spec.yaml#/components/responses/imagesResponse'
         '400':
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/v1.17.1/pkg/openapi/common.spec.yaml#/components/responses/badRequestResponse'
         '401':
@@ -274,7 +274,7 @@ paths:
       - oauth2Authentication: []
       responses:
         '200':
-          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/region/main/pkg/openapi/server.spec.yaml#/components/responses/sshKeyResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/region/v1.17.2/pkg/openapi/server.spec.yaml#/components/responses/sshKeyResponse'
         '400':
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/v1.17.1/pkg/openapi/common.spec.yaml#/components/responses/badRequestResponse'
         '401':
@@ -353,7 +353,7 @@ paths:
         $ref: '#/components/requestBodies/instanceSnapshotRequest'
       responses:
         '201':
-          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/region/main/pkg/openapi/server.spec.yaml#/components/responses/imageResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/region/v1.17.2/pkg/openapi/server.spec.yaml#/components/responses/imageResponse'
         '400':
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/v1.17.1/pkg/openapi/common.spec.yaml#/components/responses/badRequestResponse'
         '401':
@@ -378,7 +378,7 @@ paths:
       - oauth2Authentication: []
       responses:
         '200':
-          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/region/main/pkg/openapi/server.spec.yaml#/components/responses/consoleSessionResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/region/v1.17.2/pkg/openapi/server.spec.yaml#/components/responses/consoleSessionResponse'
         '400':
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/v1.17.1/pkg/openapi/common.spec.yaml#/components/responses/badRequestResponse'
         '401':
@@ -404,7 +404,7 @@ paths:
       - oauth2Authentication: []
       responses:
         '200':
-          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/region/main/pkg/openapi/server.spec.yaml#/components/responses/consoleOutputResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/region/v1.17.2/pkg/openapi/server.spec.yaml#/components/responses/consoleOutputResponse'
         '400':
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/v1.17.1/pkg/openapi/common.spec.yaml#/components/responses/badRequestResponse'
         '401':
@@ -598,7 +598,7 @@ components:
           description: The network a security group belongs to.
           type: string
         powerState:
-          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/region/main/pkg/openapi/server.spec.yaml#/components/schemas/instanceLifecyclePhase'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/region/v1.17.2/pkg/openapi/server.spec.yaml#/components/schemas/instanceLifecyclePhase'
         privateIP:
           description: The private IP address of the server.
           type: string
@@ -739,7 +739,7 @@ components:
       - version
       properties:
         distro:
-          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/region/main/pkg/openapi/server.spec.yaml#/components/schemas/osDistro'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/region/v1.17.2/pkg/openapi/server.spec.yaml#/components/schemas/osDistro'
         variant:
           description: The operating system variant.
           type: string
