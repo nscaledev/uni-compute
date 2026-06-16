@@ -21,6 +21,7 @@ import (
 	computeapi "github.com/unikorn-cloud/compute/pkg/openapi"
 	identityids "github.com/unikorn-cloud/identity/pkg/ids"
 	identityapi "github.com/unikorn-cloud/identity/pkg/openapi"
+	regionv1 "github.com/unikorn-cloud/region/pkg/apis/unikorn/v1alpha1"
 	regionapi "github.com/unikorn-cloud/region/pkg/openapi"
 )
 
@@ -38,4 +39,8 @@ func ValidateSSHCertificateAuthorityScope(resource *regionapi.SshCertificateAuth
 
 func Convert(resource *computev1.ComputeInstance) (*computeapi.InstanceRead, error) {
 	return convert(resource)
+}
+
+func ConvertPowerState(in *regionv1.InstanceLifecyclePhase) *regionapi.InstanceLifecyclePhase {
+	return convertPowerState(in)
 }

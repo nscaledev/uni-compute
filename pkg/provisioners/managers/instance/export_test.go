@@ -20,6 +20,7 @@ import (
 	"context"
 
 	unikornv1 "github.com/unikorn-cloud/compute/pkg/apis/unikorn/v1alpha1"
+	regionv1 "github.com/unikorn-cloud/region/pkg/apis/unikorn/v1alpha1"
 	regionapi "github.com/unikorn-cloud/region/pkg/openapi"
 )
 
@@ -47,4 +48,8 @@ func (p *Provisioner) CreateOrUpdateServer(ctx context.Context, region regionapi
 
 func (p *Provisioner) UpdateInstanceStatus(server *regionapi.ServerV2Response) {
 	p.updateInstanceStatus(server)
+}
+
+func ConvertPowerState(in *regionapi.InstanceLifecyclePhase) *regionv1.InstanceLifecyclePhase {
+	return convertPowerState(in)
 }
