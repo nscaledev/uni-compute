@@ -145,12 +145,12 @@ func convertPowerState(in *regionv1.InstanceLifecyclePhase) *regionapi.InstanceL
 	}
 
 	switch *in {
+	case regionv1.InstanceLifecyclePhasePending:
+		return ptr.To(regionapi.InstanceLifecyclePhasePending)
 	case regionv1.InstanceLifecyclePhaseQueued:
 		return ptr.To(regionapi.InstanceLifecyclePhaseQueued)
 	case regionv1.InstanceLifecyclePhaseBuilding:
 		return ptr.To(regionapi.InstanceLifecyclePhaseBuilding)
-	case regionv1.InstanceLifecyclePhasePending:
-		return ptr.To(regionapi.InstanceLifecyclePhasePending)
 	case regionv1.InstanceLifecyclePhaseRunning:
 		return ptr.To(regionapi.InstanceLifecyclePhaseRunning)
 	case regionv1.InstanceLifecyclePhaseStopping:
