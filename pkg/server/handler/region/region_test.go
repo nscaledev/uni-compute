@@ -1,0 +1,92 @@
+/*
+Copyright 2026 Nscale.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package region_test
+
+import (
+	"bytes"
+	"encoding/json"
+	"io"
+	"net/http"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	computeregion "github.com/unikorn-cloud/compute/pkg/server/handler/region"
+	coreapi "github.com/unikorn-cloud/core/pkg/openapi"
+	regionapi "github.com/unikorn-cloud/region/pkg/openapi"
+
+	"k8s.io/utils/ptr"
+)
+
+func TestFlavorsFiltersPinnedOnly(t *testing.T) {
+	t.Parallel()
+
+	const (
+		organizationID = "org1"
+		regionID       = "region1"
+	)
+
+	flavors := []regionapi.Flavor{
+		flavor("general", nil),
+		flavor("pinned", ptr.To(true)),
+		flavor("explicitly-unpinned", ptr.To(false)),
+	}
+
+	body, err := json.Marshal(flavors)
+	require.NoError(t, err)
+
+	client, err := regionapi.NewClientWithResponses("http://region.example", regionapi.WithHTTPClient(roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		assert.Equal(t, "/api/v1/organizations/org1/regions/region1/flavors", r.URL.Path)
+
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(bytes.NewReader(body)),
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Request:    r,
+		}, nil
+	})))
+	require.NoError(t, err)
+
+	filtered, err := computeregion.New(client).Flavors(t.Context(), organizationID, regionID)
+	require.NoError(t, err)
+
+	require.Len(t, filtered, 2)
+	assert.Equal(t, "general", filtered[0].Metadata.Id)
+	assert.Equal(t, "explicitly-unpinned", filtered[1].Metadata.Id)
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) Do(req *http.Request) (*http.Response, error) {
+	return f(req)
+}
+
+func flavor(id string, pinnedOnly *bool) regionapi.Flavor {
+	return regionapi.Flavor{
+		Metadata: coreapi.StaticResourceMetadata{
+			Id: id,
+		},
+		Spec: regionapi.FlavorSpec{
+			Architecture: regionapi.ArchitectureX8664,
+			Cpus:         1,
+			Disk:         20,
+			Memory:       1,
+			PinnedOnly:   pinnedOnly,
+		},
+	}
+}

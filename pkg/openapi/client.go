@@ -144,6 +144,9 @@ type ClientInterface interface {
 
 	// PostApiV2InstancesInstanceIDStop request
 	PostApiV2InstancesInstanceIDStop(ctx context.Context, instanceID InstanceIDParameter, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetApiVersion request
+	GetApiVersion(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
 func (c *Client) GetWellKnownOpenidProtectedResource(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -364,6 +367,18 @@ func (c *Client) PostApiV2InstancesInstanceIDStart(ctx context.Context, instance
 
 func (c *Client) PostApiV2InstancesInstanceIDStop(ctx context.Context, instanceID InstanceIDParameter, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewPostApiV2InstancesInstanceIDStopRequest(c.Server, instanceID)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetApiVersion(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetApiVersionRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -1080,6 +1095,33 @@ func NewPostApiV2InstancesInstanceIDStopRequest(server string, instanceID Instan
 	return req, nil
 }
 
+// NewGetApiVersionRequest generates requests for GetApiVersion
+func NewGetApiVersionRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/version")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 func (c *Client) applyEditors(ctx context.Context, req *http.Request, additionalEditors []RequestEditorFn) error {
 	for _, r := range c.RequestEditors {
 		if err := r(ctx, req); err != nil {
@@ -1176,6 +1218,9 @@ type ClientWithResponsesInterface interface {
 
 	// PostApiV2InstancesInstanceIDStopWithResponse request
 	PostApiV2InstancesInstanceIDStopWithResponse(ctx context.Context, instanceID InstanceIDParameter, reqEditors ...RequestEditorFn) (*PostApiV2InstancesInstanceIDStopResponse, error)
+
+	// GetApiVersionWithResponse request
+	GetApiVersionWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetApiVersionResponse, error)
 }
 
 type GetWellKnownOpenidProtectedResourceResponse struct {
@@ -1601,6 +1646,30 @@ func (r PostApiV2InstancesInstanceIDStopResponse) StatusCode() int {
 	return 0
 }
 
+type GetApiVersionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *externalRef0.ServiceVersionResponse
+	JSON401      *externalRef0.UnauthorizedResponse
+	JSON500      *externalRef0.InternalServerErrorResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r GetApiVersionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetApiVersionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 // GetWellKnownOpenidProtectedResourceWithResponse request returning *GetWellKnownOpenidProtectedResourceResponse
 func (c *ClientWithResponses) GetWellKnownOpenidProtectedResourceWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetWellKnownOpenidProtectedResourceResponse, error) {
 	rsp, err := c.GetWellKnownOpenidProtectedResource(ctx, reqEditors...)
@@ -1767,6 +1836,15 @@ func (c *ClientWithResponses) PostApiV2InstancesInstanceIDStopWithResponse(ctx c
 		return nil, err
 	}
 	return ParsePostApiV2InstancesInstanceIDStopResponse(rsp)
+}
+
+// GetApiVersionWithResponse request returning *GetApiVersionResponse
+func (c *ClientWithResponses) GetApiVersionWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetApiVersionResponse, error) {
+	rsp, err := c.GetApiVersion(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetApiVersionResponse(rsp)
 }
 
 // ParseGetWellKnownOpenidProtectedResourceResponse parses an HTTP response from a GetWellKnownOpenidProtectedResourceWithResponse call
@@ -2669,6 +2747,46 @@ func ParsePostApiV2InstancesInstanceIDStopResponse(rsp *http.Response) (*PostApi
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest externalRef0.InternalServerErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetApiVersionResponse parses an HTTP response from a GetApiVersionWithResponse call
+func ParseGetApiVersionResponse(rsp *http.Response) (*GetApiVersionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetApiVersionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest externalRef0.ServiceVersionResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest externalRef0.UnauthorizedResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest externalRef0.InternalServerErrorResponse

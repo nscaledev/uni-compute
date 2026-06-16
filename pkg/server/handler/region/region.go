@@ -72,7 +72,13 @@ func (c *Client) Flavors(ctx context.Context, organizationID, regionID string) (
 		return nil, errors.PropagateError(resp.HTTPResponse, resp)
 	}
 
-	return *resp.JSON200, nil
+	flavors := *resp.JSON200
+
+	filtered := slices.DeleteFunc(flavors, func(flavor regionapi.Flavor) bool {
+		return flavor.Spec.PinnedOnly != nil && *flavor.Spec.PinnedOnly
+	})
+
+	return filtered, nil
 }
 
 // Images returns all compute compatible images.
