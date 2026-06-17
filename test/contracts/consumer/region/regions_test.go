@@ -92,7 +92,7 @@ var _ = Describe("Region Service Contract", func() {
 	Describe("GetRegions", func() {
 		Context("when organization exists with regions", func() {
 			It("returns list of regions", func() {
-				organizationID := "test-org-123"
+				organizationID := "83e4f0d4-c1fa-4840-abdb-5d5d60bb0685"
 
 				// Define the expected interaction
 				pact.AddInteraction().
@@ -145,7 +145,7 @@ var _ = Describe("Region Service Contract", func() {
 
 		Context("when organization exists but has no regions", func() {
 			It("returns empty list", func() {
-				organizationID := "test-org-empty"
+				organizationID := "d4df768d-d712-477e-97c1-041e6a539d7b"
 
 				pact.AddInteraction().
 					GivenWithParameter(models.ProviderState{
@@ -170,7 +170,7 @@ var _ = Describe("Region Service Contract", func() {
 
 		Context("when organization does not exist", func() {
 			It("returns empty list (regions are global)", func() {
-				organizationID := "nonexistent-org"
+				organizationID := "5b7701b9-2463-41aa-858d-3c82a4f5699c"
 
 				pact.AddInteraction().
 					GivenWithParameter(models.ProviderState{
@@ -195,7 +195,7 @@ var _ = Describe("Region Service Contract", func() {
 
 		Context("when client filters out Kubernetes regions", func() {
 			It("only returns non-Kubernetes regions", func() {
-				organizationID := "test-org-mixed"
+				organizationID := "38051178-4f06-4f24-9324-58e3bd0f7d75"
 
 				pact.AddInteraction().
 					GivenWithParameter(models.ProviderState{
