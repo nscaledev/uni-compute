@@ -282,7 +282,7 @@ func (c *Client) validateCreateRequest(ctx context.Context, request *computeapi.
 		return nil, err
 	}
 
-	if err := c.validateSecurityGroups(ctx, request.Spec.Networking); err != nil {
+	if err := c.validateSecurityGroups(principal.NewImpersonateContext(ctx), request.Spec.Networking); err != nil {
 		return nil, err
 	}
 
@@ -298,7 +298,7 @@ func (c *Client) validateCreateRequest(ctx context.Context, request *computeapi.
 }
 
 func (c *Client) validateUpdateRequest(ctx context.Context, request *computeapi.InstanceUpdate, organizationID, projectID string) error {
-	if err := c.validateSecurityGroups(ctx, request.Spec.Networking); err != nil {
+	if err := c.validateSecurityGroups(principal.NewImpersonateContext(ctx), request.Spec.Networking); err != nil {
 		return err
 	}
 
