@@ -24,6 +24,8 @@ import (
 	"slices"
 
 	"github.com/unikorn-cloud/core/pkg/server/errors"
+	identityids "github.com/unikorn-cloud/identity/pkg/ids"
+	regionids "github.com/unikorn-cloud/region/pkg/ids"
 	regionapi "github.com/unikorn-cloud/region/pkg/openapi"
 )
 
@@ -40,7 +42,7 @@ func New(client regionapi.ClientWithResponsesInterface) *Client {
 }
 
 // List lists all regions.
-func (c *Client) List(ctx context.Context, organizationID string) ([]regionapi.RegionRead, error) {
+func (c *Client) List(ctx context.Context, organizationID identityids.OrganizationID) ([]regionapi.RegionRead, error) {
 	resp, err := c.client.GetApiV1OrganizationsOrganizationIDRegionsWithResponse(ctx, organizationID)
 	if err != nil {
 		return nil, err
@@ -62,7 +64,7 @@ func (c *Client) List(ctx context.Context, organizationID string) ([]regionapi.R
 }
 
 // Flavors returns all compute compatible flavors.
-func (c *Client) Flavors(ctx context.Context, organizationID, regionID string) ([]regionapi.Flavor, error) {
+func (c *Client) Flavors(ctx context.Context, organizationID identityids.OrganizationID, regionID regionids.RegionID) ([]regionapi.Flavor, error) {
 	resp, err := c.client.GetApiV1OrganizationsOrganizationIDRegionsRegionIDFlavorsWithResponse(ctx, organizationID, regionID)
 	if err != nil {
 		return nil, err
@@ -82,7 +84,7 @@ func (c *Client) Flavors(ctx context.Context, organizationID, regionID string) (
 }
 
 // Images returns all compute compatible images.
-func (c *Client) Images(ctx context.Context, organizationID, regionID string) ([]regionapi.Image, error) {
+func (c *Client) Images(ctx context.Context, organizationID identityids.OrganizationID, regionID regionids.RegionID) ([]regionapi.Image, error) {
 	resp, err := c.client.GetApiV1OrganizationsOrganizationIDRegionsRegionIDImagesWithResponse(ctx, organizationID, regionID)
 	if err != nil {
 		return nil, err
@@ -101,98 +103,7 @@ func (c *Client) Images(ctx context.Context, organizationID, regionID string) ([
 	return filtered, nil
 }
 
-func (c *Client) DeleteServer(ctx context.Context, organizationID, projectID, identityID, serverID string) error {
-	resp, err := c.client.DeleteApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDServersServerIDWithResponse(ctx, organizationID, projectID, identityID, serverID)
-	if err != nil {
-		return err
-	}
-
-	if resp.StatusCode() != http.StatusAccepted && resp.StatusCode() != http.StatusNotFound {
-		return errors.PropagateError(resp.HTTPResponse, resp)
-	}
-
-	return nil
-}
-
-func (c *Client) HardRebootServer(ctx context.Context, organizationID, projectID, identityID, serverID string) error {
-	resp, err := c.client.PostApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDServersServerIDHardrebootWithResponse(ctx, organizationID, projectID, identityID, serverID)
-	if err != nil {
-		return err
-	}
-
-	if resp.StatusCode() != http.StatusAccepted && resp.StatusCode() != http.StatusNotFound {
-		return errors.PropagateError(resp.HTTPResponse, resp)
-	}
-
-	return nil
-}
-
-func (c *Client) SoftRebootServer(ctx context.Context, organizationID, projectID, identityID, serverID string) error {
-	resp, err := c.client.PostApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDServersServerIDSoftrebootWithResponse(ctx, organizationID, projectID, identityID, serverID)
-	if err != nil {
-		return err
-	}
-
-	if resp.StatusCode() != http.StatusAccepted && resp.StatusCode() != http.StatusNotFound {
-		return errors.PropagateError(resp.HTTPResponse, resp)
-	}
-
-	return nil
-}
-
-func (c *Client) StartServer(ctx context.Context, organizationID, projectID, identityID, serverID string) error {
-	resp, err := c.client.PostApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDServersServerIDStartWithResponse(ctx, organizationID, projectID, identityID, serverID)
-	if err != nil {
-		return err
-	}
-
-	if resp.StatusCode() != http.StatusAccepted && resp.StatusCode() != http.StatusNotFound {
-		return errors.PropagateError(resp.HTTPResponse, resp)
-	}
-
-	return nil
-}
-
-func (c *Client) StopServer(ctx context.Context, organizationID, projectID, identityID, serverID string) error {
-	resp, err := c.client.PostApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDServersServerIDStopWithResponse(ctx, organizationID, projectID, identityID, serverID)
-	if err != nil {
-		return err
-	}
-
-	if resp.StatusCode() != http.StatusAccepted && resp.StatusCode() != http.StatusNotFound {
-		return errors.PropagateError(resp.HTTPResponse, resp)
-	}
-
-	return nil
-}
-
-func (c *Client) CreateConsoleSession(ctx context.Context, organizationID, projectID, identityID, serverID string) (*regionapi.ConsoleSessionResponse, error) {
-	resp, err := c.client.GetApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDServersServerIDConsolesessionsWithResponse(ctx, organizationID, projectID, identityID, serverID)
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.StatusCode() != http.StatusOK {
-		return nil, errors.PropagateError(resp.HTTPResponse, resp)
-	}
-
-	return resp.JSON200, nil
-}
-
-func (c *Client) GetConsoleOutput(ctx context.Context, organizationID, projectID, identityID, serverID string, params *regionapi.GetApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDServersServerIDConsoleoutputParams) (*regionapi.ConsoleOutputResponse, error) {
-	resp, err := c.client.GetApiV1OrganizationsOrganizationIDProjectsProjectIDIdentitiesIdentityIDServersServerIDConsoleoutputWithResponse(ctx, organizationID, projectID, identityID, serverID, params)
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.StatusCode() != http.StatusOK {
-		return nil, errors.PropagateError(resp.HTTPResponse, resp)
-	}
-
-	return resp.JSON200, nil
-}
-
-func GetNetwork(ctx context.Context, client regionapi.ClientWithResponsesInterface, networkID string) (*regionapi.NetworkV2Read, error) {
+func GetNetwork(ctx context.Context, client regionapi.ClientWithResponsesInterface, networkID regionids.NetworkID) (*regionapi.NetworkV2Read, error) {
 	response, err := client.GetApiV2NetworksNetworkIDWithResponse(ctx, networkID)
 	if err != nil {
 		return nil, fmt.Errorf("%w: unable to get network", err)
@@ -205,7 +116,7 @@ func GetNetwork(ctx context.Context, client regionapi.ClientWithResponsesInterfa
 	return response.JSON200, nil
 }
 
-func GetSecurityGroup(ctx context.Context, client regionapi.ClientWithResponsesInterface, securityGroupID string) (*regionapi.SecurityGroupV2Read, error) {
+func GetSecurityGroup(ctx context.Context, client regionapi.ClientWithResponsesInterface, securityGroupID regionids.SecurityGroupID) (*regionapi.SecurityGroupV2Read, error) {
 	response, err := client.GetApiV2SecuritygroupsSecurityGroupIDWithResponse(ctx, securityGroupID)
 	if err != nil {
 		return nil, fmt.Errorf("%w: unable to get security group", err)

@@ -27,13 +27,16 @@ import (
 	computev1 "github.com/unikorn-cloud/compute/pkg/apis/unikorn/v1alpha1"
 	computeapi "github.com/unikorn-cloud/compute/pkg/openapi"
 	"github.com/unikorn-cloud/compute/pkg/server/handler/instance"
+	unikornv1core "github.com/unikorn-cloud/core/pkg/apis/unikorn/v1alpha1"
 	coreconstants "github.com/unikorn-cloud/core/pkg/constants"
 	coreapi "github.com/unikorn-cloud/core/pkg/openapi"
 	coreerrors "github.com/unikorn-cloud/core/pkg/server/errors"
+	identityids "github.com/unikorn-cloud/identity/pkg/ids"
 	identityapi "github.com/unikorn-cloud/identity/pkg/openapi"
 	identitymock "github.com/unikorn-cloud/identity/pkg/openapi/mock"
 	"github.com/unikorn-cloud/identity/pkg/rbac"
 	regionconstants "github.com/unikorn-cloud/region/pkg/constants"
+	regionids "github.com/unikorn-cloud/region/pkg/ids"
 	regionapi "github.com/unikorn-cloud/region/pkg/openapi"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -41,8 +44,9 @@ import (
 )
 
 const (
-	organizationID = "foo"
-	projectID      = "bar"
+	organizationID       = "d4600d6e-e965-4b44-a808-84fb2fa36702"
+	projectID            = "cae219d7-10e5-4601-8c2c-ee7e066b93ce"
+	nonexistentProjectID = "f1e2d3c4-b5a6-4798-8a9b-0c1d2e3f4a5b"
 )
 
 // aclWithOrgScopeCreate grants compute:instances/Create at organization scope,
@@ -71,8 +75,8 @@ func minimalInstanceCreateRequest(orgID, projID string) *computeapi.InstanceCrea
 			Name: "test-instance",
 		},
 		Spec: computeapi.InstanceCreateSpec{
-			OrganizationId: orgID,
-			ProjectId:      projID,
+			OrganizationId: identityids.MustParseOrganizationID(orgID),
+			ProjectId:      identityids.MustParseProjectID(projID),
 		},
 	}
 }
@@ -87,7 +91,7 @@ func TestInstanceCreateRBACOrgScopedProjectNotFound(t *testing.T) {
 
 	mockIdentity := identitymock.NewMockClientWithResponsesInterface(ctrl)
 	mockIdentity.EXPECT().
-		GetApiV1OrganizationsOrganizationIDProjectsProjectIDWithResponse(gomock.Any(), organizationID, "nonexistent-project").
+		GetApiV1OrganizationsOrganizationIDProjectsProjectIDWithResponse(gomock.Any(), identityids.MustParseOrganizationID(organizationID), identityids.MustParseProjectID(nonexistentProjectID)).
 		Return(&identityapi.GetApiV1OrganizationsOrganizationIDProjectsProjectIDResponse{
 			HTTPResponse: &http.Response{StatusCode: http.StatusNotFound},
 		}, nil)
@@ -96,7 +100,7 @@ func TestInstanceCreateRBACOrgScopedProjectNotFound(t *testing.T) {
 
 	ctx := rbac.NewContext(t.Context(), aclWithOrgScopeCreate())
 
-	_, err := c.Create(ctx, minimalInstanceCreateRequest(organizationID, "nonexistent-project"))
+	_, err := c.Create(ctx, minimalInstanceCreateRequest(organizationID, nonexistentProjectID))
 
 	require.Error(t, err)
 	require.True(t, coreerrors.IsHTTPNotFound(err), "expected 404 not found, got: %v", err)
@@ -262,10 +266,16 @@ func TestConvertReturnsMACAddress(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "instance-1",
 			Labels: map[string]string{
-				coreconstants.OrganizationLabel: "org-1",
-				coreconstants.ProjectLabel:      "project-1",
+				coreconstants.OrganizationLabel: organizationID,
+				coreconstants.ProjectLabel:      projectID,
 				regionconstants.RegionLabel:     "region-1",
 				regionconstants.NetworkLabel:    "network-1",
+			},
+		},
+		Spec: computev1.ComputeInstanceSpec{
+			MachineGeneric: unikornv1core.MachineGeneric{
+				FlavorID: "c7568e2d-f9ab-453d-9a3a-51375f78426b",
+				ImageID:  "a10e30e8-006a-48e6-a3c7-3c9416891f31",
 			},
 		},
 		Status: computev1.ComputeInstanceStatus{
@@ -275,7 +285,8 @@ func TestConvertReturnsMACAddress(t *testing.T) {
 		},
 	}
 
-	result := instance.Convert(resource)
+	result, err := instance.Convert(resource)
+	require.NoError(t, err)
 
 	require.NotNil(t, result)
 	require.Equal(t, resource.Status.PrivateIP, result.Status.PrivateIP)
@@ -286,7 +297,7 @@ func TestConvertReturnsMACAddress(t *testing.T) {
 func TestValidateUserDataForSSHCertificateAuthority(t *testing.T) {
 	t.Parallel()
 
-	sshCAID := "ssh-ca-id"
+	sshCAID := regionids.MustParseSSHCertificateAuthorityID("f1e2d3c4-b5a6-4798-8a9b-0c1d2e3f4a5b")
 	validCloudConfig := []byte("#cloud-config\nusers: []\n")
 	validMultipart := []byte("Content-Type: multipart/mixed; boundary=\"BOUNDARY\"\r\nMIME-Version: 1.0\r\n\r\n--BOUNDARY\r\nContent-Type: text/x-shellscript\r\n\r\n#!/bin/sh\necho hi\r\n--BOUNDARY--\r\n")
 	validMultipartLowerCase := []byte("content-type: multipart/mixed; boundary=\"BOUNDARY\"\r\nmime-version: 1.0\r\n\r\n--BOUNDARY\r\nContent-Type: text/x-shellscript\r\n\r\n#!/bin/sh\necho hi\r\n--BOUNDARY--\r\n")
@@ -296,7 +307,7 @@ func TestValidateUserDataForSSHCertificateAuthority(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		sshCAID   *string
+		sshCAID   *regionapi.SshCertificateAuthorityId
 		userData  *[]byte
 		wantError bool
 	}{
@@ -335,7 +346,7 @@ func TestValidateSSHCertificateAuthorityScope(t *testing.T) {
 			OrganizationId: organizationID,
 			ProjectId:      projectID,
 		},
-	}, organizationID, projectID)
+	}, identityids.MustParseOrganizationID(organizationID), identityids.MustParseProjectID(projectID))
 	require.NoError(t, err)
 }
 
@@ -347,7 +358,7 @@ func TestValidateSSHCertificateAuthorityScopeProjectMismatch(t *testing.T) {
 			OrganizationId: organizationID,
 			ProjectId:      "different-project",
 		},
-	}, organizationID, projectID)
+	}, identityids.MustParseOrganizationID(organizationID), identityids.MustParseProjectID(projectID))
 	require.Error(t, err)
 	require.True(t, coreerrors.IsUnprocessableContent(err), "expected 422, got: %v", err)
 }
@@ -360,7 +371,7 @@ func TestValidateSSHCertificateAuthorityScopeOrganizationMismatch(t *testing.T) 
 			OrganizationId: "different-organization",
 			ProjectId:      projectID,
 		},
-	}, organizationID, projectID)
+	}, identityids.MustParseOrganizationID(organizationID), identityids.MustParseProjectID(projectID))
 	require.Error(t, err)
 	require.True(t, coreerrors.IsUnprocessableContent(err), "expected 422, got: %v", err)
 }

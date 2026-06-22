@@ -87,7 +87,7 @@ func (h *Handler) regionClient() *region.Client {
 func (h *Handler) GetApiV1OrganizationsOrganizationIDRegions(w http.ResponseWriter, r *http.Request, organizationID openapi.OrganizationIDParameter) {
 	ctx := r.Context()
 
-	if err := rbac.AllowOrganizationScope(ctx, "compute:regions", identityapi.Read, organizationID); err != nil {
+	if err := rbac.AllowOrganizationScopeID(ctx, "compute:regions", identityapi.Read, organizationID); err != nil {
 		errors.HandleError(w, r, err)
 		return
 	}
@@ -106,7 +106,7 @@ func (h *Handler) GetApiV1OrganizationsOrganizationIDRegions(w http.ResponseWrit
 func (h *Handler) GetApiV1OrganizationsOrganizationIDRegionsRegionIDFlavors(w http.ResponseWriter, r *http.Request, organizationID openapi.OrganizationIDParameter, regionID openapi.RegionIDParameter) {
 	ctx := r.Context()
 
-	if err := rbac.AllowOrganizationScope(ctx, "compute:flavors", identityapi.Read, organizationID); err != nil {
+	if err := rbac.AllowOrganizationScopeID(ctx, "compute:flavors", identityapi.Read, organizationID); err != nil {
 		errors.HandleError(w, r, err)
 		return
 	}
@@ -125,7 +125,7 @@ func (h *Handler) GetApiV1OrganizationsOrganizationIDRegionsRegionIDFlavors(w ht
 func (h *Handler) GetApiV1OrganizationsOrganizationIDRegionsRegionIDImages(w http.ResponseWriter, r *http.Request, organizationID openapi.OrganizationIDParameter, regionID openapi.RegionIDParameter) {
 	ctx := r.Context()
 
-	if err := rbac.AllowOrganizationScope(ctx, "compute:images", identityapi.Read, organizationID); err != nil {
+	if err := rbac.AllowOrganizationScopeID(ctx, "compute:images", identityapi.Read, organizationID); err != nil {
 		errors.HandleError(w, r, err)
 		return
 	}

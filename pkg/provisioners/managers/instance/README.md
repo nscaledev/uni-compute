@@ -27,6 +27,14 @@ where that contract is translated into the hidden execution primitive.
 - The controller yields while region still reports provisioning or while delete
   is still in flight. Final instance completion is intentionally downstream of
   region's lifecycle.
+- The region/network/flavor/image/server IDs needed to talk to region are read
+  back from the instance's labels and spec as strings and parsed to typed IDs
+  (see [`../../../ids`](../../../ids/README.md)) at the region-client call. This
+  is fail-closed: a missing or malformed stored ID surfaces as a reconcile error
+  rather than a request built from an unchecked string. The backing server ID is
+  likewise parsed from the region read model only on the paths that actually call
+  region (rebuild/update), not on the no-op path where desired and current specs
+  already match.
 
 ## Destructive Update Semantics
 

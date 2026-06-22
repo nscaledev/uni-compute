@@ -43,6 +43,28 @@ key retrieval, or snapshotting are requested.
 - Snapshot requests strip compute-reserved system tags from the caller payload
   and then add the reserved instance provenance tag themselves.
 
+## Typed Identifier Boundary
+
+This package is a trust boundary for resource identifiers (see
+[`../../../ids`](../../../ids/README.md)).
+
+- Inbound IDs arrive already typed: the instance path parameter is UUID-validated
+  at the router, and create-body IDs (organization, project, network, flavor,
+  image, SSH CA) are UUID-validated at unmarshal. Handlers never defend against a
+  malformed inbound ID.
+- RBAC and tenancy are consumed from identity's scope-reader surface: the
+  `AllowOrganizationScopeID` / `AllowProjectScopeID` / `AllowProjectScopeCreateID`
+  variants take typed IDs directly.
+- The IDs are carried typed through the per-resource client methods and converted
+  to strings only at the sinks — Kubernetes object names and labels, the
+  `ComputeInstance` CRD spec, and region API calls.
+- Read models are produced by parsing the stored CRD strings back to typed IDs.
+  Because the instance spec schema is shared between the read and write surfaces,
+  `convert` fails closed if a stored flavor/image/SSH-CA ID is malformed; the
+  read-only status IDs (`regionId` / `networkId`, mirrored from labels) and the
+  security-group ID list stay string-typed, matching region's treatment of
+  status and list IDs.
+
 ## Hidden-Primitive Model
 
 The package deliberately hides the backing server primitive.
@@ -64,11 +86,11 @@ link is reconstructed rather than stored explicitly.
 - The instance-to-server link is implicit and tag-based. That is flexible, but
   it also means correctness depends on the reserved tag remaining exclusive and
   on scoped server queries returning exactly one match.
-- The `generate` call on the update path parses `networkID` as a UUID to derive
-  the deterministic resource name. If this label is absent or corrupt on an
-  existing object (e.g. manually edited via kubectl), the update returns a 500.
-  The admission policy guards against this for new objects, but cannot repair
-  already-corrupt state.
+- The update path recovers the owning scope, region and network IDs from the
+  existing object's labels and parses them to typed IDs (fail-closed). If a label
+  is absent or corrupt on an existing object (e.g. manually edited via kubectl),
+  the parse fails and the update returns a 500. The admission policy guards
+  against this for new objects, but cannot repair already-corrupt state.
 - Update is not always an in-place mutation in effect. Flavor or image changes
   can lead to destructive server replacement later in the controller layer.
 - The package preserves allocation annotations manually during update, which is

@@ -21,6 +21,7 @@ import (
 	"context"
 
 	"github.com/unikorn-cloud/compute/pkg/openapi"
+	identityids "github.com/unikorn-cloud/identity/pkg/ids"
 	"github.com/unikorn-cloud/identity/pkg/principal"
 	"github.com/unikorn-cloud/identity/pkg/rbac"
 	regionconstants "github.com/unikorn-cloud/region/pkg/constants"
@@ -62,15 +63,15 @@ func AddNetworkIDQuery(selector labels.Selector, query *openapi.NetworkIDQueryPa
 
 // InjectUserPrincipal updates the principal information from either the resource request
 // or the existing resource.
-func InjectUserPrincipal(ctx context.Context, organizationID, projectID string) error {
+func InjectUserPrincipal(ctx context.Context, organizationID identityids.OrganizationID, projectID identityids.ProjectID) error {
 	principal, err := principal.FromContext(ctx)
 	if err != nil {
 		return err
 	}
 
 	if principal.OrganizationID == "" {
-		principal.OrganizationID = organizationID
-		principal.ProjectID = projectID
+		principal.OrganizationID = organizationID.String()
+		principal.ProjectID = projectID.String()
 	}
 
 	return nil

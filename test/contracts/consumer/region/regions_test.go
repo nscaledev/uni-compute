@@ -33,6 +33,7 @@ import (
 
 	regionclient "github.com/unikorn-cloud/compute/pkg/server/handler/region"
 	contract "github.com/unikorn-cloud/core/pkg/testing/contract"
+	identityids "github.com/unikorn-cloud/identity/pkg/ids"
 	regionapi "github.com/unikorn-cloud/region/pkg/openapi"
 )
 
@@ -61,7 +62,7 @@ func testEmptyRegionsList(ctx context.Context, config consumer.MockServerConfig,
 	}
 
 	client := regionclient.New(regionClient)
-	regions, err := client.List(ctx, organizationID)
+	regions, err := client.List(ctx, identityids.MustParseOrganizationID(organizationID))
 
 	if err != nil {
 		return fmt.Errorf("listing regions: %w", err)
@@ -126,7 +127,7 @@ var _ = Describe("Region Service Contract", func() {
 					}
 
 					client := regionclient.New(regionClient)
-					regions, err := client.List(ctx, organizationID)
+					regions, err := client.List(ctx, identityids.MustParseOrganizationID(organizationID))
 					if err != nil {
 						return fmt.Errorf("listing regions: %w", err)
 					}
@@ -245,7 +246,7 @@ var _ = Describe("Region Service Contract", func() {
 					}
 
 					client := regionclient.New(regionClient)
-					regions, err := client.List(ctx, organizationID)
+					regions, err := client.List(ctx, identityids.MustParseOrganizationID(organizationID))
 					if err != nil {
 						return fmt.Errorf("listing regions: %w", err)
 					}

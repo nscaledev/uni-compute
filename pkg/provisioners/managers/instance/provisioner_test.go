@@ -29,10 +29,19 @@ import (
 	coreconstants "github.com/unikorn-cloud/core/pkg/constants"
 	coreapi "github.com/unikorn-cloud/core/pkg/openapi"
 	regionconstants "github.com/unikorn-cloud/region/pkg/constants"
+	regionids "github.com/unikorn-cloud/region/pkg/ids"
 	regionapi "github.com/unikorn-cloud/region/pkg/openapi"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
+)
+
+const (
+	testNetworkID = "b059b3e6-9ae5-42b7-94b4-f42fb7a6baee"
+	testFlavorID  = "c7568e2d-f9ab-453d-9a3a-51375f78426b"
+	testImageID   = "a10e30e8-006a-48e6-a3c7-3c9416891f31"
+	testFlavorID2 = "d1e2f3a4-b5c6-4d7e-8f90-1a2b3c4d5e6f"
+	testImageID2  = "e2f3a4b5-c6d7-4e8f-9012-2b3c4d5e6f70"
 )
 
 func newProvisionerForTest(sshCertificateAuthorityID *string) *instance.Provisioner {
@@ -41,13 +50,13 @@ func newProvisionerForTest(sshCertificateAuthorityID *string) *instance.Provisio
 			Name: "instance-1",
 			Labels: map[string]string{
 				coreconstants.NameLabel:      "test-instance",
-				regionconstants.NetworkLabel: "network-1",
+				regionconstants.NetworkLabel: testNetworkID,
 			},
 		},
 		Spec: unikornv1.ComputeInstanceSpec{
 			MachineGeneric: unikornv1core.MachineGeneric{
-				FlavorID: "flavor-1",
-				ImageID:  "image-1",
+				FlavorID: testFlavorID,
+				ImageID:  testImageID,
 			},
 			Networking: &unikornv1.ComputeInstanceNetworking{
 				PublicIP:         true,
@@ -65,13 +74,14 @@ func TestGenerateServerCreateRequestIncludesSSHCertificateAuthority(t *testing.T
 	sshCertificateAuthorityID := "ssh-ca-1"
 	provisioner := newProvisionerForTest(ptr.To(sshCertificateAuthorityID))
 
-	request := provisioner.GenerateServerCreateRequest()
+	request, err := provisioner.GenerateServerCreateRequest()
+	require.NoError(t, err)
 
 	require.NotNil(t, request.Spec.SshCertificateAuthorityId)
 	assert.Equal(t, sshCertificateAuthorityID, *request.Spec.SshCertificateAuthorityId)
-	assert.Equal(t, "network-1", request.Spec.NetworkId)
-	assert.Equal(t, "flavor-1", request.Spec.FlavorId)
-	assert.Equal(t, "image-1", request.Spec.ImageId)
+	assert.Equal(t, testNetworkID, request.Spec.NetworkId.String())
+	assert.Equal(t, testFlavorID, request.Spec.FlavorId.String())
+	assert.Equal(t, testImageID, request.Spec.ImageId.String())
 	require.NotNil(t, request.Spec.Networking)
 	require.NotNil(t, request.Metadata.Tags)
 	assert.Equal(t, constants.InstanceLabel, (*request.Metadata.Tags)[0].Name)
@@ -81,7 +91,10 @@ func TestCreateOrUpdateServerIgnoresSSHCertificateAuthorityOnlyChange(t *testing
 	t.Parallel()
 
 	provisioner := newProvisionerForTest(ptr.To("ssh-ca-1"))
-	request := provisioner.GenerateServerUpdateRequest()
+
+	request, err := provisioner.GenerateServerUpdateRequest()
+	require.NoError(t, err)
+
 	current := &regionapi.ServerV2Read{
 		Metadata: coreapi.ProjectScopedResourceReadMetadata{
 			Name: request.Metadata.Name,
@@ -111,8 +124,8 @@ func TestNeedsRebuild(t *testing.T) {
 					Name: "test-instance",
 				},
 				Spec: regionapi.ServerV2Spec{
-					FlavorId: "flavor-1",
-					ImageId:  "image-1",
+					FlavorId: regionids.MustParseFlavorID(testFlavorID),
+					ImageId:  regionids.MustParseImageID(testImageID),
 				},
 			},
 			desired: &regionapi.ServerV2Update{
@@ -120,8 +133,8 @@ func TestNeedsRebuild(t *testing.T) {
 					Name: "test-instance",
 				},
 				Spec: regionapi.ServerV2Spec{
-					FlavorId: "flavor-1",
-					ImageId:  "image-1",
+					FlavorId: regionids.MustParseFlavorID(testFlavorID),
+					ImageId:  regionids.MustParseImageID(testImageID),
 				},
 			},
 			expected: false,
@@ -133,8 +146,8 @@ func TestNeedsRebuild(t *testing.T) {
 					Name: "test-instance",
 				},
 				Spec: regionapi.ServerV2Spec{
-					FlavorId: "flavor-1",
-					ImageId:  "image-1",
+					FlavorId: regionids.MustParseFlavorID(testFlavorID),
+					ImageId:  regionids.MustParseImageID(testImageID),
 				},
 			},
 			desired: &regionapi.ServerV2Update{
@@ -142,8 +155,8 @@ func TestNeedsRebuild(t *testing.T) {
 					Name: "test-instance",
 				},
 				Spec: regionapi.ServerV2Spec{
-					FlavorId: "flavor-2",
-					ImageId:  "image-1",
+					FlavorId: regionids.MustParseFlavorID(testFlavorID2),
+					ImageId:  regionids.MustParseImageID(testImageID),
 				},
 			},
 			expected: true,
@@ -155,8 +168,8 @@ func TestNeedsRebuild(t *testing.T) {
 					Name: "test-instance",
 				},
 				Spec: regionapi.ServerV2Spec{
-					FlavorId: "flavor-1",
-					ImageId:  "image-1",
+					FlavorId: regionids.MustParseFlavorID(testFlavorID),
+					ImageId:  regionids.MustParseImageID(testImageID),
 				},
 			},
 			desired: &regionapi.ServerV2Update{
@@ -164,8 +177,8 @@ func TestNeedsRebuild(t *testing.T) {
 					Name: "test-instance",
 				},
 				Spec: regionapi.ServerV2Spec{
-					FlavorId: "flavor-1",
-					ImageId:  "image-2",
+					FlavorId: regionids.MustParseFlavorID(testFlavorID),
+					ImageId:  regionids.MustParseImageID(testImageID2),
 				},
 			},
 			expected: true,

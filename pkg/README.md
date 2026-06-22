@@ -19,6 +19,15 @@ work.
 
 ## Recommended Reading Order
 
+### Typed Resource Identifiers
+
+- [ids](./ids/README.md)
+
+This package defines the UUID-backed `InstanceID` compute owns, and documents
+how compute consumes identity's and region's ID types as a black box. It is the
+foundation of the "validate at the boundary, carry typed, stringify at the sink"
+rule the handler and controller follow.
+
 ### Stored Resource Model
 
 - [apis/unikorn/v1alpha1](./apis/unikorn/v1alpha1/README.md)
@@ -82,6 +91,25 @@ Compute depends on region for:
 
 So compute should be read as an application/service layer over region compute,
 not as a separate cloud-control implementation.
+
+### Typed Identifiers At The Boundary
+
+Resource identifiers are UUID-backed typed IDs (see [ids](./ids/README.md)), not
+bare strings, from the router to the edge of the handler and controller layers.
+
+- Compute owns `InstanceID`; it consumes identity's organization/project IDs and
+  region's region/network/flavor/image/server/SSH-CA IDs as a black box.
+- Validation happens at the trust boundary: path parameters at the router,
+  create-body IDs at unmarshal. Stored IDs (CRD labels and spec, region read
+  models) are re-parsed fail-closed when they re-enter the typed world.
+- The IDs convert to strings only at genuine sinks — Kubernetes object names and
+  labels, CRD spec fields, and provider/region API calls — all of which remain
+  string-typed.
+
+The net behavioural change is that a malformed identifier now fails early and
+uniformly (a `400` at the router for path IDs, an explicit parse error for stored
+or body IDs) rather than surfacing — if at all — deep in a handler or at the
+region client.
 
 ### Accounting Lives At The Abstraction Boundary
 

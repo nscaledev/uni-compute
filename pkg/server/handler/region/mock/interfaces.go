@@ -12,6 +12,8 @@ import (
 	context "context"
 	reflect "reflect"
 
+	ids "github.com/unikorn-cloud/identity/pkg/ids"
+	ids0 "github.com/unikorn-cloud/region/pkg/ids"
 	openapi "github.com/unikorn-cloud/region/pkg/openapi"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -40,7 +42,7 @@ func (m *MockClientInterface) EXPECT() *MockClientInterfaceMockRecorder {
 }
 
 // Flavors mocks base method.
-func (m *MockClientInterface) Flavors(ctx context.Context, organizationID, regionID string) ([]openapi.Flavor, error) {
+func (m *MockClientInterface) Flavors(ctx context.Context, organizationID ids.OrganizationID, regionID ids0.RegionID) ([]openapi.Flavor, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Flavors", ctx, organizationID, regionID)
 	ret0, _ := ret[0].([]openapi.Flavor)
@@ -55,7 +57,7 @@ func (mr *MockClientInterfaceMockRecorder) Flavors(ctx, organizationID, regionID
 }
 
 // Images mocks base method.
-func (m *MockClientInterface) Images(ctx context.Context, organizationID, regionID string) ([]openapi.Image, error) {
+func (m *MockClientInterface) Images(ctx context.Context, organizationID ids.OrganizationID, regionID ids0.RegionID) ([]openapi.Image, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Images", ctx, organizationID, regionID)
 	ret0, _ := ret[0].([]openapi.Image)
@@ -70,7 +72,7 @@ func (mr *MockClientInterfaceMockRecorder) Images(ctx, organizationID, regionID 
 }
 
 // List mocks base method.
-func (m *MockClientInterface) List(ctx context.Context, organizationID string) ([]openapi.RegionRead, error) {
+func (m *MockClientInterface) List(ctx context.Context, organizationID ids.OrganizationID) ([]openapi.RegionRead, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "List", ctx, organizationID)
 	ret0, _ := ret[0].([]openapi.RegionRead)

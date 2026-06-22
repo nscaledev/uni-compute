@@ -4,8 +4,10 @@
 package openapi
 
 import (
+	computeids "github.com/unikorn-cloud/compute/pkg/ids"
 	externalRef0 "github.com/unikorn-cloud/core/pkg/openapi"
-	externalRef1 "github.com/unikorn-cloud/region/pkg/openapi"
+	externalRef1 "github.com/unikorn-cloud/identity/pkg/openapi"
+	externalRef2 "github.com/unikorn-cloud/region/pkg/openapi"
 )
 
 const (
@@ -29,33 +31,35 @@ type InstanceCreate struct {
 
 // InstanceCreateSpec defines model for instanceCreateSpec.
 type InstanceCreateSpec struct {
-	// FlavorId The flavor CPU/RAM of a compute instance.
-	FlavorId string `json:"flavorId"`
+	// FlavorId A flavor ID.
+	FlavorId externalRef2.FlavorId `json:"flavorId"`
 
-	// ImageId The image of a compute instance.
-	ImageId string `json:"imageId"`
+	// ImageId An image ID.
+	ImageId externalRef2.ImageId `json:"imageId"`
 
-	// NetworkId The network ID to attach the compute instance to.
-	NetworkId string `json:"networkId"`
+	// NetworkId A network ID.
+	NetworkId externalRef2.NetworkId `json:"networkId"`
 
 	// Networking A compute instance's network  configuration.
 	Networking *InstanceNetworking `json:"networking,omitempty"`
 
-	// OrganizationId The organization to provision the resource in.
-	OrganizationId string `json:"organizationId"`
+	// OrganizationId An organization ID.
+	OrganizationId externalRef1.OrganizationId `json:"organizationId"`
 
-	// ProjectId The project to provision the resource in.
-	ProjectId string `json:"projectId"`
+	// ProjectId A project ID.
+	ProjectId externalRef1.ProjectId `json:"projectId"`
 
-	// SshCertificateAuthorityId The SSH certificate authority used to bootstrap login trust when the backing server is
-	// created.
-	SshCertificateAuthorityId *string `json:"sshCertificateAuthorityId,omitempty"`
+	// SshCertificateAuthorityId An SSH certificate authority ID.
+	SshCertificateAuthorityId *externalRef2.SshCertificateAuthorityId `json:"sshCertificateAuthorityId,omitempty"`
 
 	// UserData Contains base64-encoded configuration information or scripts to use upon launch.
 	// The format of the data is governed by the cloud-init standard, and may be a script,
 	// a MIME multipart archive, etc.
 	UserData *[]byte `json:"userData,omitempty"`
 }
+
+// InstanceId A compute instance ID.
+type InstanceId = computeids.InstanceID
 
 // InstanceNetworking A compute instance's network  configuration.
 type InstanceNetworking struct {
@@ -102,18 +106,17 @@ type InstanceSnapshotCreate struct {
 // may change when the replacement server is created. Instance names are immutable; rename
 // attempts are rejected with HTTP 422.
 type InstanceSpec struct {
-	// FlavorId The flavor CPU/RAM of a compute instance.
-	FlavorId string `json:"flavorId"`
+	// FlavorId A flavor ID.
+	FlavorId externalRef2.FlavorId `json:"flavorId"`
 
-	// ImageId The image of a compute instance.
-	ImageId string `json:"imageId"`
+	// ImageId An image ID.
+	ImageId externalRef2.ImageId `json:"imageId"`
 
 	// Networking A compute instance's network  configuration.
 	Networking *InstanceNetworking `json:"networking,omitempty"`
 
-	// SshCertificateAuthorityId The SSH certificate authority used to bootstrap login trust when the backing server is
-	// created.
-	SshCertificateAuthorityId *string `json:"sshCertificateAuthorityId,omitempty"`
+	// SshCertificateAuthorityId An SSH certificate authority ID.
+	SshCertificateAuthorityId *externalRef2.SshCertificateAuthorityId `json:"sshCertificateAuthorityId,omitempty"`
 
 	// UserData Contains base64-encoded configuration information or scripts to use upon launch.
 	// The format of the data is governed by the cloud-init standard, and may be a script,
@@ -129,8 +132,13 @@ type InstanceStatus struct {
 	// NetworkId The network a security group belongs to.
 	NetworkId string `json:"networkId"`
 
-	// PowerState The lifecycle phase of an instance.
-	PowerState *externalRef1.InstanceLifecyclePhase `json:"powerState,omitempty"`
+	// PowerState The lifecycle phase of an instance. Once provisioning_status reaches
+	// provisioned, this becomes the live readiness signal: API consumers
+	// should treat Running (not provisioned) as the "ready to use" state.
+	// Queued and Building are observed during create — Queued for
+	// baremetal servers waiting on hardware, Building for servers the
+	// provider is actively bringing up.
+	PowerState *externalRef2.InstanceLifecyclePhase `json:"powerState,omitempty"`
 
 	// PrivateIP The private IP address of the server.
 	PrivateIP *string `json:"privateIP,omitempty"`
@@ -159,17 +167,14 @@ type InstanceUpdate struct {
 // InstancesRead A list of compute instances.
 type InstancesRead = []InstanceRead
 
-// KubernetesNameParameter A Kubernetes name. Must be a valid DNS containing only lower case characters, numbers or hyphens, start and end with a character or number, and be at most 63 characters in length.
-type KubernetesNameParameter = string
-
 // SecurityGroupIDList A list of security group IDs.
 type SecurityGroupIDList = []string
 
 // HardRebootParameter defines model for hardRebootParameter.
 type HardRebootParameter = bool
 
-// InstanceIDParameter A Kubernetes name. Must be a valid DNS containing only lower case characters, numbers or hyphens, start and end with a character or number, and be at most 63 characters in length.
-type InstanceIDParameter = KubernetesNameParameter
+// InstanceIDParameter A compute instance ID.
+type InstanceIDParameter = InstanceId
 
 // LengthParameter defines model for lengthParameter.
 type LengthParameter = int
@@ -177,8 +182,8 @@ type LengthParameter = int
 // NetworkIDQueryParameter defines model for networkIDQueryParameter.
 type NetworkIDQueryParameter = []string
 
-// OrganizationIDParameter A Kubernetes name. Must be a valid DNS containing only lower case characters, numbers or hyphens, start and end with a character or number, and be at most 63 characters in length.
-type OrganizationIDParameter = KubernetesNameParameter
+// OrganizationIDParameter An organization ID.
+type OrganizationIDParameter = externalRef1.OrganizationId
 
 // OrganizationIDQueryParameter defines model for organizationIDQueryParameter.
 type OrganizationIDQueryParameter = []string
@@ -186,8 +191,8 @@ type OrganizationIDQueryParameter = []string
 // ProjectIDQueryParameter defines model for projectIDQueryParameter.
 type ProjectIDQueryParameter = []string
 
-// RegionIDParameter A Kubernetes name. Must be a valid DNS containing only lower case characters, numbers or hyphens, start and end with a character or number, and be at most 63 characters in length.
-type RegionIDParameter = KubernetesNameParameter
+// RegionIDParameter A region ID.
+type RegionIDParameter = externalRef2.RegionId
 
 // RegionIDQueryParameter defines model for regionIDQueryParameter.
 type RegionIDQueryParameter = []string

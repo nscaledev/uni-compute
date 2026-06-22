@@ -19,6 +19,7 @@ package instance
 import (
 	computev1 "github.com/unikorn-cloud/compute/pkg/apis/unikorn/v1alpha1"
 	computeapi "github.com/unikorn-cloud/compute/pkg/openapi"
+	identityids "github.com/unikorn-cloud/identity/pkg/ids"
 	identityapi "github.com/unikorn-cloud/identity/pkg/openapi"
 	regionapi "github.com/unikorn-cloud/region/pkg/openapi"
 )
@@ -27,14 +28,14 @@ func (c *Client) GenerateAllocation(flavor *regionapi.Flavor, publicIP bool) ide
 	return c.generateAllocation(flavor, publicIP)
 }
 
-func ValidateUserDataForSSHCertificateAuthority(sshCertificateAuthorityID *string, userData *[]byte) error {
+func ValidateUserDataForSSHCertificateAuthority(sshCertificateAuthorityID *regionapi.SshCertificateAuthorityId, userData *[]byte) error {
 	return validateUserDataForSSHCertificateAuthority(sshCertificateAuthorityID, userData)
 }
 
-func ValidateSSHCertificateAuthorityScope(resource *regionapi.SshCertificateAuthorityV2Response, organizationID, projectID string) error {
+func ValidateSSHCertificateAuthorityScope(resource *regionapi.SshCertificateAuthorityV2Response, organizationID identityids.OrganizationID, projectID identityids.ProjectID) error {
 	return validateSSHCertificateAuthorityScope(resource, organizationID, projectID)
 }
 
-func Convert(resource *computev1.ComputeInstance) *computeapi.InstanceRead {
+func Convert(resource *computev1.ComputeInstance) (*computeapi.InstanceRead, error) {
 	return convert(resource)
 }
