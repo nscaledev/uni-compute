@@ -15,7 +15,7 @@ import (
 
 	"github.com/oapi-codegen/runtime"
 	externalRef0 "github.com/unikorn-cloud/core/pkg/openapi"
-	externalRef1 "github.com/unikorn-cloud/region/pkg/openapi"
+	externalRef2 "github.com/unikorn-cloud/region/pkg/openapi"
 )
 
 // RequestEditorFn  is the function signature for the RequestEditor callback function
@@ -1248,7 +1248,7 @@ func (r GetWellKnownOpenidProtectedResourceResponse) StatusCode() int {
 type GetApiV1OrganizationsOrganizationIDRegionsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *externalRef1.RegionsResponse
+	JSON200      *externalRef2.RegionsResponse
 	JSON400      *externalRef0.BadRequestResponse
 	JSON401      *externalRef0.UnauthorizedResponse
 	JSON403      *externalRef0.ForbiddenResponse
@@ -1274,7 +1274,7 @@ func (r GetApiV1OrganizationsOrganizationIDRegionsResponse) StatusCode() int {
 type GetApiV1OrganizationsOrganizationIDRegionsRegionIDFlavorsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *externalRef1.FlavorsResponse
+	JSON200      *externalRef2.FlavorsResponse
 	JSON400      *externalRef0.BadRequestResponse
 	JSON401      *externalRef0.UnauthorizedResponse
 	JSON403      *externalRef0.ForbiddenResponse
@@ -1301,7 +1301,7 @@ func (r GetApiV1OrganizationsOrganizationIDRegionsRegionIDFlavorsResponse) Statu
 type GetApiV1OrganizationsOrganizationIDRegionsRegionIDImagesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *externalRef1.ImagesResponse
+	JSON200      *externalRef2.ImagesResponse
 	JSON400      *externalRef0.BadRequestResponse
 	JSON401      *externalRef0.UnauthorizedResponse
 	JSON403      *externalRef0.ForbiddenResponse
@@ -1463,7 +1463,7 @@ func (r PutApiV2InstancesInstanceIDResponse) StatusCode() int {
 type GetApiV2InstancesInstanceIDConsoleoutputResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *externalRef1.ConsoleOutputResponse
+	JSON200      *externalRef2.ConsoleOutputResponse
 	JSON400      *externalRef0.BadRequestResponse
 	JSON401      *externalRef0.UnauthorizedResponse
 	JSON403      *externalRef0.ForbiddenResponse
@@ -1490,7 +1490,7 @@ func (r GetApiV2InstancesInstanceIDConsoleoutputResponse) StatusCode() int {
 type GetApiV2InstancesInstanceIDConsolesessionResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *externalRef1.ConsoleSessionResponse
+	JSON200      *externalRef2.ConsoleSessionResponse
 	JSON400      *externalRef0.BadRequestResponse
 	JSON401      *externalRef0.UnauthorizedResponse
 	JSON403      *externalRef0.ForbiddenResponse
@@ -1543,7 +1543,7 @@ func (r PostApiV2InstancesInstanceIDRebootResponse) StatusCode() int {
 type PostApiV2InstancesInstanceIDSnapshotResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON201      *externalRef1.ImageResponse
+	JSON201      *externalRef2.ImageResponse
 	JSON400      *externalRef0.BadRequestResponse
 	JSON401      *externalRef0.UnauthorizedResponse
 	JSON403      *externalRef0.ForbiddenResponse
@@ -1570,7 +1570,7 @@ func (r PostApiV2InstancesInstanceIDSnapshotResponse) StatusCode() int {
 type GetApiV2InstancesInstanceIDSshkeyResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *externalRef1.SshKeyResponse
+	JSON200      *externalRef2.SshKeyResponse
 	JSON400      *externalRef0.BadRequestResponse
 	JSON401      *externalRef0.UnauthorizedResponse
 	JSON403      *externalRef0.ForbiddenResponse
@@ -1888,7 +1888,7 @@ func ParseGetApiV1OrganizationsOrganizationIDRegionsResponse(rsp *http.Response)
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef1.RegionsResponse
+		var dest externalRef2.RegionsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -1942,7 +1942,7 @@ func ParseGetApiV1OrganizationsOrganizationIDRegionsRegionIDFlavorsResponse(rsp 
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef1.FlavorsResponse
+		var dest externalRef2.FlavorsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -2003,7 +2003,7 @@ func ParseGetApiV1OrganizationsOrganizationIDRegionsRegionIDImagesResponse(rsp *
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef1.ImagesResponse
+		var dest externalRef2.ImagesResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -2369,7 +2369,7 @@ func ParseGetApiV2InstancesInstanceIDConsoleoutputResponse(rsp *http.Response) (
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef1.ConsoleOutputResponse
+		var dest externalRef2.ConsoleOutputResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -2430,7 +2430,7 @@ func ParseGetApiV2InstancesInstanceIDConsolesessionResponse(rsp *http.Response) 
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef1.ConsoleSessionResponse
+		var dest externalRef2.ConsoleSessionResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -2545,7 +2545,7 @@ func ParsePostApiV2InstancesInstanceIDSnapshotResponse(rsp *http.Response) (*Pos
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
-		var dest externalRef1.ImageResponse
+		var dest externalRef2.ImageResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -2606,7 +2606,7 @@ func ParseGetApiV2InstancesInstanceIDSshkeyResponse(rsp *http.Response) (*GetApi
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest externalRef1.SshKeyResponse
+		var dest externalRef2.SshKeyResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

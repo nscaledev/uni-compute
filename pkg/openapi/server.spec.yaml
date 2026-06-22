@@ -52,7 +52,7 @@ paths:
       - oauth2Authentication: []
       responses:
         '200':
-          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/region/v1.17.2/pkg/openapi/server.spec.yaml#/components/responses/regionsResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/region/v1.17.4/pkg/openapi/server.spec.yaml#/components/responses/regionsResponse'
         '400':
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/v1.17.1/pkg/openapi/common.spec.yaml#/components/responses/badRequestResponse'
         '401':
@@ -77,7 +77,7 @@ paths:
       - oauth2Authentication: []
       responses:
         '200':
-          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/region/v1.17.2/pkg/openapi/server.spec.yaml#/components/responses/flavorsResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/region/v1.17.4/pkg/openapi/server.spec.yaml#/components/responses/flavorsResponse'
         '400':
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/v1.17.1/pkg/openapi/common.spec.yaml#/components/responses/badRequestResponse'
         '401':
@@ -104,7 +104,7 @@ paths:
       - oauth2Authentication: []
       responses:
         '200':
-          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/region/v1.17.2/pkg/openapi/server.spec.yaml#/components/responses/imagesResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/region/v1.17.4/pkg/openapi/server.spec.yaml#/components/responses/imagesResponse'
         '400':
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/v1.17.1/pkg/openapi/common.spec.yaml#/components/responses/badRequestResponse'
         '401':
@@ -274,7 +274,7 @@ paths:
       - oauth2Authentication: []
       responses:
         '200':
-          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/region/v1.17.2/pkg/openapi/server.spec.yaml#/components/responses/sshKeyResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/region/v1.17.4/pkg/openapi/server.spec.yaml#/components/responses/sshKeyResponse'
         '400':
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/v1.17.1/pkg/openapi/common.spec.yaml#/components/responses/badRequestResponse'
         '401':
@@ -353,7 +353,7 @@ paths:
         $ref: '#/components/requestBodies/instanceSnapshotRequest'
       responses:
         '201':
-          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/region/v1.17.2/pkg/openapi/server.spec.yaml#/components/responses/imageResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/region/v1.17.4/pkg/openapi/server.spec.yaml#/components/responses/imageResponse'
         '400':
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/v1.17.1/pkg/openapi/common.spec.yaml#/components/responses/badRequestResponse'
         '401':
@@ -378,7 +378,7 @@ paths:
       - oauth2Authentication: []
       responses:
         '200':
-          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/region/v1.17.2/pkg/openapi/server.spec.yaml#/components/responses/consoleSessionResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/region/v1.17.4/pkg/openapi/server.spec.yaml#/components/responses/consoleSessionResponse'
         '400':
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/v1.17.1/pkg/openapi/common.spec.yaml#/components/responses/badRequestResponse'
         '401':
@@ -404,7 +404,7 @@ paths:
       - oauth2Authentication: []
       responses:
         '200':
-          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/region/v1.17.2/pkg/openapi/server.spec.yaml#/components/responses/consoleOutputResponse'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/region/v1.17.4/pkg/openapi/server.spec.yaml#/components/responses/consoleOutputResponse'
         '400':
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/v1.17.1/pkg/openapi/common.spec.yaml#/components/responses/badRequestResponse'
         '401':
@@ -423,28 +423,28 @@ components:
       description: The organization ID.
       required: true
       schema:
-        $ref: '#/components/schemas/kubernetesNameParameter'
+        $ref: 'https://raw.githubusercontent.com/unikorn-cloud/identity/v1.17.7/pkg/openapi/server.spec.yaml#/components/schemas/organizationId'
     projectIDParameter:
       name: projectID
       in: path
       description: The project ID.
       required: true
       schema:
-        $ref: '#/components/schemas/kubernetesNameParameter'
+        $ref: 'https://raw.githubusercontent.com/unikorn-cloud/identity/v1.17.7/pkg/openapi/server.spec.yaml#/components/schemas/projectId'
     regionIDParameter:
       name: regionID
       in: path
       description: The region ID.
       required: true
       schema:
-        $ref: '#/components/schemas/kubernetesNameParameter'
+        $ref: 'https://raw.githubusercontent.com/unikorn-cloud/region/v1.17.4/pkg/openapi/server.spec.yaml#/components/schemas/regionId'
     instanceIDParameter:
       name: instanceID
       in: path
       description: The instance ID.
       required: true
       schema:
-        $ref: '#/components/schemas/kubernetesNameParameter'
+        $ref: '#/components/schemas/instanceId'
     lengthParameter:
       name: length
       in: query
@@ -495,6 +495,14 @@ components:
       type: string
       minLength: 1
       maxLength: 63
+    instanceId:
+      description: A compute instance ID.
+      type: string
+      format: uuid
+      x-go-type: computeids.InstanceID
+      x-go-type-import:
+        name: computeids
+        path: github.com/unikorn-cloud/compute/pkg/ids
     volume:
       description: A volume.  This is currently only valid for VM based flavors.
       type: object
@@ -545,18 +553,13 @@ components:
       - imageId
       properties:
         flavorId:
-          description: The flavor CPU/RAM of a compute instance.
-          type: string
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/region/v1.17.4/pkg/openapi/server.spec.yaml#/components/schemas/flavorId'
         imageId:
-          description: The image of a compute instance.
-          type: string
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/region/v1.17.4/pkg/openapi/server.spec.yaml#/components/schemas/imageId'
         networking:
           $ref: '#/components/schemas/instanceNetworking'
         sshCertificateAuthorityId:
-          description: |-
-            The SSH certificate authority used to bootstrap login trust when the backing server is
-            created.
-          type: string
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/region/v1.17.4/pkg/openapi/server.spec.yaml#/components/schemas/sshCertificateAuthorityId'
         userData:
           description: |-
             Contains base64-encoded configuration information or scripts to use upon launch.
@@ -576,14 +579,11 @@ components:
         - networkId
         properties:
           organizationId:
-            description: The organization to provision the resource in.
-            type: string
+            $ref: 'https://raw.githubusercontent.com/unikorn-cloud/identity/v1.17.7/pkg/openapi/server.spec.yaml#/components/schemas/organizationId'
           projectId:
-            description: The project to provision the resource in.
-            type: string
+            $ref: 'https://raw.githubusercontent.com/unikorn-cloud/identity/v1.17.7/pkg/openapi/server.spec.yaml#/components/schemas/projectId'
           networkId:
-            description: The network ID to attach the compute instance to.
-            type: string
+            $ref: 'https://raw.githubusercontent.com/unikorn-cloud/region/v1.17.4/pkg/openapi/server.spec.yaml#/components/schemas/networkId'
     instanceStatus:
       description: Read only status information about a compute instance.
       type: object
@@ -598,7 +598,7 @@ components:
           description: The network a security group belongs to.
           type: string
         powerState:
-          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/region/v1.17.2/pkg/openapi/server.spec.yaml#/components/schemas/instanceLifecyclePhase'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/region/v1.17.4/pkg/openapi/server.spec.yaml#/components/schemas/instanceLifecyclePhase'
         privateIP:
           description: The private IP address of the server.
           type: string
@@ -739,7 +739,7 @@ components:
       - version
       properties:
         distro:
-          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/region/v1.17.2/pkg/openapi/server.spec.yaml#/components/schemas/osDistro'
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/region/v1.17.4/pkg/openapi/server.spec.yaml#/components/schemas/osDistro'
         variant:
           description: The operating system variant.
           type: string

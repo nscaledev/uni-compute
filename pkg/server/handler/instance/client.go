@@ -32,6 +32,7 @@ import (
 
 	computev1 "github.com/unikorn-cloud/compute/pkg/apis/unikorn/v1alpha1"
 	"github.com/unikorn-cloud/compute/pkg/constants"
+	computeids "github.com/unikorn-cloud/compute/pkg/ids"
 	computeapi "github.com/unikorn-cloud/compute/pkg/openapi"
 	"github.com/unikorn-cloud/compute/pkg/server/handler/region"
 	"github.com/unikorn-cloud/compute/pkg/server/handler/util"
@@ -45,11 +46,13 @@ import (
 	coreutil "github.com/unikorn-cloud/core/pkg/server/util"
 	identityclient "github.com/unikorn-cloud/identity/pkg/client"
 	"github.com/unikorn-cloud/identity/pkg/handler/common"
+	identityids "github.com/unikorn-cloud/identity/pkg/ids"
 	identityapi "github.com/unikorn-cloud/identity/pkg/openapi"
 	"github.com/unikorn-cloud/identity/pkg/principal"
 	"github.com/unikorn-cloud/identity/pkg/rbac"
 	regionv1 "github.com/unikorn-cloud/region/pkg/apis/unikorn/v1alpha1"
 	regionconstants "github.com/unikorn-cloud/region/pkg/constants"
+	regionids "github.com/unikorn-cloud/region/pkg/ids"
 	regionapi "github.com/unikorn-cloud/region/pkg/openapi"
 	servermanager "github.com/unikorn-cloud/region/pkg/provisioners/managers/server"
 
@@ -142,6 +145,10 @@ func convertPowerState(in *regionv1.InstanceLifecyclePhase) *regionapi.InstanceL
 	}
 
 	switch *in {
+	case regionv1.InstanceLifecyclePhaseQueued:
+		return ptr.To(regionapi.InstanceLifecyclePhaseQueued)
+	case regionv1.InstanceLifecyclePhaseBuilding:
+		return ptr.To(regionapi.InstanceLifecyclePhaseBuilding)
 	case regionv1.InstanceLifecyclePhasePending:
 		return ptr.To(regionapi.InstanceLifecyclePhasePending)
 	case regionv1.InstanceLifecyclePhaseRunning:
@@ -155,14 +162,49 @@ func convertPowerState(in *regionv1.InstanceLifecyclePhase) *regionapi.InstanceL
 	return nil
 }
 
-func convert(in *computev1.ComputeInstance) *computeapi.InstanceRead {
+// parseOptionalSSHCertificateAuthorityID parses an optional SSH certificate authority
+// ID stored as a string on the CRD back to the typed ID, failing closed on a malformed
+// value. A nil input (no CA referenced) yields a nil output.
+func parseOptionalSSHCertificateAuthorityID(in *string) (*regionapi.SshCertificateAuthorityId, error) {
+	if in == nil {
+		//nolint:nilnil
+		return nil, nil
+	}
+
+	id, err := regionids.ParseSSHCertificateAuthorityID(*in)
+	if err != nil {
+		return nil, err
+	}
+
+	return &id, nil
+}
+
+func convert(in *computev1.ComputeInstance) (*computeapi.InstanceRead, error) {
+	// The flavor, image and SSH CA IDs are stored as strings on the CRD spec; parse
+	// them back to the typed IDs for the read model. They were UUID-validated on the
+	// write path, so a malformed value here means a tampered resource: fail closed.
+	flavorID, err := regionids.ParseFlavorID(in.Spec.FlavorID)
+	if err != nil {
+		return nil, err
+	}
+
+	imageID, err := regionids.ParseImageID(in.Spec.ImageID)
+	if err != nil {
+		return nil, err
+	}
+
+	sshCertificateAuthorityID, err := parseOptionalSSHCertificateAuthorityID(in.Spec.SSHCertificateAuthorityID)
+	if err != nil {
+		return nil, err
+	}
+
 	out := &computeapi.InstanceRead{
 		Metadata: conversion.ProjectScopedResourceReadMetadata(in, in.Spec.Tags),
 		Spec: computeapi.InstanceSpec{
-			FlavorId:                  in.Spec.FlavorID,
-			ImageId:                   in.Spec.ImageID,
+			FlavorId:                  flavorID,
+			ImageId:                   imageID,
 			Networking:                ConvertNetworking(in.Spec.Networking),
-			SshCertificateAuthorityId: in.Spec.SSHCertificateAuthorityID,
+			SshCertificateAuthorityId: sshCertificateAuthorityID,
 			UserData:                  ConvertUserData(in.Spec.UserData),
 		},
 		Status: computeapi.InstanceStatus{
@@ -175,17 +217,38 @@ func convert(in *computev1.ComputeInstance) *computeapi.InstanceRead {
 		},
 	}
 
-	return out
+	return out, nil
 }
 
-func convertList(in *computev1.ComputeInstanceList) []computeapi.InstanceRead {
+func convertList(in *computev1.ComputeInstanceList) ([]computeapi.InstanceRead, error) {
 	out := make([]computeapi.InstanceRead, len(in.Items))
 
 	for i := range in.Items {
-		out[i] = *convert(&in.Items[i])
+		item, err := convert(&in.Items[i])
+		if err != nil {
+			return nil, err
+		}
+
+		out[i] = *item
 	}
 
-	return out
+	return out, nil
+}
+
+// scopeFromLabels recovers the typed owning organization and project IDs from a
+// resource's labels, failing closed if either is missing or malformed.
+func scopeFromLabels(l map[string]string) (identityids.OrganizationID, identityids.ProjectID, error) {
+	organizationID, err := identityids.ParseOrganizationID(l[coreconstants.OrganizationLabel])
+	if err != nil {
+		return identityids.OrganizationID{}, identityids.ProjectID{}, err
+	}
+
+	projectID, err := identityids.ParseProjectID(l[coreconstants.ProjectLabel])
+	if err != nil {
+		return identityids.OrganizationID{}, identityids.ProjectID{}, err
+	}
+
+	return organizationID, projectID, nil
 }
 
 func GenerateNetworking(in *computeapi.InstanceNetworking) (*computev1.ComputeInstanceNetworking, error) {
@@ -239,7 +302,7 @@ func GenerateUserData(in *[]byte) []byte {
 	return *in
 }
 
-func validateUserDataForSSHCertificateAuthority(sshCertificateAuthorityID *string, userData *[]byte) error {
+func validateUserDataForSSHCertificateAuthority(sshCertificateAuthorityID *regionapi.SshCertificateAuthorityId, userData *[]byte) error {
 	if sshCertificateAuthorityID == nil || userData == nil || len(*userData) == 0 {
 		return nil
 	}
@@ -251,7 +314,7 @@ func validateUserDataForSSHCertificateAuthority(sshCertificateAuthorityID *strin
 	return errors.HTTPUnprocessableContent("userData must be a recognized cloud-init format when sshCertificateAuthorityId is specified")
 }
 
-func (c *Client) validateSSHCertificateAuthorityReference(ctx context.Context, organizationID, projectID string, sshCertificateAuthorityID *string) error {
+func (c *Client) validateSSHCertificateAuthorityReference(ctx context.Context, organizationID identityids.OrganizationID, projectID identityids.ProjectID, sshCertificateAuthorityID *regionapi.SshCertificateAuthorityId) error {
 	if sshCertificateAuthorityID == nil {
 		return nil
 	}
@@ -268,15 +331,15 @@ func (c *Client) validateSSHCertificateAuthorityReference(ctx context.Context, o
 	return validateSSHCertificateAuthorityScope(response.JSON200, organizationID, projectID)
 }
 
-func validateSSHCertificateAuthorityScope(resource *regionapi.SshCertificateAuthorityV2Response, organizationID, projectID string) error {
-	if resource.Metadata.OrganizationId != organizationID || resource.Metadata.ProjectId != projectID {
+func validateSSHCertificateAuthorityScope(resource *regionapi.SshCertificateAuthorityV2Response, organizationID identityids.OrganizationID, projectID identityids.ProjectID) error {
+	if resource.Metadata.OrganizationId != organizationID.String() || resource.Metadata.ProjectId != projectID.String() {
 		return errors.HTTPUnprocessableContent("sshCertificateAuthorityId must reference an SSH certificate authority in the same organization and project as the instance")
 	}
 
 	return nil
 }
 
-func (c *Client) validateCreateRequest(ctx context.Context, request *computeapi.InstanceCreate, organizationID, projectID, regionID string) (*regionapi.Flavor, error) {
+func (c *Client) validateCreateRequest(ctx context.Context, request *computeapi.InstanceCreate, organizationID identityids.OrganizationID, projectID identityids.ProjectID, regionID regionids.RegionID) (*regionapi.Flavor, error) {
 	flavor, _, err := c.getAndValidateFlavorAndImage(principal.NewImpersonateContext(ctx), organizationID, regionID, request.Spec.FlavorId, request.Spec.ImageId)
 	if err != nil {
 		return nil, err
@@ -297,7 +360,7 @@ func (c *Client) validateCreateRequest(ctx context.Context, request *computeapi.
 	return flavor, nil
 }
 
-func (c *Client) validateUpdateRequest(ctx context.Context, request *computeapi.InstanceUpdate, organizationID, projectID string) error {
+func (c *Client) validateUpdateRequest(ctx context.Context, request *computeapi.InstanceUpdate, organizationID identityids.OrganizationID, projectID identityids.ProjectID) error {
 	if err := c.validateSecurityGroups(ctx, request.Spec.Networking); err != nil {
 		return err
 	}
@@ -313,32 +376,36 @@ func (c *Client) validateUpdateRequest(ctx context.Context, request *computeapi.
 	return nil
 }
 
-func (c *Client) generate(ctx context.Context, in *computeapi.InstanceUpdate, organizationID, projectID, regionID, networkID string) (*computev1.ComputeInstance, error) {
+func (c *Client) generate(ctx context.Context, in *computeapi.InstanceUpdate, organizationID identityids.OrganizationID, projectID identityids.ProjectID, regionID regionids.RegionID, networkID regionids.NetworkID) (*computev1.ComputeInstance, error) {
 	networking, err := GenerateNetworking(in.Spec.Networking)
 	if err != nil {
 		return nil, err
 	}
 
-	networkNamespace, err := uuid.Parse(networkID)
-	if err != nil {
-		return nil, fmt.Errorf("network ID is not a valid UUID: %w", err)
+	// The network ID is a UUID-backed typed ID; the deterministic metadata builder
+	// keys the instance namespace off it.
+	networkNamespace := uuid.UUID(networkID)
+
+	var sshCertificateAuthorityID *string
+	if in.Spec.SshCertificateAuthorityId != nil {
+		sshCertificateAuthorityID = ptr.To(in.Spec.SshCertificateAuthorityId.String())
 	}
 
 	out := &computev1.ComputeInstance{
 		ObjectMeta: conversion.NewDeterministicObjectMetadata(&in.Metadata, c.namespace, networkNamespace, in.Metadata.Name).
-			WithOrganization(organizationID).
-			WithProject(projectID).
-			WithLabel(regionconstants.RegionLabel, regionID).
-			WithLabel(regionconstants.NetworkLabel, networkID).
+			WithOrganization(organizationID.String()).
+			WithProject(projectID.String()).
+			WithLabel(regionconstants.RegionLabel, regionID.String()).
+			WithLabel(regionconstants.NetworkLabel, networkID.String()).
 			Get(),
 		Spec: computev1.ComputeInstanceSpec{
 			Tags: conversion.GenerateTagList(in.Metadata.Tags),
 			MachineGeneric: corev1.MachineGeneric{
-				FlavorID: in.Spec.FlavorId,
-				ImageID:  in.Spec.ImageId,
+				FlavorID: in.Spec.FlavorId.String(),
+				ImageID:  in.Spec.ImageId.String(),
 			},
 			Networking:                networking,
-			SSHCertificateAuthorityID: in.Spec.SshCertificateAuthorityId,
+			SSHCertificateAuthorityID: sshCertificateAuthorityID,
 			UserData:                  GenerateUserData(in.Spec.UserData),
 		},
 	}
@@ -391,15 +458,25 @@ func (c *Client) List(ctx context.Context, params computeapi.GetApiV2InstancesPa
 	}
 
 	result.Items = slices.DeleteFunc(result.Items, func(resource computev1.ComputeInstance) bool {
-		return !resource.Spec.Tags.ContainsAll(tagSelector) ||
-			rbac.AllowProjectScope(ctx, "compute:instances", identityapi.Read, resource.Labels[coreconstants.OrganizationLabel], resource.Labels[coreconstants.ProjectLabel]) != nil
+		if !resource.Spec.Tags.ContainsAll(tagSelector) {
+			return true
+		}
+
+		// Scope is recovered from the resource's labels (plain strings); parse to typed
+		// IDs for the scope check and fail closed (drop the resource) if malformed.
+		organizationID, projectID, err := scopeFromLabels(resource.Labels)
+		if err != nil {
+			return true
+		}
+
+		return rbac.AllowProjectScopeID(ctx, "compute:instances", identityapi.Read, organizationID, projectID) != nil
 	})
 
 	slices.SortStableFunc(result.Items, func(a, b computev1.ComputeInstance) int {
 		return cmp.Compare(a.Name, b.Name)
 	})
 
-	return convertList(result), nil
+	return convertList(result)
 }
 
 func (c *Client) generateAllocation(flavor *regionapi.Flavor, publicIP bool) identityapi.ResourceAllocationList {
@@ -433,14 +510,14 @@ func (c *Client) generateAllocation(flavor *regionapi.Flavor, publicIP bool) ide
 	return required
 }
 
-func (c *Client) getFlavor(ctx context.Context, organizationID, regionID, id string) (*regionapi.Flavor, error) {
+func (c *Client) getFlavor(ctx context.Context, organizationID identityids.OrganizationID, regionID regionids.RegionID, id regionids.FlavorID) (*regionapi.Flavor, error) {
 	resources, err := region.New(c.region).Flavors(ctx, organizationID, regionID)
 	if err != nil {
 		return nil, err
 	}
 
 	match := func(resource regionapi.Flavor) bool {
-		return resource.Metadata.Id == id
+		return resource.Metadata.Id == id.String()
 	}
 
 	index := slices.IndexFunc(resources, match)
@@ -451,14 +528,14 @@ func (c *Client) getFlavor(ctx context.Context, organizationID, regionID, id str
 	return &resources[index], nil
 }
 
-func (c *Client) getImage(ctx context.Context, organizationID, regionID, id string) (*regionapi.Image, error) {
+func (c *Client) getImage(ctx context.Context, organizationID identityids.OrganizationID, regionID regionids.RegionID, id regionids.ImageID) (*regionapi.Image, error) {
 	resources, err := region.New(c.region).Images(ctx, organizationID, regionID)
 	if err != nil {
 		return nil, err
 	}
 
 	match := func(resource regionapi.Image) bool {
-		return resource.Metadata.Id == id
+		return resource.Metadata.Id == id.String()
 	}
 
 	index := slices.IndexFunc(resources, match)
@@ -475,7 +552,14 @@ func (c *Client) validateSecurityGroups(ctx context.Context, networking *compute
 	}
 
 	for _, id := range *networking.SecurityGroups {
-		if _, err := region.GetSecurityGroup(ctx, c.region, id); err != nil {
+		// Security group IDs arrive as a list of plain strings (stored/echoed from
+		// the read path); parse each to the typed ID, failing closed if malformed.
+		securityGroupID, err := regionids.ParseSecurityGroupID(id)
+		if err != nil {
+			return err
+		}
+
+		if _, err := region.GetSecurityGroup(ctx, c.region, securityGroupID); err != nil {
 			return err
 		}
 	}
@@ -484,7 +568,7 @@ func (c *Client) validateSecurityGroups(ctx context.Context, networking *compute
 }
 
 //nolint:unparam
-func (c *Client) getAndValidateFlavorAndImage(ctx context.Context, organizationID, regionID, flavorID, imageID string) (*regionapi.Flavor, *regionapi.Image, error) {
+func (c *Client) getAndValidateFlavorAndImage(ctx context.Context, organizationID identityids.OrganizationID, regionID regionids.RegionID, flavorID regionids.FlavorID, imageID regionids.ImageID) (*regionapi.Flavor, *regionapi.Image, error) {
 	flavor, err := c.getFlavor(ctx, organizationID, regionID, flavorID)
 	if err != nil {
 		return nil, nil, err
@@ -580,7 +664,7 @@ func (c *Client) Create(ctx context.Context, request *computeapi.InstanceCreate)
 	organizationID := request.Spec.OrganizationId
 	projectID := request.Spec.ProjectId
 
-	if err := rbac.AllowProjectScopeCreate(ctx, c.identity, "compute:instances", identityapi.Create, organizationID, projectID); err != nil {
+	if err := rbac.AllowProjectScopeCreateID(ctx, c.identity, "compute:instances", identityapi.Create, organizationID, projectID); err != nil {
 		return nil, err
 	}
 
@@ -596,7 +680,12 @@ func (c *Client) Create(ctx context.Context, request *computeapi.InstanceCreate)
 		return nil, err
 	}
 
-	regionID := network.Status.RegionId
+	// The region ID comes from the region read model (a string); parse it to the
+	// typed ID for the downstream region calls, failing closed if malformed.
+	regionID, err := regionids.ParseRegionID(network.Status.RegionId)
+	if err != nil {
+		return nil, err
+	}
 
 	flavor, err := c.validateCreateRequest(ctx, request, organizationID, projectID, regionID)
 	if err != nil {
@@ -619,13 +708,13 @@ func (c *Client) Create(ctx context.Context, request *computeapi.InstanceCreate)
 		return nil, err
 	}
 
-	return convert(resource), nil
+	return convert(resource)
 }
 
-func (c *Client) GetRaw(ctx context.Context, instanceID string) (*computev1.ComputeInstance, error) {
+func (c *Client) GetRaw(ctx context.Context, instanceID computeids.InstanceID) (*computev1.ComputeInstance, error) {
 	result := &computev1.ComputeInstance{}
 
-	if err := c.client.Get(ctx, client.ObjectKey{Namespace: c.namespace, Name: instanceID}, result); err != nil {
+	if err := c.client.Get(ctx, client.ObjectKey{Namespace: c.namespace, Name: instanceID.String()}, result); err != nil {
 		if kerrors.IsNotFound(err) {
 			return nil, errors.HTTPNotFound().WithError(err)
 		}
@@ -633,20 +722,25 @@ func (c *Client) GetRaw(ctx context.Context, instanceID string) (*computev1.Comp
 		return nil, fmt.Errorf("%w: unable to lookup instance", err)
 	}
 
-	if err := rbac.AllowProjectScope(ctx, "compute:instances", identityapi.Read, result.Labels[coreconstants.OrganizationLabel], result.Labels[coreconstants.ProjectLabel]); err != nil {
+	organizationID, projectID, err := scopeFromLabels(result.Labels)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := rbac.AllowProjectScopeID(ctx, "compute:instances", identityapi.Read, organizationID, projectID); err != nil {
 		return nil, err
 	}
 
 	return result, nil
 }
 
-func (c *Client) Get(ctx context.Context, instanceID string) (*computeapi.InstanceRead, error) {
+func (c *Client) Get(ctx context.Context, instanceID computeids.InstanceID) (*computeapi.InstanceRead, error) {
 	result, err := c.GetRaw(ctx, instanceID)
 	if err != nil {
 		return nil, err
 	}
 
-	return convert(result), nil
+	return convert(result)
 }
 
 type updateSaga struct {
@@ -694,8 +788,20 @@ func (s *updateSaga) Actions() []saga.Action {
 	}
 }
 
-func (c *Client) resolveUpdateFlavors(ctx context.Context, organizationID, regionID string, current *computev1.ComputeInstance, request *computeapi.InstanceUpdate) (*regionapi.Flavor, *regionapi.Flavor, error) {
-	currentFlavor, _, err := c.getAndValidateFlavorAndImage(ctx, organizationID, regionID, current.Spec.FlavorID, current.Spec.ImageID)
+func (c *Client) resolveUpdateFlavors(ctx context.Context, organizationID identityids.OrganizationID, regionID regionids.RegionID, current *computev1.ComputeInstance, request *computeapi.InstanceUpdate) (*regionapi.Flavor, *regionapi.Flavor, error) {
+	// The current flavor/image IDs are read back from the CRD spec (strings); parse
+	// them to typed IDs, failing closed if malformed.
+	currentFlavorID, err := regionids.ParseFlavorID(current.Spec.FlavorID)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	currentImageID, err := regionids.ParseImageID(current.Spec.ImageID)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	currentFlavor, _, err := c.getAndValidateFlavorAndImage(ctx, organizationID, regionID, currentFlavorID, currentImageID)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -708,18 +814,40 @@ func (c *Client) resolveUpdateFlavors(ctx context.Context, organizationID, regio
 	return currentFlavor, flavor, nil
 }
 
-func (c *Client) Update(ctx context.Context, instanceID string, request *computeapi.InstanceUpdate) (*computeapi.InstanceRead, error) {
+// authorizeUpdate recovers the typed scope, region and network IDs from the
+// instance's labels (plain strings, failing closed if malformed) and authorizes
+// the update against the project scope.
+func (c *Client) authorizeUpdate(ctx context.Context, current *computev1.ComputeInstance) (identityids.OrganizationID, identityids.ProjectID, regionids.RegionID, regionids.NetworkID, error) {
+	organizationID, projectID, err := scopeFromLabels(current.Labels)
+	if err != nil {
+		return identityids.OrganizationID{}, identityids.ProjectID{}, regionids.RegionID{}, regionids.NetworkID{}, err
+	}
+
+	regionID, err := regionids.ParseRegionID(current.Labels[regionconstants.RegionLabel])
+	if err != nil {
+		return identityids.OrganizationID{}, identityids.ProjectID{}, regionids.RegionID{}, regionids.NetworkID{}, err
+	}
+
+	networkID, err := regionids.ParseNetworkID(current.Labels[regionconstants.NetworkLabel])
+	if err != nil {
+		return identityids.OrganizationID{}, identityids.ProjectID{}, regionids.RegionID{}, regionids.NetworkID{}, err
+	}
+
+	if err := rbac.AllowProjectScopeID(ctx, "compute:instances", identityapi.Update, organizationID, projectID); err != nil {
+		return identityids.OrganizationID{}, identityids.ProjectID{}, regionids.RegionID{}, regionids.NetworkID{}, err
+	}
+
+	return organizationID, projectID, regionID, networkID, nil
+}
+
+func (c *Client) Update(ctx context.Context, instanceID computeids.InstanceID, request *computeapi.InstanceUpdate) (*computeapi.InstanceRead, error) {
 	current, err := c.GetRaw(ctx, instanceID)
 	if err != nil {
 		return nil, err
 	}
 
-	organizationID := current.Labels[coreconstants.OrganizationLabel]
-	projectID := current.Labels[coreconstants.ProjectLabel]
-	regionID := current.Labels[regionconstants.RegionLabel]
-	networkID := current.Labels[regionconstants.NetworkLabel]
-
-	if err := rbac.AllowProjectScope(ctx, "compute:instances", identityapi.Update, organizationID, projectID); err != nil {
+	organizationID, projectID, regionID, networkID, err := c.authorizeUpdate(ctx, current)
+	if err != nil {
 		return nil, err
 	}
 
@@ -765,10 +893,10 @@ func (c *Client) Update(ctx context.Context, instanceID string, request *compute
 		return nil, err
 	}
 
-	return convert(s.updated), nil
+	return convert(s.updated)
 }
 
-func (c *Client) Delete(ctx context.Context, instanceID string) error {
+func (c *Client) Delete(ctx context.Context, instanceID computeids.InstanceID) error {
 	resource, err := c.GetRaw(ctx, instanceID)
 	if err != nil {
 		return err
@@ -778,7 +906,12 @@ func (c *Client) Delete(ctx context.Context, instanceID string) error {
 		return nil
 	}
 
-	if err := rbac.AllowProjectScope(ctx, "compute:instances", identityapi.Delete, resource.Labels[coreconstants.OrganizationLabel], resource.Labels[coreconstants.ProjectLabel]); err != nil {
+	organizationID, projectID, err := scopeFromLabels(resource.Labels)
+	if err != nil {
+		return err
+	}
+
+	if err := rbac.AllowProjectScopeID(ctx, "compute:instances", identityapi.Delete, organizationID, projectID); err != nil {
 		return err
 	}
 
@@ -793,7 +926,7 @@ func (c *Client) Delete(ctx context.Context, instanceID string) error {
 	return nil
 }
 
-func (c *Client) serverID(ctx context.Context, instance *computev1.ComputeInstance) (string, error) {
+func (c *Client) serverID(ctx context.Context, instance *computev1.ComputeInstance) (regionids.ServerID, error) {
 	// Constrain the search domain.
 	params := &regionapi.GetApiV2ServersParams{
 		OrganizationID: &computeapi.OrganizationIDQueryParameter{
@@ -815,23 +948,25 @@ func (c *Client) serverID(ctx context.Context, instance *computev1.ComputeInstan
 
 	response, err := c.region.GetApiV2ServersWithResponse(ctx, params)
 	if err != nil {
-		return "", fmt.Errorf("%w: unable to query servers for instance", err)
+		return regionids.ServerID{}, fmt.Errorf("%w: unable to query servers for instance", err)
 	}
 
 	if response.StatusCode() != http.StatusOK {
-		return "", fmt.Errorf("%w: unable to query servers for instance - incorrect status code", coreerrors.ErrAPIStatus)
+		return regionids.ServerID{}, fmt.Errorf("%w: unable to query servers for instance - incorrect status code", coreerrors.ErrAPIStatus)
 	}
 
 	servers := *response.JSON200
 
 	if len(servers) != 1 {
-		return "", fmt.Errorf("%w: unable to query server for instance - incorrect number of matches", coreerrors.ErrConsistency)
+		return regionids.ServerID{}, fmt.Errorf("%w: unable to query server for instance - incorrect number of matches", coreerrors.ErrConsistency)
 	}
 
-	return servers[0].Metadata.Id, nil
+	// The server ID comes from the region read model (a string); parse it to the
+	// typed ID used by the region server-action calls, failing closed if malformed.
+	return regionids.ParseServerID(servers[0].Metadata.Id)
 }
 
-func (c *Client) SSHKey(ctx context.Context, instanceID string) (*regionapi.SshKey, error) {
+func (c *Client) SSHKey(ctx context.Context, instanceID computeids.InstanceID) (*regionapi.SshKey, error) {
 	resource, err := c.GetRaw(ctx, instanceID)
 	if err != nil {
 		return nil, err
@@ -854,7 +989,7 @@ func (c *Client) SSHKey(ctx context.Context, instanceID string) (*regionapi.SshK
 	return response.JSON200, nil
 }
 
-func (c *Client) Start(ctx context.Context, instanceID string) error {
+func (c *Client) Start(ctx context.Context, instanceID computeids.InstanceID) error {
 	resource, err := c.GetRaw(ctx, instanceID)
 	if err != nil {
 		return err
@@ -877,7 +1012,7 @@ func (c *Client) Start(ctx context.Context, instanceID string) error {
 	return nil
 }
 
-func (c *Client) Stop(ctx context.Context, instanceID string) error {
+func (c *Client) Stop(ctx context.Context, instanceID computeids.InstanceID) error {
 	resource, err := c.GetRaw(ctx, instanceID)
 	if err != nil {
 		return err
@@ -900,7 +1035,7 @@ func (c *Client) Stop(ctx context.Context, instanceID string) error {
 	return nil
 }
 
-func (c *Client) Reboot(ctx context.Context, instanceID string, params computeapi.PostApiV2InstancesInstanceIDRebootParams) error {
+func (c *Client) Reboot(ctx context.Context, instanceID computeids.InstanceID, params computeapi.PostApiV2InstancesInstanceIDRebootParams) error {
 	resource, err := c.GetRaw(ctx, instanceID)
 	if err != nil {
 		return err
@@ -965,7 +1100,7 @@ func setTag(meta *coreapi.ResourceMetadata, tag, value string) {
 	meta.Tags = &tags
 }
 
-func (c *Client) Snapshot(ctx context.Context, instanceID string, params computeapi.InstanceSnapshotCreate) (*regionapi.ImageResponse, error) {
+func (c *Client) Snapshot(ctx context.Context, instanceID computeids.InstanceID, params computeapi.InstanceSnapshotCreate) (*regionapi.ImageResponse, error) {
 	// This implicitly checks read permission on the instance in question.
 	resource, err := c.GetRaw(ctx, instanceID)
 	if err != nil {
@@ -981,7 +1116,7 @@ func (c *Client) Snapshot(ctx context.Context, instanceID string, params compute
 	requestBody.Metadata = params.Metadata
 
 	dropSystemTags(&requestBody.Metadata)
-	setTag(&requestBody.Metadata, constants.InstanceIDTag, instanceID)
+	setTag(&requestBody.Metadata, constants.InstanceIDTag, instanceID.String())
 
 	requestBody.Spec = regionapi.SnapshotCreateSpec{}
 
@@ -997,7 +1132,7 @@ func (c *Client) Snapshot(ctx context.Context, instanceID string, params compute
 	return response.JSON201, nil
 }
 
-func (c *Client) ConsoleOutput(ctx context.Context, instanceID string, params computeapi.GetApiV2InstancesInstanceIDConsoleoutputParams) (*regionapi.ConsoleOutputResponse, error) {
+func (c *Client) ConsoleOutput(ctx context.Context, instanceID computeids.InstanceID, params computeapi.GetApiV2InstancesInstanceIDConsoleoutputParams) (*regionapi.ConsoleOutputResponse, error) {
 	resource, err := c.GetRaw(ctx, instanceID)
 	if err != nil {
 		return nil, err
@@ -1028,7 +1163,7 @@ func (c *Client) ConsoleOutput(ctx context.Context, instanceID string, params co
 	return response.JSON200, nil
 }
 
-func (c *Client) ConsoleSession(ctx context.Context, instanceID string) (*regionapi.ConsoleSessionResponse, error) {
+func (c *Client) ConsoleSession(ctx context.Context, instanceID computeids.InstanceID) (*regionapi.ConsoleSessionResponse, error) {
 	resource, err := c.GetRaw(ctx, instanceID)
 	if err != nil {
 		return nil, err

@@ -36,6 +36,7 @@ import (
 	regionv1 "github.com/unikorn-cloud/region/pkg/apis/unikorn/v1alpha1"
 	regionclient "github.com/unikorn-cloud/region/pkg/client"
 	regionconstants "github.com/unikorn-cloud/region/pkg/constants"
+	regionids "github.com/unikorn-cloud/region/pkg/ids"
 	regionapi "github.com/unikorn-cloud/region/pkg/openapi"
 
 	corev1 "k8s.io/api/core/v1"
@@ -149,7 +150,25 @@ func (p *Provisioner) generateUserData() *[]byte {
 	return &p.instance.Spec.UserData
 }
 
-func (p *Provisioner) generateServerCreateRequest() *regionapi.ServerV2Create {
+func (p *Provisioner) generateServerCreateRequest() (*regionapi.ServerV2Create, error) {
+	// The network, flavor, image and SSH CA IDs are read from the instance's labels
+	// and spec (strings); parse them to the typed IDs the region API expects, failing
+	// closed on a malformed value.
+	networkID, err := regionids.ParseNetworkID(p.instance.Labels[regionconstants.NetworkLabel])
+	if err != nil {
+		return nil, err
+	}
+
+	flavorID, err := regionids.ParseFlavorID(p.instance.Spec.FlavorID)
+	if err != nil {
+		return nil, err
+	}
+
+	imageID, err := regionids.ParseImageID(p.instance.Spec.ImageID)
+	if err != nil {
+		return nil, err
+	}
+
 	return &regionapi.ServerV2Create{
 		Metadata: coreapi.ResourceWriteMetadata{
 			Name:        p.instance.Labels[coreconstants.NameLabel],
@@ -162,17 +181,31 @@ func (p *Provisioner) generateServerCreateRequest() *regionapi.ServerV2Create {
 			},
 		},
 		Spec: regionapi.ServerV2CreateSpec{
-			NetworkId:                 p.instance.Labels[regionconstants.NetworkLabel],
-			FlavorId:                  p.instance.Spec.FlavorID,
-			ImageId:                   p.instance.Spec.ImageID,
-			Networking:                p.generateServerNetworking(),
+			NetworkId:  networkID,
+			FlavorId:   flavorID,
+			ImageId:    imageID,
+			Networking: p.generateServerNetworking(),
+			// region's server-spec sshCertificateAuthorityId is string-typed, so the
+			// stored CRD value (also a string) passes through unparsed.
 			SshCertificateAuthorityId: p.instance.Spec.SSHCertificateAuthorityID,
 			UserData:                  p.generateUserData(),
 		},
-	}
+	}, nil
 }
 
-func (p *Provisioner) generateServerUpdateRequest() *regionapi.ServerV2Update {
+func (p *Provisioner) generateServerUpdateRequest() (*regionapi.ServerV2Update, error) {
+	// The flavor and image IDs are read from the instance's spec (strings); parse them
+	// to the typed IDs the region API expects, failing closed on a malformed value.
+	flavorID, err := regionids.ParseFlavorID(p.instance.Spec.FlavorID)
+	if err != nil {
+		return nil, err
+	}
+
+	imageID, err := regionids.ParseImageID(p.instance.Spec.ImageID)
+	if err != nil {
+		return nil, err
+	}
+
 	return &regionapi.ServerV2Update{
 		Metadata: coreapi.ResourceWriteMetadata{
 			Name:        p.instance.Labels[coreconstants.NameLabel],
@@ -185,12 +218,12 @@ func (p *Provisioner) generateServerUpdateRequest() *regionapi.ServerV2Update {
 			},
 		},
 		Spec: regionapi.ServerV2Spec{
-			FlavorId:   p.instance.Spec.FlavorID,
-			ImageId:    p.instance.Spec.ImageID,
+			FlavorId:   flavorID,
+			ImageId:    imageID,
 			Networking: p.generateServerNetworking(),
 			UserData:   p.generateUserData(),
 		},
-	}
+	}, nil
 }
 
 func needsRebuildSpec(a, b *regionapi.ServerV2Spec) bool {
@@ -215,13 +248,29 @@ func needsRebuild(current *regionapi.ServerV2Read, desired *regionapi.ServerV2Up
 
 func (p *Provisioner) createOrUpdateServer(ctx context.Context, region regionapi.ClientWithResponsesInterface, server *regionapi.ServerV2Read) (*regionapi.ServerV2Read, error) {
 	if server == nil {
-		return p.createServer(ctx, region, p.generateServerCreateRequest())
+		request, err := p.generateServerCreateRequest()
+		if err != nil {
+			return nil, err
+		}
+
+		return p.createServer(ctx, region, request)
 	}
 
-	request := p.generateServerUpdateRequest()
+	request, err := p.generateServerUpdateRequest()
+	if err != nil {
+		return nil, err
+	}
 
+	// The server ID comes from the region read model (a string); parse it to the
+	// typed ID for the region API calls, failing closed on a malformed value. It is
+	// only needed on the rebuild/update paths, not the no-op (specs equal) path.
 	if needsRebuild(server, request) {
-		if err := p.deleteServer(ctx, region, server.Metadata.Id); err != nil {
+		serverID, err := regionids.ParseServerID(server.Metadata.Id)
+		if err != nil {
+			return nil, err
+		}
+
+		if err := p.deleteServer(ctx, region, serverID); err != nil {
 			return nil, provisioners.ErrYield
 		}
 
@@ -232,7 +281,12 @@ func (p *Provisioner) createOrUpdateServer(ctx context.Context, region regionapi
 		return server, nil
 	}
 
-	return p.updateServer(ctx, region, server.Metadata.Id, request)
+	serverID, err := regionids.ParseServerID(server.Metadata.Id)
+	if err != nil {
+		return nil, err
+	}
+
+	return p.updateServer(ctx, region, serverID, request)
 }
 
 func convertPowerState(in *regionapi.InstanceLifecyclePhase) *regionv1.InstanceLifecyclePhase {
@@ -368,7 +422,12 @@ func (p *Provisioner) Deprovision(ctx context.Context) error {
 	}
 
 	if server != nil {
-		if err := p.deleteServer(ctx, region, server.Metadata.Id); err != nil {
+		serverID, err := regionids.ParseServerID(server.Metadata.Id)
+		if err != nil {
+			return err
+		}
+
+		if err := p.deleteServer(ctx, region, serverID); err != nil {
 			return err
 		}
 

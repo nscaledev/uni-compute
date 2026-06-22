@@ -30,6 +30,8 @@ import (
 
 	"github.com/unikorn-cloud/compute/pkg/openapi"
 	coreapi "github.com/unikorn-cloud/core/pkg/openapi"
+	identityids "github.com/unikorn-cloud/identity/pkg/ids"
+	regionids "github.com/unikorn-cloud/region/pkg/ids"
 	regionopenapi "github.com/unikorn-cloud/region/pkg/openapi"
 
 	"k8s.io/utils/ptr"
@@ -56,11 +58,11 @@ func NewInstancePayload() *InstancePayloadBuilder {
 				Description: ptr.To("Test instance for API automation"),
 			},
 			Spec: openapi.InstanceCreateSpec{
-				FlavorId:       config.FlavorID,
-				ImageId:        config.ImageID,
-				NetworkId:      config.NetworkID,
-				OrganizationId: config.OrgID,
-				ProjectId:      config.ProjectID,
+				FlavorId:       regionids.MustParseFlavorID(config.FlavorID),
+				ImageId:        regionids.MustParseImageID(config.ImageID),
+				NetworkId:      regionids.MustParseNetworkID(config.NetworkID),
+				OrganizationId: identityids.MustParseOrganizationID(config.OrgID),
+				ProjectId:      identityids.MustParseProjectID(config.ProjectID),
 			},
 		},
 	}
@@ -74,19 +76,19 @@ func (b *InstancePayloadBuilder) WithName(name string) *InstancePayloadBuilder {
 
 // WithFlavorID sets the flavor ID.
 func (b *InstancePayloadBuilder) WithFlavorID(flavorID string) *InstancePayloadBuilder {
-	b.instance.Spec.FlavorId = flavorID
+	b.instance.Spec.FlavorId = regionids.MustParseFlavorID(flavorID)
 	return b
 }
 
 // WithImageID sets the image ID.
 func (b *InstancePayloadBuilder) WithImageID(imageID string) *InstancePayloadBuilder {
-	b.instance.Spec.ImageId = imageID
+	b.instance.Spec.ImageId = regionids.MustParseImageID(imageID)
 	return b
 }
 
 // WithNetworkID sets the network ID.
 func (b *InstancePayloadBuilder) WithNetworkID(networkID string) *InstancePayloadBuilder {
-	b.instance.Spec.NetworkId = networkID
+	b.instance.Spec.NetworkId = regionids.MustParseNetworkID(networkID)
 	return b
 }
 
@@ -114,7 +116,7 @@ func (b *InstancePayloadBuilder) WithSecurityGroups(securityGroupIDs ...string) 
 
 // WithSSHCertificateAuthorityID sets the SSH CA trust anchor for the instance.
 func (b *InstancePayloadBuilder) WithSSHCertificateAuthorityID(id string) *InstancePayloadBuilder {
-	b.instance.Spec.SshCertificateAuthorityId = ptr.To(id)
+	b.instance.Spec.SshCertificateAuthorityId = ptr.To(regionids.MustParseSSHCertificateAuthorityID(id))
 
 	return b
 }
@@ -301,7 +303,7 @@ func CreateSSHOpenSecurityGroupWithCleanup(regionClient *RegionAPIClient, ctx co
 			Name: fmt.Sprintf("ssh-test-sg-%s", uuid.NewString()[:8]),
 		},
 		Spec: regionopenapi.SecurityGroupV2CreateSpec{
-			NetworkId: config.NetworkID,
+			NetworkId: regionids.MustParseNetworkID(config.NetworkID),
 			Rules: regionopenapi.SecurityGroupRuleV2List{
 				{
 					Direction: regionopenapi.NetworkDirectionIngress,

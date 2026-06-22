@@ -28,6 +28,7 @@ import (
 	servererrors "github.com/unikorn-cloud/core/pkg/server/errors"
 	regionclient "github.com/unikorn-cloud/region/pkg/client"
 	regionconstants "github.com/unikorn-cloud/region/pkg/constants"
+	regionids "github.com/unikorn-cloud/region/pkg/ids"
 	regionapi "github.com/unikorn-cloud/region/pkg/openapi"
 )
 
@@ -102,7 +103,7 @@ func (p *Provisioner) createServer(ctx context.Context, client regionapi.ClientW
 }
 
 // updateServer updates a server.
-func (p *Provisioner) updateServer(ctx context.Context, client regionapi.ClientWithResponsesInterface, serverID string, request *regionapi.ServerV2Update) (*regionapi.ServerV2Response, error) {
+func (p *Provisioner) updateServer(ctx context.Context, client regionapi.ClientWithResponsesInterface, serverID regionids.ServerID, request *regionapi.ServerV2Update) (*regionapi.ServerV2Response, error) {
 	resp, err := client.PutApiV2ServersServerIDWithResponse(ctx, serverID, *request)
 	if err != nil {
 		return nil, err
@@ -116,7 +117,7 @@ func (p *Provisioner) updateServer(ctx context.Context, client regionapi.ClientW
 }
 
 // deleteServer deletes a server.
-func (p *Provisioner) deleteServer(ctx context.Context, client regionapi.ClientWithResponsesInterface, id string) error {
+func (p *Provisioner) deleteServer(ctx context.Context, client regionapi.ClientWithResponsesInterface, id regionids.ServerID) error {
 	resp, err := client.DeleteApiV2ServersServerIDWithResponse(ctx, id)
 	if err != nil {
 		return err

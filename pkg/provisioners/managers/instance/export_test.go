@@ -29,11 +29,11 @@ func NewProvisionerForTest(instance unikornv1.ComputeInstance) *Provisioner {
 	}
 }
 
-func (p *Provisioner) GenerateServerCreateRequest() *regionapi.ServerV2Create {
+func (p *Provisioner) GenerateServerCreateRequest() (*regionapi.ServerV2Create, error) {
 	return p.generateServerCreateRequest()
 }
 
-func (p *Provisioner) GenerateServerUpdateRequest() *regionapi.ServerV2Update {
+func (p *Provisioner) GenerateServerUpdateRequest() (*regionapi.ServerV2Update, error) {
 	return p.generateServerUpdateRequest()
 }
 

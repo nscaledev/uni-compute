@@ -28,6 +28,8 @@ import (
 
 	computeregion "github.com/unikorn-cloud/compute/pkg/server/handler/region"
 	coreapi "github.com/unikorn-cloud/core/pkg/openapi"
+	identityids "github.com/unikorn-cloud/identity/pkg/ids"
+	regionids "github.com/unikorn-cloud/region/pkg/ids"
 	regionapi "github.com/unikorn-cloud/region/pkg/openapi"
 
 	"k8s.io/utils/ptr"
@@ -37,8 +39,8 @@ func TestFlavorsFiltersPinnedOnly(t *testing.T) {
 	t.Parallel()
 
 	const (
-		organizationID = "org1"
-		regionID       = "region1"
+		organizationID = "d4600d6e-e965-4b44-a808-84fb2fa36702"
+		regionID       = "a73e9c26-af56-4562-8352-9512e0586f3b"
 	)
 
 	flavors := []regionapi.Flavor{
@@ -51,7 +53,7 @@ func TestFlavorsFiltersPinnedOnly(t *testing.T) {
 	require.NoError(t, err)
 
 	client, err := regionapi.NewClientWithResponses("http://region.example", regionapi.WithHTTPClient(roundTripFunc(func(r *http.Request) (*http.Response, error) {
-		assert.Equal(t, "/api/v1/organizations/org1/regions/region1/flavors", r.URL.Path)
+		assert.Equal(t, "/api/v1/organizations/"+organizationID+"/regions/"+regionID+"/flavors", r.URL.Path)
 
 		return &http.Response{
 			StatusCode: http.StatusOK,
@@ -62,7 +64,7 @@ func TestFlavorsFiltersPinnedOnly(t *testing.T) {
 	})))
 	require.NoError(t, err)
 
-	filtered, err := computeregion.New(client).Flavors(t.Context(), organizationID, regionID)
+	filtered, err := computeregion.New(client).Flavors(t.Context(), identityids.MustParseOrganizationID(organizationID), regionids.MustParseRegionID(regionID))
 	require.NoError(t, err)
 
 	require.Len(t, filtered, 2)

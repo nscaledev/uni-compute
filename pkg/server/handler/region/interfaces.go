@@ -22,11 +22,13 @@ package region
 import (
 	"context"
 
+	identityids "github.com/unikorn-cloud/identity/pkg/ids"
+	regionids "github.com/unikorn-cloud/region/pkg/ids"
 	regionapi "github.com/unikorn-cloud/region/pkg/openapi"
 )
 
 type ClientInterface interface {
-	List(ctx context.Context, organizationID string) ([]regionapi.RegionRead, error)
-	Flavors(ctx context.Context, organizationID, regionID string) ([]regionapi.Flavor, error)
-	Images(ctx context.Context, organizationID, regionID string) ([]regionapi.Image, error)
+	List(ctx context.Context, organizationID identityids.OrganizationID) ([]regionapi.RegionRead, error)
+	Flavors(ctx context.Context, organizationID identityids.OrganizationID, regionID regionids.RegionID) ([]regionapi.Flavor, error)
+	Images(ctx context.Context, organizationID identityids.OrganizationID, regionID regionids.RegionID) ([]regionapi.Image, error)
 }
