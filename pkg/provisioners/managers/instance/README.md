@@ -20,7 +20,8 @@ where that contract is translated into the hidden execution primitive.
 - Create and update requests sent to region always carry the reserved instance
   tag so later lookup and reverse mapping can find the server again.
 - Instance status is projection-only here: IP addresses, MAC address, power
-  state, and health are copied from the server response.
+  state (lifecycle Phase, including Queued/Building for baremetal), and health
+  are copied from the server response.
 - Deprovision is two-stage:
   delete the backing server first, then release the identity allocation record
   only after the server is gone.
@@ -63,7 +64,9 @@ removed from the rebuild heuristic.
 - The region client is not cached and the code already notes token/cache churn
   risk during busy periods.
 - This package depends on region to be the truth source for provisioning
-  progress and health. Compute does not independently observe provider state.
+  progress and health. Compute does not independently observe provider state;
+  when region distinguishes queued baremetal servers from active provisioning,
+  this package only persists and re-exposes that region-derived metadata.
 
 ## TODO
 

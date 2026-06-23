@@ -187,6 +187,8 @@ spec:
                 description: PowerState is the current status of the machine.
                 enum:
                 - Pending
+                - Queued
+                - Building
                 - Running
                 - Stopping
                 - Stopped

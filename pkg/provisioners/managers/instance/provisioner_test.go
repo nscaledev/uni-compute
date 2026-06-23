@@ -28,6 +28,7 @@ import (
 	unikornv1core "github.com/unikorn-cloud/core/pkg/apis/unikorn/v1alpha1"
 	coreconstants "github.com/unikorn-cloud/core/pkg/constants"
 	coreapi "github.com/unikorn-cloud/core/pkg/openapi"
+	regionv1 "github.com/unikorn-cloud/region/pkg/apis/unikorn/v1alpha1"
 	regionconstants "github.com/unikorn-cloud/region/pkg/constants"
 	regionids "github.com/unikorn-cloud/region/pkg/ids"
 	regionapi "github.com/unikorn-cloud/region/pkg/openapi"
@@ -216,4 +217,42 @@ func TestUpdateInstanceStatusCopiesMACAddress(t *testing.T) {
 	require.Equal(t, server.Status.MacAddress, instanceObject.Status.MACAddress)
 	require.NotNil(t, instanceObject.Status.PowerState)
 	assert.Equal(t, "Running", string(*instanceObject.Status.PowerState))
+}
+
+// TestConvertPowerStateRoundTrip verifies every known region phase round-trips
+// from the regionapi enum (API surface) to the regionv1 enum (CR surface).
+// Unknown phases must return nil — see the comment in convertPowerState for
+// the rationale.
+func TestConvertPowerStateRoundTrip(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		in   *regionapi.InstanceLifecyclePhase
+		want *regionv1.InstanceLifecyclePhase
+	}{
+		{name: "nil input", in: nil, want: nil},
+		{name: "pending", in: ptr.To(regionapi.InstanceLifecyclePhasePending), want: ptr.To(regionv1.InstanceLifecyclePhasePending)},
+		{name: "queued", in: ptr.To(regionapi.InstanceLifecyclePhaseQueued), want: ptr.To(regionv1.InstanceLifecyclePhaseQueued)},
+		{name: "building", in: ptr.To(regionapi.InstanceLifecyclePhaseBuilding), want: ptr.To(regionv1.InstanceLifecyclePhaseBuilding)},
+		{name: "running", in: ptr.To(regionapi.InstanceLifecyclePhaseRunning), want: ptr.To(regionv1.InstanceLifecyclePhaseRunning)},
+		{name: "stopping", in: ptr.To(regionapi.InstanceLifecyclePhaseStopping), want: ptr.To(regionv1.InstanceLifecyclePhaseStopping)},
+		{name: "stopped", in: ptr.To(regionapi.InstanceLifecyclePhaseStopped), want: ptr.To(regionv1.InstanceLifecyclePhaseStopped)},
+		{name: "unknown future phase falls through to nil", in: ptr.To(regionapi.InstanceLifecyclePhase("FutureUnknown")), want: nil},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := instance.ConvertPowerState(tc.in)
+			if tc.want == nil {
+				assert.Nil(t, got)
+				return
+			}
+
+			require.NotNil(t, got)
+			assert.Equal(t, *tc.want, *got)
+		})
+	}
 }

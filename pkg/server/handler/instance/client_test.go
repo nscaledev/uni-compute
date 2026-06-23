@@ -35,6 +35,7 @@ import (
 	identityapi "github.com/unikorn-cloud/identity/pkg/openapi"
 	identitymock "github.com/unikorn-cloud/identity/pkg/openapi/mock"
 	"github.com/unikorn-cloud/identity/pkg/rbac"
+	regionv1 "github.com/unikorn-cloud/region/pkg/apis/unikorn/v1alpha1"
 	regionconstants "github.com/unikorn-cloud/region/pkg/constants"
 	regionids "github.com/unikorn-cloud/region/pkg/ids"
 	regionapi "github.com/unikorn-cloud/region/pkg/openapi"
@@ -374,4 +375,44 @@ func TestValidateSSHCertificateAuthorityScopeOrganizationMismatch(t *testing.T) 
 	}, identityids.MustParseOrganizationID(organizationID), identityids.MustParseProjectID(projectID))
 	require.Error(t, err)
 	require.True(t, coreerrors.IsUnprocessableContent(err), "expected 422, got: %v", err)
+}
+
+// TestConvertPowerStateRoundTrip verifies the handler-side projection from
+// the persisted regionv1 phase enum back into the regionapi phase enum
+// returned to API clients. Unknown values drop to nil; this is the
+// design choice documented in convertPowerState and mirrored by the
+// provisioner-side conversion.
+func TestConvertPowerStateRoundTrip(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		in   *regionv1.InstanceLifecyclePhase
+		want *regionapi.InstanceLifecyclePhase
+	}{
+		{name: "nil input", in: nil, want: nil},
+		{name: "empty string sentinel", in: ptr.To(regionv1.InstanceLifecyclePhase("")), want: nil},
+		{name: "pending", in: ptr.To(regionv1.InstanceLifecyclePhasePending), want: ptr.To(regionapi.InstanceLifecyclePhasePending)},
+		{name: "queued", in: ptr.To(regionv1.InstanceLifecyclePhaseQueued), want: ptr.To(regionapi.InstanceLifecyclePhaseQueued)},
+		{name: "building", in: ptr.To(regionv1.InstanceLifecyclePhaseBuilding), want: ptr.To(regionapi.InstanceLifecyclePhaseBuilding)},
+		{name: "running", in: ptr.To(regionv1.InstanceLifecyclePhaseRunning), want: ptr.To(regionapi.InstanceLifecyclePhaseRunning)},
+		{name: "stopping", in: ptr.To(regionv1.InstanceLifecyclePhaseStopping), want: ptr.To(regionapi.InstanceLifecyclePhaseStopping)},
+		{name: "stopped", in: ptr.To(regionv1.InstanceLifecyclePhaseStopped), want: ptr.To(regionapi.InstanceLifecyclePhaseStopped)},
+		{name: "unknown future phase falls through to nil", in: ptr.To(regionv1.InstanceLifecyclePhase("FutureUnknown")), want: nil},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := instance.ConvertPowerState(tc.in)
+			if tc.want == nil {
+				assert.Nil(t, got)
+				return
+			}
+
+			require.NotNil(t, got)
+			assert.Equal(t, *tc.want, *got)
+		})
+	}
 }

@@ -294,17 +294,26 @@ func convertPowerState(in *regionapi.InstanceLifecyclePhase) *regionv1.InstanceL
 		return nil
 	}
 
-	//nolint:exhaustive
+	// Unknown phases stay nil so future region additions surface
+	// immediately rather than being silently relabelled as Pending. The
+	// handler-side convertPowerState in pkg/server/handler/instance/client.go
+	// uses the same fall-through-to-nil convention; keep them in lockstep.
 	switch *in {
+	case regionapi.InstanceLifecyclePhasePending:
+		return ptr.To(regionv1.InstanceLifecyclePhasePending)
+	case regionapi.InstanceLifecyclePhaseQueued:
+		return ptr.To(regionv1.InstanceLifecyclePhaseQueued)
+	case regionapi.InstanceLifecyclePhaseBuilding:
+		return ptr.To(regionv1.InstanceLifecyclePhaseBuilding)
 	case regionapi.InstanceLifecyclePhaseRunning:
 		return ptr.To(regionv1.InstanceLifecyclePhaseRunning)
 	case regionapi.InstanceLifecyclePhaseStopping:
 		return ptr.To(regionv1.InstanceLifecyclePhaseStopping)
 	case regionapi.InstanceLifecyclePhaseStopped:
 		return ptr.To(regionv1.InstanceLifecyclePhaseStopped)
-	default:
-		return ptr.To(regionv1.InstanceLifecyclePhasePending)
 	}
+
+	return nil
 }
 
 func convertHealthStatusCondition(in coreapi.ResourceHealthStatus) (corev1.ConditionStatus, unikornv1core.ConditionReason, string) {
