@@ -3,6 +3,7 @@ module github.com/unikorn-cloud/compute
 go 1.25.8
 
 require (
+	github.com/Masterminds/semver/v3 v3.3.1
 	github.com/getkin/kin-openapi v0.132.0
 	github.com/go-chi/chi/v5 v5.2.4
 	github.com/google/uuid v1.6.0
@@ -24,7 +25,6 @@ require (
 )
 
 require (
-	github.com/Masterminds/semver/v3 v3.3.1 // indirect
 	github.com/apapsch/go-jsonmerge/v2 v2.0.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/brunoga/deep v1.2.4 // indirect
