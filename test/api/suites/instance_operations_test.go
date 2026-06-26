@@ -34,7 +34,11 @@ import (
 	"github.com/unikorn-cloud/compute/test/api"
 )
 
-const nonExistentInstanceID = "non-existent-instance-12345"
+// nonExistentInstanceID is a syntactically valid UUID that does not correspond
+// to any instance. Instance IDs are validated as UUIDs at the OpenAPI schema
+// layer, so a non-UUID value would be rejected with 400 before reaching the
+// handler; using a valid UUID exercises the genuine not-found (404) path.
+const nonExistentInstanceID = "00000000-0000-0000-0000-000000000000"
 
 var _ = Describe("Instance Operations", func() {
 	Context("When listing instances", func() {
@@ -340,37 +344,40 @@ var _ = Describe("Instance Operations", func() {
 				GinkgoWriter.Printf("Expected HTTP 404 error for non-existent instance: %v\n", err)
 			})
 
-			It("should return error for malformed instance ID with uppercase", func() {
-				// Invalid Kubernetes name: contains uppercase (violates spec requirement for lowercase)
+			It("should return bad request for malformed instance ID with uppercase", func() {
+				// Not a valid UUID: contains uppercase and is not hyphen-delimited hex.
 				malformedInstanceID := "INVALID-UPPERCASE"
 				consoleOutput, err := client.GetInstanceConsoleOutput(ctx, malformedInstanceID, nil)
 
-				Expect(err).To(HaveOccurred(), "Should return error for malformed instance ID (expected HTTP 400)")
+				Expect(err).To(HaveOccurred(), "Should return error for malformed instance ID")
 				Expect(consoleOutput).To(BeNil(), "Console output should be nil for malformed instance ID")
+				Expect(err).To(MatchError(ContainSubstring("400")), "Error should indicate HTTP 400 Bad Request")
 
-				GinkgoWriter.Printf("Expected error for malformed instance ID (uppercase): %v\n", err)
+				GinkgoWriter.Printf("Expected HTTP 400 error for malformed instance ID (uppercase): %v\n", err)
 			})
 
-			It("should return error for malformed instance ID starting with hyphen", func() {
-				// Invalid Kubernetes name: starts with hyphen (violates spec)
+			It("should return bad request for malformed instance ID starting with hyphen", func() {
+				// Not a valid UUID: leading hyphen.
 				malformedInstanceID := "-invalid-start"
 				consoleOutput, err := client.GetInstanceConsoleOutput(ctx, malformedInstanceID, nil)
 
-				Expect(err).To(HaveOccurred(), "Should return error for malformed instance ID (expected HTTP 400)")
+				Expect(err).To(HaveOccurred(), "Should return error for malformed instance ID")
 				Expect(consoleOutput).To(BeNil(), "Console output should be nil for malformed instance ID")
+				Expect(err).To(MatchError(ContainSubstring("400")), "Error should indicate HTTP 400 Bad Request")
 
-				GinkgoWriter.Printf("Expected error for malformed instance ID (starts with hyphen): %v\n", err)
+				GinkgoWriter.Printf("Expected HTTP 400 error for malformed instance ID (starts with hyphen): %v\n", err)
 			})
 
-			It("should return error for malformed instance ID ending with hyphen", func() {
-				// Invalid Kubernetes name: ends with hyphen (violates spec)
+			It("should return bad request for malformed instance ID ending with hyphen", func() {
+				// Not a valid UUID: trailing hyphen.
 				malformedInstanceID := "invalid-end-"
 				consoleOutput, err := client.GetInstanceConsoleOutput(ctx, malformedInstanceID, nil)
 
-				Expect(err).To(HaveOccurred(), "Should return error for malformed instance ID (expected HTTP 400)")
+				Expect(err).To(HaveOccurred(), "Should return error for malformed instance ID")
 				Expect(consoleOutput).To(BeNil(), "Console output should be nil for malformed instance ID")
+				Expect(err).To(MatchError(ContainSubstring("400")), "Error should indicate HTTP 400 Bad Request")
 
-				GinkgoWriter.Printf("Expected error for malformed instance ID (ends with hyphen): %v\n", err)
+				GinkgoWriter.Printf("Expected HTTP 400 error for malformed instance ID (ends with hyphen): %v\n", err)
 			})
 		})
 	})
