@@ -26,8 +26,19 @@ key retrieval, or snapshotting are requested.
   impersonated access rather than trusting a caller-supplied ownership claim.
 - Flavor and image must both be visible in the chosen region and must be
   mutually compatible for architecture, disk size, and virtualization mode.
-- SSH CA references must stay inside the same organization and project as the
-  instance.
+- Referenced resources must stay inside the instance's scope, rejected at the API
+  edge with HTTP 422 on both create and update. Fetching a reference from region
+  only proves the caller MAY see it — a caller authorized across several tenancies
+  could otherwise attach a resource from another tenancy — so an explicit scope
+  check is applied on top:
+  - a referenced security group must belong to the same **network** as the
+    instance (`status.networkId`). A network belongs to exactly one identity (one
+    underlying OpenStack project), which belongs to one organization and project,
+    so same-network is the natural granularity that closes the cross-tenancy hole
+    and matches what OpenStack permits. Region enforces the identical rule against
+    the same field, so it is uniform across both services.
+  - a referenced SSH CA (which is not network-scoped) must share the instance's
+    organization and project.
 - User data is validated more strictly when an SSH CA is attached because
   managed user-data injection depends on recognized cloud-init formats.
 - Instance names are unique per network: the Kubernetes resource name is derived

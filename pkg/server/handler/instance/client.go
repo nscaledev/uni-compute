@@ -345,7 +345,7 @@ func (c *Client) validateCreateRequest(ctx context.Context, request *computeapi.
 		return nil, err
 	}
 
-	if err := c.validateSecurityGroups(ctx, request.Spec.Networking); err != nil {
+	if err := c.validateSecurityGroups(principal.NewImpersonateContext(ctx), request.Spec.NetworkId, request.Spec.Networking); err != nil {
 		return nil, err
 	}
 
@@ -360,8 +360,8 @@ func (c *Client) validateCreateRequest(ctx context.Context, request *computeapi.
 	return flavor, nil
 }
 
-func (c *Client) validateUpdateRequest(ctx context.Context, request *computeapi.InstanceUpdate, organizationID identityids.OrganizationID, projectID identityids.ProjectID) error {
-	if err := c.validateSecurityGroups(ctx, request.Spec.Networking); err != nil {
+func (c *Client) validateUpdateRequest(ctx context.Context, request *computeapi.InstanceUpdate, organizationID identityids.OrganizationID, projectID identityids.ProjectID, networkID regionids.NetworkID) error {
+	if err := c.validateSecurityGroups(principal.NewImpersonateContext(ctx), networkID, request.Spec.Networking); err != nil {
 		return err
 	}
 
@@ -546,7 +546,7 @@ func (c *Client) getImage(ctx context.Context, organizationID identityids.Organi
 	return &resources[index], nil
 }
 
-func (c *Client) validateSecurityGroups(ctx context.Context, networking *computeapi.InstanceNetworking) error {
+func (c *Client) validateSecurityGroups(ctx context.Context, networkID regionids.NetworkID, networking *computeapi.InstanceNetworking) error {
 	if networking == nil || networking.SecurityGroups == nil {
 		return nil
 	}
@@ -559,9 +559,31 @@ func (c *Client) validateSecurityGroups(ctx context.Context, networking *compute
 			return err
 		}
 
-		if _, err := region.GetSecurityGroup(ctx, c.region, securityGroupID); err != nil {
+		securityGroup, err := region.GetSecurityGroup(ctx, c.region, securityGroupID)
+		if err != nil {
 			return err
 		}
+
+		if err := validateSecurityGroupNetwork(securityGroup, networkID); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// validateSecurityGroupNetwork denies a security group reference that belongs to a
+// different network. A security group fetched from the region service only proves the
+// caller MAY see it, which a caller authorized across several tenancies satisfies even
+// for a security group in another network. A network belongs to exactly one identity
+// (one underlying OpenStack project), which belongs to one organization and project,
+// so requiring the security group to share the instance's network closes the
+// cross-tenancy hole at its natural granularity and matches what OpenStack permits. The
+// owning network is the read model's status.networkId, the same field region enforces
+// against, so the identical rule applies across both services.
+func validateSecurityGroupNetwork(resource *regionapi.SecurityGroupV2Read, networkID regionids.NetworkID) error {
+	if resource.Status.NetworkId != networkID.String() {
+		return errors.HTTPUnprocessableContent("a referenced security group must belong to the same network as the instance")
 	}
 
 	return nil
@@ -868,7 +890,7 @@ func (c *Client) Update(ctx context.Context, instanceID computeids.InstanceID, r
 		return nil, err
 	}
 
-	if err := c.validateUpdateRequest(ctx, request, organizationID, projectID); err != nil {
+	if err := c.validateUpdateRequest(ctx, request, organizationID, projectID, networkID); err != nil {
 		return nil, err
 	}
 

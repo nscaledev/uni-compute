@@ -377,6 +377,31 @@ func TestValidateSSHCertificateAuthorityScopeOrganizationMismatch(t *testing.T) 
 	require.True(t, coreerrors.IsUnprocessableContent(err), "expected 422, got: %v", err)
 }
 
+func TestValidateSecurityGroupNetwork(t *testing.T) {
+	t.Parallel()
+
+	networkID := regionids.MustParseNetworkID("a1b2c3d4-e5f6-4789-8abc-def012345678")
+
+	err := instance.ValidateSecurityGroupNetwork(&regionapi.SecurityGroupV2Read{
+		Status: regionapi.SecurityGroupV2Status{
+			NetworkId: networkID.String(),
+		},
+	}, networkID)
+	require.NoError(t, err)
+}
+
+func TestValidateSecurityGroupNetworkMismatch(t *testing.T) {
+	t.Parallel()
+
+	err := instance.ValidateSecurityGroupNetwork(&regionapi.SecurityGroupV2Read{
+		Status: regionapi.SecurityGroupV2Status{
+			NetworkId: "11111111-1111-4111-a111-111111111111",
+		},
+	}, regionids.MustParseNetworkID("a1b2c3d4-e5f6-4789-8abc-def012345678"))
+	require.Error(t, err)
+	require.True(t, coreerrors.IsUnprocessableContent(err), "expected 422, got: %v", err)
+}
+
 // TestConvertPowerStateRoundTrip verifies the handler-side projection from
 // the persisted regionv1 phase enum back into the regionapi phase enum
 // returned to API clients. Unknown values drop to nil; this is the
