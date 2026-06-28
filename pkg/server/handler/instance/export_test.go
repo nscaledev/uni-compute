@@ -22,6 +22,7 @@ import (
 	identityids "github.com/unikorn-cloud/identity/pkg/ids"
 	identityapi "github.com/unikorn-cloud/identity/pkg/openapi"
 	regionv1 "github.com/unikorn-cloud/region/pkg/apis/unikorn/v1alpha1"
+	regionids "github.com/unikorn-cloud/region/pkg/ids"
 	regionapi "github.com/unikorn-cloud/region/pkg/openapi"
 )
 
@@ -35,6 +36,10 @@ func ValidateUserDataForSSHCertificateAuthority(sshCertificateAuthorityID *regio
 
 func ValidateSSHCertificateAuthorityScope(resource *regionapi.SshCertificateAuthorityV2Response, organizationID identityids.OrganizationID, projectID identityids.ProjectID) error {
 	return validateSSHCertificateAuthorityScope(resource, organizationID, projectID)
+}
+
+func ValidateSecurityGroupNetwork(resource *regionapi.SecurityGroupV2Read, networkID regionids.NetworkID) error {
+	return validateSecurityGroupNetwork(resource, networkID)
 }
 
 func Convert(resource *computev1.ComputeInstance) (*computeapi.InstanceRead, error) {
