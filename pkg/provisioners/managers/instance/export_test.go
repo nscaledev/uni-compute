@@ -38,8 +38,8 @@ func (p *Provisioner) GenerateServerUpdateRequest() (*regionapi.ServerV2Update, 
 	return p.generateServerUpdateRequest()
 }
 
-func NeedsRebuild(current *regionapi.ServerV2Read, desired *regionapi.ServerV2Update) bool {
-	return needsRebuild(current, desired)
+func NeedsRecreate(current *regionapi.ServerV2Read, desired *regionapi.ServerV2Update, desiredSSHCertificateAuthorityID *string) bool {
+	return needsRecreate(current, desired, desiredSSHCertificateAuthorityID)
 }
 
 func (p *Provisioner) CreateOrUpdateServer(ctx context.Context, region regionapi.ClientWithResponsesInterface, server *regionapi.ServerV2Read) (*regionapi.ServerV2Read, error) {

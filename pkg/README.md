@@ -141,8 +141,10 @@ CRUD handlers would hide the important coordination edges.
 ## Caveats
 
 - The instance-to-server link is currently implicit and tag-based.
-- Some instance updates are effectively destructive rebuilds because the
-  controller may delete and recreate the backing server for flavor/image change.
+- Some instance updates cross the backing-server boundary: flavor drift
+  deletes and recreates the backing server, image-only drift updates the existing
+  server so region performs an in-place Nova rebuild, and userData drift is an
+  in-place spec update not acted on against the running server.
 - The monitor binary exists, but `pkg/monitor` does not yet register active
   checkers, so compute does not currently have a meaningful region-style polling
   architecture.
