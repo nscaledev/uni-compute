@@ -54,7 +54,7 @@ import (
 	regionconstants "github.com/unikorn-cloud/region/pkg/constants"
 	regionids "github.com/unikorn-cloud/region/pkg/ids"
 	regionapi "github.com/unikorn-cloud/region/pkg/openapi"
-	servermanager "github.com/unikorn-cloud/region/pkg/provisioners/managers/server"
+	regionuserdata "github.com/unikorn-cloud/region/pkg/userdata"
 
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
@@ -302,16 +302,16 @@ func GenerateUserData(in *[]byte) []byte {
 	return *in
 }
 
-func validateUserDataForSSHCertificateAuthority(sshCertificateAuthorityID *regionapi.SshCertificateAuthorityId, userData *[]byte) error {
-	if sshCertificateAuthorityID == nil || userData == nil || len(*userData) == 0 {
+// validateUserDataForManagedAugmentation guards only the SSH certificate
+// authority coupling on update: a CA-bearing instance must carry user-data that
+// managed augmentation can merge into. Without a CA the user-data is passed
+// through unvalidated, preserving updatability of pre-existing instances.
+func validateUserDataForManagedAugmentation(sshCertificateAuthorityID *regionapi.SshCertificateAuthorityId, userData *[]byte) error {
+	if sshCertificateAuthorityID == nil {
 		return nil
 	}
 
-	if err := servermanager.ValidateManagedUserData(*userData); err == nil {
-		return nil
-	}
-
-	return errors.HTTPUnprocessableContent("userData must be a recognized cloud-init format when sshCertificateAuthorityId is specified")
+	return regionuserdata.Validate(userData, true)
 }
 
 func (c *Client) validateSSHCertificateAuthorityReference(ctx context.Context, organizationID identityids.OrganizationID, projectID identityids.ProjectID, sshCertificateAuthorityID *regionapi.SshCertificateAuthorityId) error {
@@ -349,7 +349,12 @@ func (c *Client) validateCreateRequest(ctx context.Context, request *computeapi.
 		return nil, err
 	}
 
-	if err := validateUserDataForSSHCertificateAuthority(request.Spec.SshCertificateAuthorityId, request.Spec.UserData); err != nil {
+	// Reject user-data that is not recognizable cloud-init, so a malformed
+	// payload surfaces as a 422 at the instance boundary rather than failing
+	// region-side during managed cloud-init augmentation or silently inside the
+	// guest at boot. The shared helper owns the 422 construction so the
+	// behaviour is identical to the region servers API by construction.
+	if err := regionuserdata.Validate(request.Spec.UserData, request.Spec.SshCertificateAuthorityId != nil); err != nil {
 		return nil, err
 	}
 
@@ -365,7 +370,7 @@ func (c *Client) validateUpdateRequest(ctx context.Context, request *computeapi.
 		return err
 	}
 
-	if err := validateUserDataForSSHCertificateAuthority(request.Spec.SshCertificateAuthorityId, request.Spec.UserData); err != nil {
+	if err := validateUserDataForManagedAugmentation(request.Spec.SshCertificateAuthorityId, request.Spec.UserData); err != nil {
 		return err
 	}
 

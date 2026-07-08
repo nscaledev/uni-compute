@@ -30,8 +30,8 @@ func (c *Client) GenerateAllocation(flavor *regionapi.Flavor, publicIP bool) ide
 	return c.generateAllocation(flavor, publicIP)
 }
 
-func ValidateUserDataForSSHCertificateAuthority(sshCertificateAuthorityID *regionapi.SshCertificateAuthorityId, userData *[]byte) error {
-	return validateUserDataForSSHCertificateAuthority(sshCertificateAuthorityID, userData)
+func ValidateUserDataForManagedAugmentation(sshCertificateAuthorityID *regionapi.SshCertificateAuthorityId, userData *[]byte) error {
+	return validateUserDataForManagedAugmentation(sshCertificateAuthorityID, userData)
 }
 
 func ValidateSSHCertificateAuthorityScope(resource *regionapi.SshCertificateAuthorityV2Response, organizationID identityids.OrganizationID, projectID identityids.ProjectID) error {
