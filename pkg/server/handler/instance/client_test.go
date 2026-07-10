@@ -273,11 +273,8 @@ func TestGetImageUsesReadyAvailableRegionImages(t *testing.T) {
 	require.NoError(t, err)
 
 	regionClient, err := regionapi.NewClientWithResponses("http://region.example", regionapi.WithHTTPClient(regionRoundTripFunc(func(r *http.Request) (*http.Response, error) {
-		require.Equal(t, "/api/v2/regions/"+regionID+"/images", r.URL.Path)
-		assert.Equal(t, []string{organizationID}, r.URL.Query()["organizationID"])
-		assert.Equal(t, []string{"available"}, r.URL.Query()["scope"])
-		assert.Equal(t, []string{"ready"}, r.URL.Query()["status"])
-		assert.Len(t, r.URL.Query(), 3)
+		require.Equal(t, "/api/v1/organizations/"+organizationID+"/regions/"+regionID+"/images", r.URL.Path)
+		assert.Empty(t, r.URL.RawQuery)
 
 		return &http.Response{
 			StatusCode: http.StatusOK,

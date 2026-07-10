@@ -281,15 +281,14 @@ var _ = Describe("Region Service Contract", func() {
 					},
 				}).
 				UponReceiving("a request for ready images available to an organization").
-				WithRequest("GET", fmt.Sprintf("/api/v2/regions/%s/images", regionID), func(b *consumer.V4RequestBuilder) {
-					b.Query("organizationID", matchers.String(organizationID))
-					b.Query("scope", matchers.String("available"))
-					b.Query("status", matchers.String("ready"))
-				}).
+				WithRequest("GET", fmt.Sprintf("/api/v1/organizations/%s/regions/%s/images", organizationID, regionID)).
 				WillRespondWith(200, func(b *consumer.V4ResponseBuilder) {
 					b.JSONBody(matchers.EachLike(map[string]interface{}{
 						"metadata": map[string]interface{}{
 							"id": matchers.UUID(),
+						},
+						"status": map[string]interface{}{
+							"state": matchers.String("ready"),
 						},
 					}, 1))
 				})

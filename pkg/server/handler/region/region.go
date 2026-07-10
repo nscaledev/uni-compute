@@ -83,8 +83,7 @@ func (c *Client) Flavors(ctx context.Context, organizationID identityids.Organiz
 	return filtered, nil
 }
 
-// Images returns the curated image catalog exposed by the Compute API.
-func (c *Client) Images(ctx context.Context, organizationID identityids.OrganizationID, regionID regionids.RegionID) ([]regionapi.Image, error) {
+func (c *Client) listImages(ctx context.Context, organizationID identityids.OrganizationID, regionID regionids.RegionID) ([]regionapi.Image, error) {
 	resp, err := c.client.GetApiV1OrganizationsOrganizationIDRegionsRegionIDImagesWithResponse(ctx, organizationID, regionID)
 	if err != nil {
 		return nil, err
@@ -94,7 +93,15 @@ func (c *Client) Images(ctx context.Context, organizationID identityids.Organiza
 		return nil, errors.PropagateError(resp.HTTPResponse, resp)
 	}
 
-	images := *resp.JSON200
+	return *resp.JSON200, nil
+}
+
+// Images returns the curated image catalog exposed by the Compute API.
+func (c *Client) Images(ctx context.Context, organizationID identityids.OrganizationID, regionID regionids.RegionID) ([]regionapi.Image, error) {
+	images, err := c.listImages(ctx, organizationID, regionID)
+	if err != nil {
+		return nil, err
+	}
 
 	filtered := slices.DeleteFunc(images, func(image regionapi.Image) bool {
 		return image.Spec.SoftwareVersions != nil && len(*image.Spec.SoftwareVersions) > 0
@@ -106,25 +113,16 @@ func (c *Client) Images(ctx context.Context, organizationID identityids.Organiza
 // AvailableImages returns every ready image Region reports as available to the organization.
 // Unlike Images, it does not apply a software-version filter.
 func (c *Client) AvailableImages(ctx context.Context, organizationID identityids.OrganizationID, regionID regionids.RegionID) ([]regionapi.Image, error) {
-	organizationIDs := regionapi.OrganizationIDQueryParameter{organizationID.String()}
-	scope := regionapi.GetApiV2RegionsRegionIDImagesParamsScopeAvailable
-	statuses := regionapi.ImageStatusQueryParameter{regionapi.ImageStateReady}
-	params := &regionapi.GetApiV2RegionsRegionIDImagesParams{
-		OrganizationID: &organizationIDs,
-		Scope:          &scope,
-		Status:         &statuses,
-	}
-
-	resp, err := c.client.GetApiV2RegionsRegionIDImagesWithResponse(ctx, regionID, params)
+	images, err := c.listImages(ctx, organizationID, regionID)
 	if err != nil {
 		return nil, err
 	}
 
-	if resp.StatusCode() != http.StatusOK {
-		return nil, errors.PropagateError(resp.HTTPResponse, resp)
-	}
+	filtered := slices.DeleteFunc(images, func(image regionapi.Image) bool {
+		return image.Status.State != regionapi.ImageStateReady
+	})
 
-	return *resp.JSON200, nil
+	return filtered, nil
 }
 
 func GetNetwork(ctx context.Context, client regionapi.ClientWithResponsesInterface, networkID regionids.NetworkID) (*regionapi.NetworkV2Read, error) {
