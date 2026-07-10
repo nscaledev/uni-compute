@@ -17,6 +17,8 @@ limitations under the License.
 package instance
 
 import (
+	"context"
+
 	computev1 "github.com/unikorn-cloud/compute/pkg/apis/unikorn/v1alpha1"
 	computeapi "github.com/unikorn-cloud/compute/pkg/openapi"
 	identityids "github.com/unikorn-cloud/identity/pkg/ids"
@@ -44,6 +46,10 @@ func ValidateSecurityGroupNetwork(resource *regionapi.SecurityGroupV2Read, netwo
 
 func ValidateFlavorAndImage(flavor *regionapi.Flavor, image *regionapi.Image) error {
 	return validateFlavorAndImage(flavor, image)
+}
+
+func (c *Client) GetImage(ctx context.Context, organizationID identityids.OrganizationID, regionID regionids.RegionID, imageID regionids.ImageID) (*regionapi.Image, error) {
+	return c.getImage(ctx, organizationID, regionID, imageID)
 }
 
 func Convert(resource *computev1.ComputeInstance) (*computeapi.InstanceRead, error) {

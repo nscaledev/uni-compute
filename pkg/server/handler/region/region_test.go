@@ -72,7 +72,7 @@ func TestFlavorsFiltersPinnedOnly(t *testing.T) {
 	assert.Equal(t, "explicitly-unpinned", filtered[1].Metadata.Id)
 }
 
-func TestImagesKeepsCatalogFilteredAndAvailableImagesUnfiltered(t *testing.T) {
+func TestImagesKeepsCatalogFilteredAndAvailableImagesSoftwareVersioned(t *testing.T) {
 	t.Parallel()
 
 	const (
@@ -98,7 +98,7 @@ func TestImagesKeepsCatalogFilteredAndAvailableImagesUnfiltered(t *testing.T) {
 		case "/api/v2/regions/" + regionID + "/images":
 			assert.Equal(t, []string{organizationID}, r.URL.Query()["organizationID"])
 			assert.Equal(t, []string{"available"}, r.URL.Query()["scope"])
-			assert.NotContains(t, r.URL.Query(), "status")
+			assert.Equal(t, []string{"ready"}, r.URL.Query()["status"])
 		default:
 			t.Fatalf("unexpected request path %q", r.URL.Path)
 		}

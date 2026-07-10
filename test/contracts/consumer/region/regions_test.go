@@ -34,6 +34,7 @@ import (
 	regionclient "github.com/unikorn-cloud/compute/pkg/server/handler/region"
 	contract "github.com/unikorn-cloud/core/pkg/testing/contract"
 	identityids "github.com/unikorn-cloud/identity/pkg/ids"
+	regionids "github.com/unikorn-cloud/region/pkg/ids"
 	regionapi "github.com/unikorn-cloud/region/pkg/openapi"
 )
 
@@ -261,6 +262,61 @@ var _ = Describe("Region Service Contract", func() {
 
 				Expect(pact.ExecuteTest(testingT, test)).To(Succeed())
 			})
+		})
+	})
+
+	Describe("GetAvailableImages", func() {
+		It("requests ready images available to the organization", func() {
+			const (
+				organizationID = "d4600d6e-e965-4b44-a808-84fb2fa36702"
+				regionID       = "a73e9c26-af56-4562-8352-9512e0586f3b"
+			)
+
+			pact.AddInteraction().
+				GivenWithParameter(models.ProviderState{
+					Name: "region has images",
+					Parameters: map[string]interface{}{
+						"regionID":   regionID,
+						"regionType": "openstack",
+					},
+				}).
+				UponReceiving("a request for ready images available to an organization").
+				WithRequest("GET", fmt.Sprintf("/api/v2/regions/%s/images", regionID), func(b *consumer.V4RequestBuilder) {
+					b.Query("organizationID", matchers.String(organizationID))
+					b.Query("scope", matchers.String("available"))
+					b.Query("status", matchers.String("ready"))
+				}).
+				WillRespondWith(200, func(b *consumer.V4ResponseBuilder) {
+					b.JSONBody(matchers.EachLike(map[string]interface{}{
+						"metadata": map[string]interface{}{
+							"id": matchers.UUID(),
+						},
+					}, 1))
+				})
+
+			test := func(config consumer.MockServerConfig) error {
+				regionClient, err := createRegionClient(config)
+				if err != nil {
+					return fmt.Errorf("creating region client: %w", err)
+				}
+
+				client := regionclient.New(regionClient)
+				images, err := client.AvailableImages(
+					ctx,
+					identityids.MustParseOrganizationID(organizationID),
+					regionids.MustParseRegionID(regionID),
+				)
+				if err != nil {
+					return fmt.Errorf("listing available images: %w", err)
+				}
+
+				Expect(images).To(HaveLen(1))
+				Expect(images[0].Metadata.Id).To(Equal("fc763eba-0905-41c5-a27f-3934ab26786c"))
+
+				return nil
+			}
+
+			Expect(pact.ExecuteTest(testingT, test)).To(Succeed())
 		})
 	})
 })

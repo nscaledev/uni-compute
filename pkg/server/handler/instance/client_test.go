@@ -17,6 +17,9 @@ limitations under the License.
 package instance_test
 
 import (
+	"bytes"
+	"encoding/json"
+	"io"
 	"net/http"
 	"testing"
 
@@ -241,7 +244,71 @@ func TestValidateVirtualization(t *testing.T) {
 	}
 }
 
-func TestValidateFlavorAndSoftwareVersionedImage(t *testing.T) {
+func TestGetImageUsesReadyAvailableRegionImages(t *testing.T) {
+	t.Parallel()
+
+	const (
+		regionID = "a73e9c26-af56-4562-8352-9512e0586f3b"
+		imageID  = "c29b7e35-3181-4ba4-b3de-98afbb2ef6ac"
+	)
+
+	softwareVersions := regionapi.SoftwareVersions{
+		"kubernetes": "v1.33.0",
+	}
+	images := []regionapi.Image{
+		{
+			Metadata: coreapi.StaticResourceMetadata{
+				Id: imageID,
+			},
+			Spec: regionapi.ImageSpec{
+				SoftwareVersions: &softwareVersions,
+			},
+			Status: regionapi.ImageStatus{
+				State: regionapi.ImageStateReady,
+			},
+		},
+	}
+
+	body, err := json.Marshal(images)
+	require.NoError(t, err)
+
+	regionClient, err := regionapi.NewClientWithResponses("http://region.example", regionapi.WithHTTPClient(regionRoundTripFunc(func(r *http.Request) (*http.Response, error) {
+		require.Equal(t, "/api/v2/regions/"+regionID+"/images", r.URL.Path)
+		assert.Equal(t, []string{organizationID}, r.URL.Query()["organizationID"])
+		assert.Equal(t, []string{"available"}, r.URL.Query()["scope"])
+		assert.Equal(t, []string{"ready"}, r.URL.Query()["status"])
+		assert.Len(t, r.URL.Query(), 3)
+
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(bytes.NewReader(body)),
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Request:    r,
+		}, nil
+	})))
+	require.NoError(t, err)
+
+	client := instance.NewClient(nil, "", nil, regionClient)
+	image, err := client.GetImage(
+		t.Context(),
+		identityids.MustParseOrganizationID(organizationID),
+		regionids.MustParseRegionID(regionID),
+		regionids.MustParseImageID(imageID),
+	)
+	require.NoError(t, err)
+	require.NotNil(t, image)
+	assert.Equal(t, imageID, image.Metadata.Id)
+	assert.Equal(t, softwareVersions, *image.Spec.SoftwareVersions)
+	assert.Equal(t, regionapi.ImageStateReady, image.Status.State)
+}
+
+type regionRoundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f regionRoundTripFunc) Do(req *http.Request) (*http.Response, error) {
+	return f(req)
+}
+
+func TestValidateFlavorAndImageReadinessAndCompatibility(t *testing.T) {
 	t.Parallel()
 
 	softwareVersions := regionapi.SoftwareVersions{

@@ -103,14 +103,16 @@ func (c *Client) Images(ctx context.Context, organizationID identityids.Organiza
 	return filtered, nil
 }
 
-// AvailableImages returns every image Region reports as available to the organization.
-// Unlike Images, it does not apply readiness or software-version filters.
+// AvailableImages returns every ready image Region reports as available to the organization.
+// Unlike Images, it does not apply a software-version filter.
 func (c *Client) AvailableImages(ctx context.Context, organizationID identityids.OrganizationID, regionID regionids.RegionID) ([]regionapi.Image, error) {
 	organizationIDs := regionapi.OrganizationIDQueryParameter{organizationID.String()}
 	scope := regionapi.GetApiV2RegionsRegionIDImagesParamsScopeAvailable
+	statuses := regionapi.ImageStatusQueryParameter{regionapi.ImageStateReady}
 	params := &regionapi.GetApiV2RegionsRegionIDImagesParams{
 		OrganizationID: &organizationIDs,
 		Scope:          &scope,
+		Status:         &statuses,
 	}
 
 	resp, err := c.client.GetApiV2RegionsRegionIDImagesWithResponse(ctx, regionID, params)
