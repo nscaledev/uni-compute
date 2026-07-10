@@ -31,4 +31,5 @@ type ClientInterface interface {
 	List(ctx context.Context, organizationID identityids.OrganizationID) ([]regionapi.RegionRead, error)
 	Flavors(ctx context.Context, organizationID identityids.OrganizationID, regionID regionids.RegionID) ([]regionapi.Flavor, error)
 	Images(ctx context.Context, organizationID identityids.OrganizationID, regionID regionids.RegionID) ([]regionapi.Image, error)
+	AvailableImages(ctx context.Context, organizationID identityids.OrganizationID, regionID regionids.RegionID) ([]regionapi.Image, error)
 }

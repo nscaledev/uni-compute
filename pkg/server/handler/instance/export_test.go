@@ -42,6 +42,10 @@ func ValidateSecurityGroupNetwork(resource *regionapi.SecurityGroupV2Read, netwo
 	return validateSecurityGroupNetwork(resource, networkID)
 }
 
+func ValidateFlavorAndImage(flavor *regionapi.Flavor, image *regionapi.Image) error {
+	return validateFlavorAndImage(flavor, image)
+}
+
 func Convert(resource *computev1.ComputeInstance) (*computeapi.InstanceRead, error) {
 	return convert(resource)
 }

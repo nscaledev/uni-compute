@@ -83,7 +83,7 @@ func (c *Client) Flavors(ctx context.Context, organizationID identityids.Organiz
 	return filtered, nil
 }
 
-// Images returns all compute compatible images.
+// Images returns the curated image catalog exposed by the Compute API.
 func (c *Client) Images(ctx context.Context, organizationID identityids.OrganizationID, regionID regionids.RegionID) ([]regionapi.Image, error) {
 	resp, err := c.client.GetApiV1OrganizationsOrganizationIDRegionsRegionIDImagesWithResponse(ctx, organizationID, regionID)
 	if err != nil {
@@ -101,6 +101,28 @@ func (c *Client) Images(ctx context.Context, organizationID identityids.Organiza
 	})
 
 	return filtered, nil
+}
+
+// AvailableImages returns every image Region reports as available to the organization.
+// Unlike Images, it does not apply readiness or software-version filters.
+func (c *Client) AvailableImages(ctx context.Context, organizationID identityids.OrganizationID, regionID regionids.RegionID) ([]regionapi.Image, error) {
+	organizationIDs := regionapi.OrganizationIDQueryParameter{organizationID.String()}
+	scope := regionapi.GetApiV2RegionsRegionIDImagesParamsScopeAvailable
+	params := &regionapi.GetApiV2RegionsRegionIDImagesParams{
+		OrganizationID: &organizationIDs,
+		Scope:          &scope,
+	}
+
+	resp, err := c.client.GetApiV2RegionsRegionIDImagesWithResponse(ctx, regionID, params)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode() != http.StatusOK {
+		return nil, errors.PropagateError(resp.HTTPResponse, resp)
+	}
+
+	return *resp.JSON200, nil
 }
 
 func GetNetwork(ctx context.Context, client regionapi.ClientWithResponsesInterface, networkID regionids.NetworkID) (*regionapi.NetworkV2Read, error) {

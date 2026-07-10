@@ -29,6 +29,7 @@ import (
 
 	coreapi "github.com/unikorn-cloud/core/pkg/openapi"
 	coreclient "github.com/unikorn-cloud/core/pkg/testing/client"
+	regionopenapi "github.com/unikorn-cloud/region/pkg/openapi"
 
 	"github.com/unikorn-cloud/compute/pkg/openapi"
 	"github.com/unikorn-cloud/compute/test/api"
@@ -171,7 +172,9 @@ var _ = Describe("Instance Operations", func() {
 				Expect(err).NotTo(HaveOccurred(), "Failed to create region client")
 
 				image, err := regionClient.CreateImage(ctx, config.OrgID, config.RegionID,
-					api.NewImagePayload().Build())
+					api.NewImagePayload().WithSoftwareVersions(map[string]string{
+						"kubernetes": "v1.33.0",
+					}).Build())
 				Expect(err).NotTo(HaveOccurred(), "Failed to create custom image")
 				Expect(image.Metadata.Id).NotTo(BeEmpty())
 
@@ -185,9 +188,15 @@ var _ = Describe("Instance Operations", func() {
 				})
 
 				api.WaitForImageReady(regionClient, ctx, config, customImageID)
+
+				images, err := client.ListImages(ctx, config.OrgID, config.RegionID)
+				Expect(err).NotTo(HaveOccurred(), "Failed to list Compute catalog images")
+				Expect(images).NotTo(ContainElement(WithTransform(func(image regionopenapi.Image) string {
+					return image.Metadata.Id
+				}, Equal(customImageID))), "software-versioned image must remain absent from the Compute catalog")
 			})
 
-			It("should launch an instance successfully", func() {
+			It("should launch and update an instance successfully", func() {
 				_, instanceID := api.CreateInstanceWithCleanup(client, ctx, config,
 					api.NewInstancePayload().WithImageID(customImageID).Build())
 
@@ -195,6 +204,20 @@ var _ = Describe("Instance Operations", func() {
 
 				api.WaitForInstanceNetworkIdentity(client, ctx, config, instanceID)
 				api.WaitForInstanceActive(client, ctx, config, instanceID)
+
+				instance, err := client.GetInstance(ctx, instanceID)
+				Expect(err).NotTo(HaveOccurred())
+
+				updatedDescription := "updated without changing the region-only image"
+				updated, err := client.UpdateInstance(ctx, instanceID, openapi.InstanceUpdate{
+					Metadata: coreapi.ResourceWriteMetadata{
+						Name:        instance.Metadata.Name,
+						Description: &updatedDescription,
+					},
+					Spec: instance.Spec,
+				})
+				Expect(err).NotTo(HaveOccurred(), "Failed to update instance with unchanged region-only image")
+				Expect(updated.Spec.ImageId.String()).To(Equal(customImageID))
 			})
 		})
 

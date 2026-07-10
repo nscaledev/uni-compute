@@ -241,6 +241,90 @@ func TestValidateVirtualization(t *testing.T) {
 	}
 }
 
+func TestValidateFlavorAndSoftwareVersionedImage(t *testing.T) {
+	t.Parallel()
+
+	softwareVersions := regionapi.SoftwareVersions{
+		"kubernetes": "v1.33.0",
+	}
+	compatibleFlavor := regionapi.Flavor{
+		Spec: regionapi.FlavorSpec{
+			Architecture: regionapi.ArchitectureX8664,
+			Disk:         20,
+		},
+	}
+	compatibleImage := regionapi.Image{
+		Spec: regionapi.ImageSpec{
+			Architecture:     regionapi.ArchitectureX8664,
+			SizeGiB:          10,
+			SoftwareVersions: &softwareVersions,
+			Virtualization:   regionapi.ImageVirtualizationVirtualized,
+		},
+		Status: regionapi.ImageStatus{
+			State: regionapi.ImageStateReady,
+		},
+	}
+
+	tests := []struct {
+		name        string
+		mutate      func(*regionapi.Flavor, *regionapi.Image)
+		expectError bool
+	}{
+		{
+			name: "compatible",
+		},
+		{
+			name: "not ready",
+			mutate: func(_ *regionapi.Flavor, image *regionapi.Image) {
+				image.Status.State = regionapi.ImageStateCreating
+			},
+			expectError: true,
+		},
+		{
+			name: "architecture mismatch",
+			mutate: func(_ *regionapi.Flavor, image *regionapi.Image) {
+				image.Spec.Architecture = regionapi.ArchitectureAarch64
+			},
+			expectError: true,
+		},
+		{
+			name: "disk too small",
+			mutate: func(flavor *regionapi.Flavor, _ *regionapi.Image) {
+				flavor.Spec.Disk = 9
+			},
+			expectError: true,
+		},
+		{
+			name: "virtualization mismatch",
+			mutate: func(_ *regionapi.Flavor, image *regionapi.Image) {
+				image.Spec.Virtualization = regionapi.ImageVirtualizationBaremetal
+			},
+			expectError: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			flavor := compatibleFlavor
+			image := compatibleImage
+
+			if tc.mutate != nil {
+				tc.mutate(&flavor, &image)
+			}
+
+			err := instance.ValidateFlavorAndImage(&flavor, &image)
+			if tc.expectError {
+				require.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+		})
+	}
+}
+
 // TestInstanceCreateRBACNoPermissions verifies that Create returns a forbidden
 // error when the caller has no relevant permissions.
 func TestInstanceCreateRBACNoPermissions(t *testing.T) {
