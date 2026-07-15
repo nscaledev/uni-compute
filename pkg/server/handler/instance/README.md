@@ -39,8 +39,17 @@ key retrieval, or snapshotting are requested.
     the same field, so it is uniform across both services.
   - a referenced SSH CA (which is not network-scoped) must share the instance's
     organization and project.
-- User data is validated more strictly when an SSH CA is attached because
-  managed user-data injection depends on recognized cloud-init formats.
+- User data is validated on create against the region server provisioner's
+  cloud-init parser, so malformed payloads are rejected with HTTP 422 at the
+  boundary instead of failing region-side during managed cloud-init augmentation
+  or silently inside the guest at boot. With an SSH CA attached the payload must
+  additionally support managed augmentation (which excludes gzip); without one,
+  gzip payloads are accepted and passed through unmodified. Updates only
+  re-check the SSH CA coupling (against the CA in the update request; the
+  region API goes further and re-validates nothing on update, treating the CA
+  as immutable). User-data is not otherwise re-validated on update because it
+  is only consumed at initial bootstrap, and re-validating would block updates
+  of pre-existing instances whose user-data predates create-time validation.
 - Instance names are unique per network: the Kubernetes resource name is derived
   deterministically from `(networkID, instanceName)` via UUID v5, so a duplicate
   create collides at the Kubernetes layer and is rejected with HTTP 409 without a

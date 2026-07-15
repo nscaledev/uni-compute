@@ -39,6 +39,7 @@ import (
 	regionconstants "github.com/unikorn-cloud/region/pkg/constants"
 	regionids "github.com/unikorn-cloud/region/pkg/ids"
 	regionapi "github.com/unikorn-cloud/region/pkg/openapi"
+	regionuserdata "github.com/unikorn-cloud/region/pkg/userdata"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
@@ -295,10 +296,12 @@ func TestConvertReturnsMACAddress(t *testing.T) {
 	require.Equal(t, resource.Status.MACAddress, result.Status.MacAddress)
 }
 
-func TestValidateUserDataForSSHCertificateAuthority(t *testing.T) {
+// TestValidateUserData pins the shared boundary contract this service relies
+// on: the create path delegates to region's handler helper, and these cases
+// document what the instances API accepts and rejects.
+func TestValidateUserData(t *testing.T) {
 	t.Parallel()
 
-	sshCAID := regionids.MustParseSSHCertificateAuthorityID("f1e2d3c4-b5a6-4798-8a9b-0c1d2e3f4a5b")
 	validCloudConfig := []byte("#cloud-config\nusers: []\n")
 	validMultipart := []byte("Content-Type: multipart/mixed; boundary=\"BOUNDARY\"\r\nMIME-Version: 1.0\r\n\r\n--BOUNDARY\r\nContent-Type: text/x-shellscript\r\n\r\n#!/bin/sh\necho hi\r\n--BOUNDARY--\r\n")
 	validMultipartLowerCase := []byte("content-type: multipart/mixed; boundary=\"BOUNDARY\"\r\nmime-version: 1.0\r\n\r\n--BOUNDARY\r\nContent-Type: text/x-shellscript\r\n\r\n#!/bin/sh\necho hi\r\n--BOUNDARY--\r\n")
@@ -308,17 +311,79 @@ func TestValidateUserDataForSSHCertificateAuthority(t *testing.T) {
 
 	tests := []struct {
 		name      string
+		managed   bool
+		userData  *[]byte
+		wantError bool
+	}{
+		{name: "no ssh ca no user data", managed: false, userData: nil, wantError: false},
+		{name: "no ssh ca empty user data", managed: false, userData: ptr.To([]byte{}), wantError: false},
+		{name: "no ssh ca cloud config", managed: false, userData: &validCloudConfig, wantError: false},
+		{name: "no ssh ca multipart", managed: false, userData: &validMultipart, wantError: false},
+		{name: "no ssh ca script", managed: false, userData: &validScript, wantError: false},
+		// Gzip user-data is passed to the platform unmodified when no managed
+		// augmentation occurs, so it must not be rejected at the boundary.
+		{name: "no ssh ca gzip", managed: false, userData: &gzipData, wantError: false},
+		{name: "no ssh ca unrecognized", managed: false, userData: &invalid, wantError: true},
+		{name: "no user data", managed: true, userData: nil, wantError: false},
+		{name: "empty user data", managed: true, userData: ptr.To([]byte{}), wantError: false},
+		{name: "cloud config", managed: true, userData: &validCloudConfig, wantError: false},
+		{name: "multipart", managed: true, userData: &validMultipart, wantError: false},
+		{name: "multipart lowercase", managed: true, userData: &validMultipartLowerCase, wantError: false},
+		{name: "script", managed: true, userData: &validScript, wantError: false},
+		{name: "gzip", managed: true, userData: &gzipData, wantError: true},
+		{name: "unrecognized", managed: true, userData: &invalid, wantError: true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := regionuserdata.Validate(tc.userData, tc.managed)
+
+			if tc.wantError {
+				require.Error(t, err)
+				require.ErrorContains(t, err, "userData must be a recognized cloud-init format")
+
+				return
+			}
+
+			require.NoError(t, err)
+		})
+	}
+}
+
+func TestValidateUserDataSurfacesParserReason(t *testing.T) {
+	t.Parallel()
+
+	err := regionuserdata.Validate(ptr.To([]byte("plain text")), false)
+
+	require.Error(t, err)
+	require.ErrorContains(t, err, "userData must be a recognized cloud-init format: unsupported userData format")
+	// The internal consistency-error sentinel must be stripped from the caller-facing message.
+	require.NotContains(t, err.Error(), "consistency error")
+}
+
+func TestValidateUserDataForManagedAugmentation(t *testing.T) {
+	t.Parallel()
+
+	sshCAID := regionids.MustParseSSHCertificateAuthorityID("f1e2d3c4-b5a6-4798-8a9b-0c1d2e3f4a5b")
+	gzipData := []byte{0x1f, 0x8b, 0x08}
+	invalid := []byte("plain text")
+	validCloudConfig := []byte("#cloud-config\nusers: []\n")
+
+	tests := []struct {
+		name      string
 		sshCAID   *regionapi.SshCertificateAuthorityId
 		userData  *[]byte
 		wantError bool
 	}{
-		{name: "no ssh ca", sshCAID: nil, userData: &invalid, wantError: false},
+		// Updates must not re-validate user-data without a CA: it is only consumed
+		// at initial bootstrap, and re-validating would block updates of instances
+		// whose user-data predates create-time validation.
+		{name: "no ssh ca unrecognized", sshCAID: nil, userData: &invalid, wantError: false},
+		{name: "no ssh ca gzip", sshCAID: nil, userData: &gzipData, wantError: false},
 		{name: "no user data", sshCAID: &sshCAID, userData: nil, wantError: false},
-		{name: "empty user data", sshCAID: &sshCAID, userData: ptr.To([]byte{}), wantError: false},
 		{name: "cloud config", sshCAID: &sshCAID, userData: &validCloudConfig, wantError: false},
-		{name: "multipart", sshCAID: &sshCAID, userData: &validMultipart, wantError: false},
-		{name: "multipart lowercase", sshCAID: &sshCAID, userData: &validMultipartLowerCase, wantError: false},
-		{name: "script", sshCAID: &sshCAID, userData: &validScript, wantError: false},
 		{name: "gzip", sshCAID: &sshCAID, userData: &gzipData, wantError: true},
 		{name: "unrecognized", sshCAID: &sshCAID, userData: &invalid, wantError: true},
 	}
@@ -327,10 +392,12 @@ func TestValidateUserDataForSSHCertificateAuthority(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := instance.ValidateUserDataForSSHCertificateAuthority(tc.sshCAID, tc.userData)
+			err := instance.ValidateUserDataForManagedAugmentation(tc.sshCAID, tc.userData)
 
 			if tc.wantError {
 				require.Error(t, err)
+				require.ErrorContains(t, err, "userData must be a recognized cloud-init format")
+
 				return
 			}
 
