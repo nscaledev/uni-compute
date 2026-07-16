@@ -41,6 +41,21 @@ func (m *MockClientInterface) EXPECT() *MockClientInterfaceMockRecorder {
 	return m.recorder
 }
 
+// AvailableImages mocks base method.
+func (m *MockClientInterface) AvailableImages(ctx context.Context, organizationID ids.OrganizationID, regionID ids0.RegionID) ([]openapi.Image, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AvailableImages", ctx, organizationID, regionID)
+	ret0, _ := ret[0].([]openapi.Image)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AvailableImages indicates an expected call of AvailableImages.
+func (mr *MockClientInterfaceMockRecorder) AvailableImages(ctx, organizationID, regionID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AvailableImages", reflect.TypeOf((*MockClientInterface)(nil).AvailableImages), ctx, organizationID, regionID)
+}
+
 // Flavors mocks base method.
 func (m *MockClientInterface) Flavors(ctx context.Context, organizationID ids.OrganizationID, regionID ids0.RegionID) ([]openapi.Flavor, error) {
 	m.ctrl.T.Helper()

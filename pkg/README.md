@@ -84,7 +84,7 @@ Unlike `region`, this repo does not own a direct provider abstraction layer.
 Compute depends on region for:
 
 - network scoping and authorization
-- flavor and image catalog visibility
+- flavor catalog and region-available image visibility
 - security-group and SSH CA validation
 - the actual server lifecycle and operational verbs
 - projected runtime status

@@ -389,6 +389,13 @@ func (b *ImagePayloadBuilder) WithName(name string) *ImagePayloadBuilder {
 	return b
 }
 
+// WithSoftwareVersions sets the image's preinstalled software metadata.
+func (b *ImagePayloadBuilder) WithSoftwareVersions(softwareVersions regionopenapi.SoftwareVersions) *ImagePayloadBuilder {
+	b.image.Spec.SoftwareVersions = &softwareVersions
+
+	return b
+}
+
 // Build returns the typed ImageCreate struct.
 func (b *ImagePayloadBuilder) Build() regionopenapi.ImageCreate {
 	return b.image

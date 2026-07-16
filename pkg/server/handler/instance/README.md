@@ -26,6 +26,10 @@ key retrieval, or snapshotting are requested.
   impersonated access rather than trusting a caller-supplied ownership claim.
 - Flavor and image must both be visible in the chosen region and must be
   mutually compatible for architecture, disk size, and virtualization mode.
+  Image validation uses Region's organization-scoped `available`, `ready` image view,
+  so `imageId` may reference an image omitted from Compute's curated image
+  catalog (including an image carrying software-version metadata). The Compute
+  image-list endpoint remains curated and does not expose those images.
 - Referenced resources must stay inside the instance's scope, rejected at the API
   edge with HTTP 422 on both create and update. Fetching a reference from region
   only proves the caller MAY see it — a caller authorized across several tenancies

@@ -87,6 +87,9 @@ type InstanceRead struct {
 	// be rebuilt or recreated. In those cases, backing server IP addresses are not preserved and
 	// may change when the replacement server is created. Instance names are immutable; rename
 	// attempts are rejected with HTTP 422.
+	// The imageId field may reference any image that Region reports as available to the
+	// organization in the target region; it is not limited to images returned by the curated
+	// Compute image catalog.
 	Spec InstanceSpec `json:"spec"`
 
 	// Status Read only status information about a compute instance.
@@ -105,6 +108,9 @@ type InstanceSnapshotCreate struct {
 // be rebuilt or recreated. In those cases, backing server IP addresses are not preserved and
 // may change when the replacement server is created. Instance names are immutable; rename
 // attempts are rejected with HTTP 422.
+// The imageId field may reference any image that Region reports as available to the
+// organization in the target region; it is not limited to images returned by the curated
+// Compute image catalog.
 type InstanceSpec struct {
 	// FlavorId A flavor ID.
 	FlavorId externalRef2.FlavorId `json:"flavorId"`
@@ -161,6 +167,9 @@ type InstanceUpdate struct {
 	// be rebuilt or recreated. In those cases, backing server IP addresses are not preserved and
 	// may change when the replacement server is created. Instance names are immutable; rename
 	// attempts are rejected with HTTP 422.
+	// The imageId field may reference any image that Region reports as available to the
+	// organization in the target region; it is not limited to images returned by the curated
+	// Compute image catalog.
 	Spec InstanceSpec `json:"spec"`
 }
 

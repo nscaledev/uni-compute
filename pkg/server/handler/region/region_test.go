@@ -72,6 +72,87 @@ func TestFlavorsFiltersPinnedOnly(t *testing.T) {
 	assert.Equal(t, "explicitly-unpinned", filtered[1].Metadata.Id)
 }
 
+func TestImagesKeepsCatalogFiltered(t *testing.T) {
+	t.Parallel()
+
+	const (
+		organizationID = "d4600d6e-e965-4b44-a808-84fb2fa36702"
+		regionID       = "a73e9c26-af56-4562-8352-9512e0586f3b"
+	)
+
+	softwareVersions := regionapi.SoftwareVersions{
+		"kubernetes": "v1.33.0",
+	}
+	images := []regionapi.Image{
+		image("general", nil),
+		image("software-versioned", &softwareVersions),
+	}
+
+	body, err := json.Marshal(images)
+	require.NoError(t, err)
+
+	client, err := regionapi.NewClientWithResponses("http://region.example", regionapi.WithHTTPClient(roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		assert.Equal(t, "/api/v1/organizations/"+organizationID+"/regions/"+regionID+"/images", r.URL.Path)
+		assert.Empty(t, r.URL.RawQuery)
+
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(bytes.NewReader(body)),
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Request:    r,
+		}, nil
+	})))
+	require.NoError(t, err)
+
+	regionClient := computeregion.New(client)
+	catalog, err := regionClient.Images(t.Context(), identityids.MustParseOrganizationID(organizationID), regionids.MustParseRegionID(regionID))
+	require.NoError(t, err)
+	require.Len(t, catalog, 1)
+	assert.Equal(t, "general", catalog[0].Metadata.Id)
+}
+
+func TestAvailableImagesUsesV1AndFiltersNotReady(t *testing.T) {
+	t.Parallel()
+
+	const (
+		organizationID = "d4600d6e-e965-4b44-a808-84fb2fa36702"
+		regionID       = "a73e9c26-af56-4562-8352-9512e0586f3b"
+	)
+
+	softwareVersions := regionapi.SoftwareVersions{
+		"kubernetes": "v1.33.0",
+	}
+	notReady := image("not-ready", nil)
+	notReady.Status.State = regionapi.ImageStateCreating
+	images := []regionapi.Image{
+		image("general", nil),
+		image("software-versioned", &softwareVersions),
+		notReady,
+	}
+
+	body, err := json.Marshal(images)
+	require.NoError(t, err)
+
+	client, err := regionapi.NewClientWithResponses("http://region.example", regionapi.WithHTTPClient(roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		assert.Equal(t, "/api/v1/organizations/"+organizationID+"/regions/"+regionID+"/images", r.URL.Path)
+		assert.Empty(t, r.URL.RawQuery)
+
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(bytes.NewReader(body)),
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Request:    r,
+		}, nil
+	})))
+	require.NoError(t, err)
+
+	available, err := computeregion.New(client).AvailableImages(t.Context(), identityids.MustParseOrganizationID(organizationID), regionids.MustParseRegionID(regionID))
+	require.NoError(t, err)
+	require.Len(t, available, 2)
+	assert.Equal(t, "general", available[0].Metadata.Id)
+	assert.Equal(t, "software-versioned", available[1].Metadata.Id)
+}
+
 type roundTripFunc func(*http.Request) (*http.Response, error)
 
 func (f roundTripFunc) Do(req *http.Request) (*http.Response, error) {
@@ -89,6 +170,23 @@ func flavor(id string, pinnedOnly *bool) regionapi.Flavor {
 			Disk:         20,
 			Memory:       1,
 			PinnedOnly:   pinnedOnly,
+		},
+	}
+}
+
+func image(id string, softwareVersions *regionapi.SoftwareVersions) regionapi.Image {
+	return regionapi.Image{
+		Metadata: coreapi.StaticResourceMetadata{
+			Id: id,
+		},
+		Spec: regionapi.ImageSpec{
+			Architecture:     regionapi.ArchitectureX8664,
+			SizeGiB:          10,
+			SoftwareVersions: softwareVersions,
+			Virtualization:   regionapi.ImageVirtualizationVirtualized,
+		},
+		Status: regionapi.ImageStatus{
+			State: regionapi.ImageStateReady,
 		},
 	}
 }

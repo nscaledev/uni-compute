@@ -534,7 +534,7 @@ func (c *Client) getFlavor(ctx context.Context, organizationID identityids.Organ
 }
 
 func (c *Client) getImage(ctx context.Context, organizationID identityids.OrganizationID, regionID regionids.RegionID, id regionids.ImageID) (*regionapi.Image, error) {
-	resources, err := region.New(c.region).Images(ctx, organizationID, regionID)
+	resources, err := region.New(c.region).AvailableImages(ctx, organizationID, regionID)
 	if err != nil {
 		return nil, err
 	}
@@ -606,23 +606,31 @@ func (c *Client) getAndValidateFlavorAndImage(ctx context.Context, organizationI
 		return nil, nil, err
 	}
 
-	if image.Status.State != regionapi.ImageStateReady {
-		return nil, nil, errors.OAuth2InvalidRequest("Image is not in a ready state")
-	}
-
-	if flavor.Spec.Architecture != image.Spec.Architecture {
-		return nil, nil, errors.OAuth2InvalidRequest("CPU architecture of flavor (", flavor.Spec.Architecture, ") does not match that of the image (", image.Spec.Architecture, "}")
-	}
-
-	if flavor.Spec.Disk < image.Spec.SizeGiB {
-		return nil, nil, errors.OAuth2InvalidRequest("Flavor disk (", flavor.Spec.Disk, " GIB) is too small for the image (", image.Spec.SizeGiB, " GiB)")
-	}
-
-	if err := ValidateVirtualization(flavor, image); err != nil {
+	if err := validateFlavorAndImage(flavor, image); err != nil {
 		return nil, nil, err
 	}
 
 	return flavor, image, nil
+}
+
+func validateFlavorAndImage(flavor *regionapi.Flavor, image *regionapi.Image) error {
+	if image.Status.State != regionapi.ImageStateReady {
+		return errors.OAuth2InvalidRequest("Image is not in a ready state")
+	}
+
+	if flavor.Spec.Architecture != image.Spec.Architecture {
+		return errors.OAuth2InvalidRequest("CPU architecture of flavor (", flavor.Spec.Architecture, ") does not match that of the image (", image.Spec.Architecture, "}")
+	}
+
+	if flavor.Spec.Disk < image.Spec.SizeGiB {
+		return errors.OAuth2InvalidRequest("Flavor disk (", flavor.Spec.Disk, " GIB) is too small for the image (", image.Spec.SizeGiB, " GiB)")
+	}
+
+	if err := ValidateVirtualization(flavor, image); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func ValidateVirtualization(flavor *regionapi.Flavor, image *regionapi.Image) error {

@@ -17,6 +17,9 @@ limitations under the License.
 package instance_test
 
 import (
+	"bytes"
+	"encoding/json"
+	"io"
 	"net/http"
 	"testing"
 
@@ -237,6 +240,151 @@ func TestValidateVirtualization(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 			}
+		})
+	}
+}
+
+func TestGetImageUsesReadyAvailableRegionImages(t *testing.T) {
+	t.Parallel()
+
+	const (
+		regionID = "a73e9c26-af56-4562-8352-9512e0586f3b"
+		imageID  = "c29b7e35-3181-4ba4-b3de-98afbb2ef6ac"
+	)
+
+	softwareVersions := regionapi.SoftwareVersions{
+		"kubernetes": "v1.33.0",
+	}
+	images := []regionapi.Image{
+		{
+			Metadata: coreapi.StaticResourceMetadata{
+				Id: imageID,
+			},
+			Spec: regionapi.ImageSpec{
+				SoftwareVersions: &softwareVersions,
+			},
+			Status: regionapi.ImageStatus{
+				State: regionapi.ImageStateReady,
+			},
+		},
+	}
+
+	body, err := json.Marshal(images)
+	require.NoError(t, err)
+
+	regionClient, err := regionapi.NewClientWithResponses("http://region.example", regionapi.WithHTTPClient(regionRoundTripFunc(func(r *http.Request) (*http.Response, error) {
+		require.Equal(t, "/api/v1/organizations/"+organizationID+"/regions/"+regionID+"/images", r.URL.Path)
+		assert.Empty(t, r.URL.RawQuery)
+
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(bytes.NewReader(body)),
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Request:    r,
+		}, nil
+	})))
+	require.NoError(t, err)
+
+	client := instance.NewClient(nil, "", nil, regionClient)
+	image, err := client.GetImage(
+		t.Context(),
+		identityids.MustParseOrganizationID(organizationID),
+		regionids.MustParseRegionID(regionID),
+		regionids.MustParseImageID(imageID),
+	)
+	require.NoError(t, err)
+	require.NotNil(t, image)
+	assert.Equal(t, imageID, image.Metadata.Id)
+	assert.Equal(t, softwareVersions, *image.Spec.SoftwareVersions)
+	assert.Equal(t, regionapi.ImageStateReady, image.Status.State)
+}
+
+type regionRoundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f regionRoundTripFunc) Do(req *http.Request) (*http.Response, error) {
+	return f(req)
+}
+
+func TestValidateFlavorAndImageReadinessAndCompatibility(t *testing.T) {
+	t.Parallel()
+
+	softwareVersions := regionapi.SoftwareVersions{
+		"kubernetes": "v1.33.0",
+	}
+	compatibleFlavor := regionapi.Flavor{
+		Spec: regionapi.FlavorSpec{
+			Architecture: regionapi.ArchitectureX8664,
+			Disk:         20,
+		},
+	}
+	compatibleImage := regionapi.Image{
+		Spec: regionapi.ImageSpec{
+			Architecture:     regionapi.ArchitectureX8664,
+			SizeGiB:          10,
+			SoftwareVersions: &softwareVersions,
+			Virtualization:   regionapi.ImageVirtualizationVirtualized,
+		},
+		Status: regionapi.ImageStatus{
+			State: regionapi.ImageStateReady,
+		},
+	}
+
+	tests := []struct {
+		name        string
+		mutate      func(*regionapi.Flavor, *regionapi.Image)
+		expectError bool
+	}{
+		{
+			name: "compatible",
+		},
+		{
+			name: "not ready",
+			mutate: func(_ *regionapi.Flavor, image *regionapi.Image) {
+				image.Status.State = regionapi.ImageStateCreating
+			},
+			expectError: true,
+		},
+		{
+			name: "architecture mismatch",
+			mutate: func(_ *regionapi.Flavor, image *regionapi.Image) {
+				image.Spec.Architecture = regionapi.ArchitectureAarch64
+			},
+			expectError: true,
+		},
+		{
+			name: "disk too small",
+			mutate: func(flavor *regionapi.Flavor, _ *regionapi.Image) {
+				flavor.Spec.Disk = 9
+			},
+			expectError: true,
+		},
+		{
+			name: "virtualization mismatch",
+			mutate: func(_ *regionapi.Flavor, image *regionapi.Image) {
+				image.Spec.Virtualization = regionapi.ImageVirtualizationBaremetal
+			},
+			expectError: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			flavor := compatibleFlavor
+			image := compatibleImage
+
+			if tc.mutate != nil {
+				tc.mutate(&flavor, &image)
+			}
+
+			err := instance.ValidateFlavorAndImage(&flavor, &image)
+			if tc.expectError {
+				require.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
 		})
 	}
 }
