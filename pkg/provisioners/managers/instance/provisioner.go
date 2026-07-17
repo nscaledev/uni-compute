@@ -108,17 +108,32 @@ func (p *Provisioner) identityClient(ctx context.Context) (identityapi.ClientWit
 	return identityclient.New(client, p.options.identityOptions, &p.options.clientOptions).ControllerClient(ctx, &p.instance)
 }
 
-func (p *Provisioner) generateServerNetworking() *regionapi.ServerV2Networking {
+func (p *Provisioner) generateServerNetworking() (*regionapi.ServerV2Networking, error) {
 	in := p.instance.Spec.Networking
 
 	if in == nil {
-		return nil
+		//nolint:nilnil
+		return nil, nil
 	}
 
 	var out regionapi.ServerV2Networking
 
 	if len(in.SecurityGroupIDs) > 0 {
-		out.SecurityGroups = &in.SecurityGroupIDs
+		// region v1.19.0 types the security group ID list; parse the stored string
+		// IDs to typed IDs, failing closed on a malformed value (matching the
+		// network/flavor/image ID handling).
+		securityGroupIDs := make(regionapi.ServerV2SecurityGroupIDList, len(in.SecurityGroupIDs))
+
+		for i, id := range in.SecurityGroupIDs {
+			securityGroupID, err := regionids.ParseSecurityGroupID(id)
+			if err != nil {
+				return nil, err
+			}
+
+			securityGroupIDs[i] = securityGroupID
+		}
+
+		out.SecurityGroups = &securityGroupIDs
 	}
 
 	if in.PublicIP {
@@ -136,10 +151,11 @@ func (p *Provisioner) generateServerNetworking() *regionapi.ServerV2Networking {
 	}
 
 	if !reflect.ValueOf(out).IsZero() {
-		return &out
+		return &out, nil
 	}
 
-	return nil
+	//nolint:nilnil
+	return nil, nil
 }
 
 func (p *Provisioner) generateUserData() *[]byte {
@@ -169,6 +185,11 @@ func (p *Provisioner) generateServerCreateRequest() (*regionapi.ServerV2Create, 
 		return nil, err
 	}
 
+	networking, err := p.generateServerNetworking()
+	if err != nil {
+		return nil, err
+	}
+
 	return &regionapi.ServerV2Create{
 		Metadata: coreapi.ResourceWriteMetadata{
 			Name:        p.instance.Labels[coreconstants.NameLabel],
@@ -184,7 +205,7 @@ func (p *Provisioner) generateServerCreateRequest() (*regionapi.ServerV2Create, 
 			NetworkId:  networkID,
 			FlavorId:   flavorID,
 			ImageId:    imageID,
-			Networking: p.generateServerNetworking(),
+			Networking: networking,
 			// region's server-spec sshCertificateAuthorityId is string-typed, so the
 			// stored CRD value (also a string) passes through unparsed.
 			SshCertificateAuthorityId: p.instance.Spec.SSHCertificateAuthorityID,
@@ -206,6 +227,11 @@ func (p *Provisioner) generateServerUpdateRequest() (*regionapi.ServerV2Update, 
 		return nil, err
 	}
 
+	networking, err := p.generateServerNetworking()
+	if err != nil {
+		return nil, err
+	}
+
 	return &regionapi.ServerV2Update{
 		Metadata: coreapi.ResourceWriteMetadata{
 			Name:        p.instance.Labels[coreconstants.NameLabel],
@@ -220,7 +246,7 @@ func (p *Provisioner) generateServerUpdateRequest() (*regionapi.ServerV2Update, 
 		Spec: regionapi.ServerV2Spec{
 			FlavorId:   flavorID,
 			ImageId:    imageID,
-			Networking: p.generateServerNetworking(),
+			Networking: networking,
 			UserData:   p.generateUserData(),
 		},
 	}, nil

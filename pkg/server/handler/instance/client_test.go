@@ -40,7 +40,7 @@ import (
 	"github.com/unikorn-cloud/identity/pkg/rbac"
 	regionv1 "github.com/unikorn-cloud/region/pkg/apis/unikorn/v1alpha1"
 	regionconstants "github.com/unikorn-cloud/region/pkg/constants"
-	regionids "github.com/unikorn-cloud/region/pkg/ids"
+	idstest "github.com/unikorn-cloud/region/pkg/ids/idstest"
 	regionapi "github.com/unikorn-cloud/region/pkg/openapi"
 	regionuserdata "github.com/unikorn-cloud/region/pkg/userdata"
 
@@ -289,8 +289,8 @@ func TestGetImageUsesReadyAvailableRegionImages(t *testing.T) {
 	image, err := client.GetImage(
 		t.Context(),
 		identityids.MustParseOrganizationID(organizationID),
-		regionids.MustParseRegionID(regionID),
-		regionids.MustParseImageID(imageID),
+		idstest.MustParseRegionID(regionID),
+		idstest.MustParseImageID(imageID),
 	)
 	require.NoError(t, err)
 	require.NotNil(t, image)
@@ -514,7 +514,7 @@ func TestValidateUserDataSurfacesParserReason(t *testing.T) {
 func TestValidateUserDataForManagedAugmentation(t *testing.T) {
 	t.Parallel()
 
-	sshCAID := regionids.MustParseSSHCertificateAuthorityID("f1e2d3c4-b5a6-4798-8a9b-0c1d2e3f4a5b")
+	sshCAID := idstest.MustParseSSHCertificateAuthorityID("f1e2d3c4-b5a6-4798-8a9b-0c1d2e3f4a5b")
 	gzipData := []byte{0x1f, 0x8b, 0x08}
 	invalid := []byte("plain text")
 	validCloudConfig := []byte("#cloud-config\nusers: []\n")
@@ -595,7 +595,7 @@ func TestValidateSSHCertificateAuthorityScopeOrganizationMismatch(t *testing.T) 
 func TestValidateSecurityGroupNetwork(t *testing.T) {
 	t.Parallel()
 
-	networkID := regionids.MustParseNetworkID("a1b2c3d4-e5f6-4789-8abc-def012345678")
+	networkID := idstest.MustParseNetworkID("a1b2c3d4-e5f6-4789-8abc-def012345678")
 
 	err := instance.ValidateSecurityGroupNetwork(&regionapi.SecurityGroupV2Read{
 		Status: regionapi.SecurityGroupV2Status{
@@ -612,7 +612,7 @@ func TestValidateSecurityGroupNetworkMismatch(t *testing.T) {
 		Status: regionapi.SecurityGroupV2Status{
 			NetworkId: "11111111-1111-4111-a111-111111111111",
 		},
-	}, regionids.MustParseNetworkID("a1b2c3d4-e5f6-4789-8abc-def012345678"))
+	}, idstest.MustParseNetworkID("a1b2c3d4-e5f6-4789-8abc-def012345678"))
 	require.Error(t, err)
 	require.True(t, coreerrors.IsUnprocessableContent(err), "expected 422, got: %v", err)
 }
