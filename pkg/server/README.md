@@ -24,6 +24,13 @@ handler that depends on both identity and region clients.
 - Middleware ordering is treated as an application-level invariant.
 - Identity-backed authorization and OpenAPI validation are applied centrally,
   not route-by-route.
+- The remote authorizer's decision mode is configurable via
+  `--authorization-engine-mode` (`off`/`shadow`/`enforce`, default `off`) and
+  `--authorization-check-timeout` (default `250ms`). `off` preserves the
+  authorizer's original behavior (local ACL walk, no remote PDP consulted);
+  `shadow` additionally evaluates identity's central PDP and logs divergence
+  without changing the served verdict; `enforce` makes the remote PDP
+  authoritative.
 - The server always constructs both identity and region API clients before the
   compute handler comes alive, which reflects compute's role as a façade over
   both services.
