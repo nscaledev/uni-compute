@@ -30,7 +30,7 @@ import (
 	coreapi "github.com/unikorn-cloud/core/pkg/openapi"
 	regionv1 "github.com/unikorn-cloud/region/pkg/apis/unikorn/v1alpha1"
 	regionconstants "github.com/unikorn-cloud/region/pkg/constants"
-	regionids "github.com/unikorn-cloud/region/pkg/ids"
+	idstest "github.com/unikorn-cloud/region/pkg/ids/idstest"
 	regionapi "github.com/unikorn-cloud/region/pkg/openapi"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -61,7 +61,7 @@ func newProvisionerForTest(sshCertificateAuthorityID *string) *instance.Provisio
 			},
 			Networking: &unikornv1.ComputeInstanceNetworking{
 				PublicIP:         true,
-				SecurityGroupIDs: []string{"security-group-1"},
+				SecurityGroupIDs: []string{"7f9c3d2a-1b4e-4c6a-8d5f-2e1a3b4c5d6e"},
 			},
 			SSHCertificateAuthorityID: sshCertificateAuthorityID,
 			UserData:                  []byte("#cloud-config\nusers: []\n"),
@@ -125,8 +125,8 @@ func TestNeedsRebuild(t *testing.T) {
 					Name: "test-instance",
 				},
 				Spec: regionapi.ServerV2Spec{
-					FlavorId: regionids.MustParseFlavorID(testFlavorID),
-					ImageId:  regionids.MustParseImageID(testImageID),
+					FlavorId: idstest.MustParseFlavorID(testFlavorID),
+					ImageId:  idstest.MustParseImageID(testImageID),
 				},
 			},
 			desired: &regionapi.ServerV2Update{
@@ -134,8 +134,8 @@ func TestNeedsRebuild(t *testing.T) {
 					Name: "test-instance",
 				},
 				Spec: regionapi.ServerV2Spec{
-					FlavorId: regionids.MustParseFlavorID(testFlavorID),
-					ImageId:  regionids.MustParseImageID(testImageID),
+					FlavorId: idstest.MustParseFlavorID(testFlavorID),
+					ImageId:  idstest.MustParseImageID(testImageID),
 				},
 			},
 			expected: false,
@@ -147,8 +147,8 @@ func TestNeedsRebuild(t *testing.T) {
 					Name: "test-instance",
 				},
 				Spec: regionapi.ServerV2Spec{
-					FlavorId: regionids.MustParseFlavorID(testFlavorID),
-					ImageId:  regionids.MustParseImageID(testImageID),
+					FlavorId: idstest.MustParseFlavorID(testFlavorID),
+					ImageId:  idstest.MustParseImageID(testImageID),
 				},
 			},
 			desired: &regionapi.ServerV2Update{
@@ -156,8 +156,8 @@ func TestNeedsRebuild(t *testing.T) {
 					Name: "test-instance",
 				},
 				Spec: regionapi.ServerV2Spec{
-					FlavorId: regionids.MustParseFlavorID(testFlavorID2),
-					ImageId:  regionids.MustParseImageID(testImageID),
+					FlavorId: idstest.MustParseFlavorID(testFlavorID2),
+					ImageId:  idstest.MustParseImageID(testImageID),
 				},
 			},
 			expected: true,
@@ -169,8 +169,8 @@ func TestNeedsRebuild(t *testing.T) {
 					Name: "test-instance",
 				},
 				Spec: regionapi.ServerV2Spec{
-					FlavorId: regionids.MustParseFlavorID(testFlavorID),
-					ImageId:  regionids.MustParseImageID(testImageID),
+					FlavorId: idstest.MustParseFlavorID(testFlavorID),
+					ImageId:  idstest.MustParseImageID(testImageID),
 				},
 			},
 			desired: &regionapi.ServerV2Update{
@@ -178,8 +178,8 @@ func TestNeedsRebuild(t *testing.T) {
 					Name: "test-instance",
 				},
 				Spec: regionapi.ServerV2Spec{
-					FlavorId: regionids.MustParseFlavorID(testFlavorID),
-					ImageId:  regionids.MustParseImageID(testImageID2),
+					FlavorId: idstest.MustParseFlavorID(testFlavorID),
+					ImageId:  idstest.MustParseImageID(testImageID2),
 				},
 			},
 			expected: true,

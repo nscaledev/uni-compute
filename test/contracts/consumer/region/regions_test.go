@@ -34,7 +34,7 @@ import (
 	regionclient "github.com/unikorn-cloud/compute/pkg/server/handler/region"
 	contract "github.com/unikorn-cloud/core/pkg/testing/contract"
 	identityids "github.com/unikorn-cloud/identity/pkg/ids"
-	regionids "github.com/unikorn-cloud/region/pkg/ids"
+	idstest "github.com/unikorn-cloud/region/pkg/ids/idstest"
 	regionapi "github.com/unikorn-cloud/region/pkg/openapi"
 )
 
@@ -303,7 +303,7 @@ var _ = Describe("Region Service Contract", func() {
 				images, err := client.AvailableImages(
 					ctx,
 					identityids.MustParseOrganizationID(organizationID),
-					regionids.MustParseRegionID(regionID),
+					idstest.MustParseRegionID(regionID),
 				)
 				if err != nil {
 					return fmt.Errorf("listing available images: %w", err)

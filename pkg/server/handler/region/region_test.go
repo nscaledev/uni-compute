@@ -29,7 +29,7 @@ import (
 	computeregion "github.com/unikorn-cloud/compute/pkg/server/handler/region"
 	coreapi "github.com/unikorn-cloud/core/pkg/openapi"
 	identityids "github.com/unikorn-cloud/identity/pkg/ids"
-	regionids "github.com/unikorn-cloud/region/pkg/ids"
+	idstest "github.com/unikorn-cloud/region/pkg/ids/idstest"
 	regionapi "github.com/unikorn-cloud/region/pkg/openapi"
 
 	"k8s.io/utils/ptr"
@@ -64,7 +64,7 @@ func TestFlavorsFiltersPinnedOnly(t *testing.T) {
 	})))
 	require.NoError(t, err)
 
-	filtered, err := computeregion.New(client).Flavors(t.Context(), identityids.MustParseOrganizationID(organizationID), regionids.MustParseRegionID(regionID))
+	filtered, err := computeregion.New(client).Flavors(t.Context(), identityids.MustParseOrganizationID(organizationID), idstest.MustParseRegionID(regionID))
 	require.NoError(t, err)
 
 	require.Len(t, filtered, 2)
@@ -105,7 +105,7 @@ func TestImagesKeepsCatalogFiltered(t *testing.T) {
 	require.NoError(t, err)
 
 	regionClient := computeregion.New(client)
-	catalog, err := regionClient.Images(t.Context(), identityids.MustParseOrganizationID(organizationID), regionids.MustParseRegionID(regionID))
+	catalog, err := regionClient.Images(t.Context(), identityids.MustParseOrganizationID(organizationID), idstest.MustParseRegionID(regionID))
 	require.NoError(t, err)
 	require.Len(t, catalog, 1)
 	assert.Equal(t, "general", catalog[0].Metadata.Id)
@@ -146,7 +146,7 @@ func TestAvailableImagesUsesV1AndFiltersNotReady(t *testing.T) {
 	})))
 	require.NoError(t, err)
 
-	available, err := computeregion.New(client).AvailableImages(t.Context(), identityids.MustParseOrganizationID(organizationID), regionids.MustParseRegionID(regionID))
+	available, err := computeregion.New(client).AvailableImages(t.Context(), identityids.MustParseOrganizationID(organizationID), idstest.MustParseRegionID(regionID))
 	require.NoError(t, err)
 	require.Len(t, available, 2)
 	assert.Equal(t, "general", available[0].Metadata.Id)
