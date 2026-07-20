@@ -21,6 +21,7 @@ limitations under the License.
 package suites
 
 import (
+	"encoding/json"
 	"net/http"
 	"time"
 
@@ -68,6 +69,46 @@ var _ = Describe("Instance Operations", func() {
 				}
 
 				GinkgoWriter.Printf("Found instance %s in list with status provisioned\n", instanceID)
+			})
+		})
+
+		Describe("Given an audit token", func() {
+			It("should list instances as read-only", func() {
+				if config.AuditToken == "" {
+					Skip("AUDIT_AUTH_TOKEN or SERVICE_TOKEN_PRIVATE_AUDIT must be set by integration fixtures")
+				}
+
+				auditConfig := *config
+				auditConfig.AuthToken = config.AuditToken
+				auditClient := api.NewAPIClientWithConfig(&auditConfig)
+
+				instances, err := auditClient.ListInstances(ctx, config.OrgID, config.ProjectID)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(instances).NotTo(BeEmpty())
+			})
+		})
+
+		Describe("Given a public-admin token for a private organization", func() {
+			It("should not expose private organization instances", func() {
+				if config.PublicAdminToken == "" {
+					Skip("PUBLIC_ADMIN_AUTH_TOKEN or SERVICE_TOKEN_PRIVATE_PUBLIC_ADMIN must be set by integration fixtures")
+				}
+
+				publicAdminConfig := *config
+				publicAdminConfig.AuthToken = config.PublicAdminToken
+				publicAdminClient := api.NewAPIClientWithConfig(&publicAdminConfig)
+
+				path := api.NewEndpoints().ListInstances(config.OrgID, config.ProjectID)
+				resp, respBody, err := publicAdminClient.DoRequest(ctx, http.MethodGet, path, nil, 0)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(resp).NotTo(BeNil())
+				Expect(resp.StatusCode).To(BeElementOf(http.StatusOK, http.StatusForbidden))
+
+				if resp.StatusCode == http.StatusOK {
+					var instances []openapi.InstanceRead
+					Expect(json.Unmarshal(respBody, &instances)).To(Succeed())
+					Expect(instances).To(BeEmpty())
+				}
 			})
 		})
 	})
