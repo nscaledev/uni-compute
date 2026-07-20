@@ -27,6 +27,8 @@ import (
 type TestConfig struct {
 	coreconfig.BaseConfig
 	RegionBaseURL        string
+	AuditToken           string
+	PublicAdminToken     string
 	OrgID                string
 	ProjectID            string
 	RegionID             string
@@ -66,7 +68,7 @@ func LoadTestConfig() (*TestConfig, error) {
 	config := &TestConfig{
 		BaseConfig: coreconfig.BaseConfig{
 			BaseURL:         v.GetString("API_BASE_URL"),
-			AuthToken:       v.GetString("API_AUTH_TOKEN"),
+			AuthToken:       firstNonEmpty(v.GetString("API_AUTH_TOKEN"), v.GetString("SERVICE_TOKEN_PRIVATE_ADMIN")),
 			RequestTimeout:  coreconfig.GetDurationFromViper(v, "REQUEST_TIMEOUT", 30*time.Second),
 			TestTimeout:     coreconfig.GetDurationFromViper(v, "TEST_TIMEOUT", 20*time.Minute),
 			SkipIntegration: v.GetBool("SKIP_INTEGRATION"),
@@ -75,6 +77,8 @@ func LoadTestConfig() (*TestConfig, error) {
 			LogResponses:    v.GetBool("LOG_RESPONSES"),
 		},
 		RegionBaseURL:        v.GetString("REGION_BASE_URL"),
+		AuditToken:           firstNonEmpty(v.GetString("AUDIT_AUTH_TOKEN"), v.GetString("SERVICE_TOKEN_PRIVATE_AUDIT")),
+		PublicAdminToken:     firstNonEmpty(v.GetString("PUBLIC_ADMIN_AUTH_TOKEN"), v.GetString("SERVICE_TOKEN_PRIVATE_PUBLIC_ADMIN")),
 		OrgID:                v.GetString("TEST_ORG_ID"),
 		ProjectID:            v.GetString("TEST_PROJECT_ID"),
 		RegionID:             v.GetString("TEST_REGION_ID"),
@@ -101,4 +105,14 @@ func LoadTestConfig() (*TestConfig, error) {
 	}
 
 	return config, nil
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if value != "" {
+			return value
+		}
+	}
+
+	return ""
 }
