@@ -20,9 +20,9 @@ root, not for the hidden execution primitive.
   security groups, and allowed source addresses
 - optional SSH certificate authority linkage
 - optional cloud-init user data
-- projected runtime status such as IP addresses, MAC address, power state
-  (which carries the full lifecycle Phase including baremetal `Queued` /
-  `Building` from region), and health conditions
+- projected runtime status such as IP addresses, MAC address, lifecycle (the
+  generic `Active` condition, mirroring region's server — baremetal `Queued` /
+  `Building` and the `Rebuilding` reimage state), and health conditions
 
 The object also carries org/project/region/network labels and delegated
 principal metadata through shared helpers outside this package.
@@ -36,11 +36,13 @@ principal metadata through shared helpers outside this package.
 - `Pause` is a real reconciliation guard rail. A paused instance should stop
   compute-side reconciliation without changing the stored desired state.
 - Status is mostly projected truth from the backing `region.Server`, not an
-  independently reconciled compute-owned runtime source of truth. Power state
-  (live Phase) flows through unchanged from region, including `Queued` and
-  `Building` for baremetal lifecycles. Once provisioning status reaches
-  `provisioned`, power state is the live readiness signal: clients should
-  treat `Running` (not `provisioned`) as ready-to-use.
+  independently reconciled compute-owned runtime source of truth. Lifecycle is
+  mirrored as the generic `Active` condition (region's `ActiveConditionReason`,
+  including `Queued`/`Building` for baremetal and the `Rebuilding` reimage
+  state), and the backing server's error detail is reconstructed onto
+  `provisioningStatusDetail`. Once provisioning status reaches `provisioned`,
+  the Active condition is the live readiness signal: clients should treat
+  `Running` (not `provisioned`) as ready-to-use.
 - `PublicIPEnabled()` is part of the accounting contract: quota allocation logic
   derives floating-IP usage from this persisted intent.
 

@@ -19,7 +19,6 @@ package v1alpha1
 
 import (
 	unikornv1core "github.com/unikorn-cloud/core/pkg/apis/unikorn/v1alpha1"
-	unikornv1region "github.com/unikorn-cloud/region/pkg/apis/unikorn/v1alpha1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -83,8 +82,8 @@ type ComputeInstanceStatus struct {
 	PublicIP *string `json:"publicIp,omitempty"`
 	// MACAddress is the MAC address of the instance's primary network interface.
 	MACAddress *string `json:"macAddress,omitempty"`
-	// PowerState is the current status of the machine.
-	PowerState *unikornv1region.InstanceLifecyclePhase `json:"powerState,omitempty"`
-	// Conditions is a set of status conditions for the machine.
-	Conditions []unikornv1core.Condition `json:"conditions,omitempty"`
+	// Conditions is a set of status conditions for the machine. The instance's
+	// lifecycle/power state rides the generic Active condition (reusing region's
+	// ActiveConditionReason vocabulary), mirroring the backing region server.
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }

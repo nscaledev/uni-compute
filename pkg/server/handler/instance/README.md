@@ -105,18 +105,18 @@ server lookup by:
 That keeps the public API centered on `Instance`, but it also means the server
 link is reconstructed rather than stored explicitly.
 
-## Phase Projection
+## Lifecycle Projection
 
-`convertPowerState` projects the region-owned `Server.Status.PowerState`
-(a `regionv1.InstanceLifecyclePhase` on the persisted `ComputeInstance`) into
-the public API as `status.powerState`. The round-trip is lossless for known
-phases — `Pending`, `Queued`, `Building`, `Running`, `Stopping`, `Stopped` — and
-intentionally drops unknown values to `nil` rather than collapsing them to
-`Pending`. This keeps the API honest: if region adds a new phase before compute
-learns about it, callers see no `powerState` rather than a misleading `Pending`,
-which surfaces the gap immediately. The provisioner-side `convertPowerState`
-follows the same rule so the controller and handler agree on what "unknown"
-means.
+`instancePowerState` projects the instance's mirrored `Active` condition (which
+carries region's `ActiveConditionReason`) into the public API as
+`status.powerState`. The mapping is lossless for known reasons — `Pending`,
+`Queued`, `Building`, `Rebuilding`, `Running`, `Stopping`, `Stopped`, `Error` —
+and intentionally drops an absent condition or an unrecognised reason to `nil`
+rather than collapsing to `Pending`. This keeps the API honest: if region adds a
+new lifecycle reason before compute learns about it, callers see no `powerState`
+rather than a misleading value, surfacing the gap immediately. The
+provisioner-side ingest (`activeConditionReason`) follows the same fall-through
+rule so controller and handler agree on what "unknown" means.
 
 ## Caveats
 

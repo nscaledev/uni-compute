@@ -139,24 +139,34 @@ func ConvertUserData(in []byte) *[]byte {
 	return &in
 }
 
-func convertPowerState(in *regionv1.InstanceLifecyclePhase) *regionapi.InstanceLifecyclePhase {
-	if in == nil || *in == "" {
+// instancePowerState projects the instance's Active condition (the lifecycle/power
+// axis mirrored from the backing region server) onto the API enum. An absent
+// condition or an unrecognised reason yields nil, so the field is omitted rather
+// than reported as a bogus value; this matches the provisioner-side ingest
+// convention, keep them in lockstep.
+func instancePowerState(in *computev1.ComputeInstance) *regionapi.InstanceLifecyclePhase {
+	active, err := computev1.GetActiveCondition(in)
+	if err != nil {
 		return nil
 	}
 
-	switch *in {
-	case regionv1.InstanceLifecyclePhasePending:
+	switch active.Reason {
+	case regionv1.ActiveConditionReasonPending:
 		return ptr.To(regionapi.InstanceLifecyclePhasePending)
-	case regionv1.InstanceLifecyclePhaseQueued:
+	case regionv1.ActiveConditionReasonQueued:
 		return ptr.To(regionapi.InstanceLifecyclePhaseQueued)
-	case regionv1.InstanceLifecyclePhaseBuilding:
+	case regionv1.ActiveConditionReasonBuilding:
 		return ptr.To(regionapi.InstanceLifecyclePhaseBuilding)
-	case regionv1.InstanceLifecyclePhaseRunning:
+	case regionv1.ActiveConditionReasonRebuilding:
+		return ptr.To(regionapi.InstanceLifecyclePhaseRebuilding)
+	case regionv1.ActiveConditionReasonRunning:
 		return ptr.To(regionapi.InstanceLifecyclePhaseRunning)
-	case regionv1.InstanceLifecyclePhaseStopping:
+	case regionv1.ActiveConditionReasonStopping:
 		return ptr.To(regionapi.InstanceLifecyclePhaseStopping)
-	case regionv1.InstanceLifecyclePhaseStopped:
+	case regionv1.ActiveConditionReasonStopped:
 		return ptr.To(regionapi.InstanceLifecyclePhaseStopped)
+	case regionv1.ActiveConditionReasonError:
+		return ptr.To(regionapi.InstanceLifecyclePhaseError)
 	}
 
 	return nil
@@ -210,7 +220,7 @@ func convert(in *computev1.ComputeInstance) (*computeapi.InstanceRead, error) {
 		Status: computeapi.InstanceStatus{
 			RegionId:   in.Labels[regionconstants.RegionLabel],
 			NetworkId:  in.Labels[regionconstants.NetworkLabel],
-			PowerState: convertPowerState(in.Status.PowerState),
+			PowerState: instancePowerState(in),
 			PrivateIP:  in.Status.PrivateIP,
 			PublicIP:   in.Status.PublicIP,
 			MacAddress: in.Status.MACAddress,

@@ -31,6 +31,7 @@ import (
 	"github.com/unikorn-cloud/core/pkg/manager"
 	coreapi "github.com/unikorn-cloud/core/pkg/openapi"
 	"github.com/unikorn-cloud/core/pkg/provisioners"
+	"github.com/unikorn-cloud/core/pkg/provisioninglog"
 	identityclient "github.com/unikorn-cloud/identity/pkg/client"
 	identityapi "github.com/unikorn-cloud/identity/pkg/openapi"
 	regionv1 "github.com/unikorn-cloud/region/pkg/apis/unikorn/v1alpha1"
@@ -315,34 +316,44 @@ func (p *Provisioner) createOrUpdateServer(ctx context.Context, region regionapi
 	return p.updateServer(ctx, region, serverID, request)
 }
 
-func convertPowerState(in *regionapi.InstanceLifecyclePhase) *regionv1.InstanceLifecyclePhase {
+// activeConditionReason maps the backing server's API power state onto region's
+// lifecycle reason vocabulary, which the instance's Active condition mirrors.
+//
+// A nil or unrecognised phase returns ok=false: the server has not reported a
+// lifecycle state yet (or reports a future one this build does not know), so the
+// caller leaves the Active condition untouched rather than inventing a state -
+// mirroring the region server, whose Active condition is simply absent until
+// first observed. The handler-side projection in
+// pkg/server/handler/instance/client.go uses the same fall-through convention;
+// keep them in lockstep.
+func activeConditionReason(in *regionapi.InstanceLifecyclePhase) (regionv1.ActiveConditionReason, bool) {
 	if in == nil {
-		return nil
+		return "", false
 	}
 
-	// Unknown phases stay nil so future region additions surface
-	// immediately rather than being silently relabelled as Pending. The
-	// handler-side convertPowerState in pkg/server/handler/instance/client.go
-	// uses the same fall-through-to-nil convention; keep them in lockstep.
 	switch *in {
 	case regionapi.InstanceLifecyclePhasePending:
-		return ptr.To(regionv1.InstanceLifecyclePhasePending)
+		return regionv1.ActiveConditionReasonPending, true
 	case regionapi.InstanceLifecyclePhaseQueued:
-		return ptr.To(regionv1.InstanceLifecyclePhaseQueued)
+		return regionv1.ActiveConditionReasonQueued, true
 	case regionapi.InstanceLifecyclePhaseBuilding:
-		return ptr.To(regionv1.InstanceLifecyclePhaseBuilding)
+		return regionv1.ActiveConditionReasonBuilding, true
+	case regionapi.InstanceLifecyclePhaseRebuilding:
+		return regionv1.ActiveConditionReasonRebuilding, true
 	case regionapi.InstanceLifecyclePhaseRunning:
-		return ptr.To(regionv1.InstanceLifecyclePhaseRunning)
+		return regionv1.ActiveConditionReasonRunning, true
 	case regionapi.InstanceLifecyclePhaseStopping:
-		return ptr.To(regionv1.InstanceLifecyclePhaseStopping)
+		return regionv1.ActiveConditionReasonStopping, true
 	case regionapi.InstanceLifecyclePhaseStopped:
-		return ptr.To(regionv1.InstanceLifecyclePhaseStopped)
+		return regionv1.ActiveConditionReasonStopped, true
+	case regionapi.InstanceLifecyclePhaseError:
+		return regionv1.ActiveConditionReasonError, true
 	}
 
-	return nil
+	return "", false
 }
 
-func convertHealthStatusCondition(in coreapi.ResourceHealthStatus) (corev1.ConditionStatus, unikornv1core.ConditionReason, string) {
+func convertHealthStatusCondition(in coreapi.ResourceHealthStatus) (corev1.ConditionStatus, unikornv1core.HealthConditionReason, string) {
 	switch in {
 	case coreapi.ResourceHealthStatusUnknown:
 		return corev1.ConditionFalse, unikornv1core.ConditionReasonUnknown, "health unknown"
@@ -351,7 +362,11 @@ func convertHealthStatusCondition(in coreapi.ResourceHealthStatus) (corev1.Condi
 	case coreapi.ResourceHealthStatusDegraded:
 		return corev1.ConditionFalse, unikornv1core.ConditionReasonDegraded, "degraded"
 	case coreapi.ResourceHealthStatusError:
-		return corev1.ConditionFalse, unikornv1core.ConditionReasonErrored, "error"
+		// The backing server reports an error health status; the instance's health
+		// axis is a Healthy/Degraded/Unknown verdict, so an errored server is
+		// degraded here. (A terminal failure, once propagated on the provisioning
+		// axis, is a separate concern from this health verdict.)
+		return corev1.ConditionFalse, unikornv1core.ConditionReasonDegraded, "error"
 	}
 
 	return corev1.ConditionFalse, unikornv1core.ConditionReasonUnknown, "health unknown"
@@ -361,17 +376,53 @@ func (p *Provisioner) updateInstanceStatus(server *regionapi.ServerV2Response) {
 	p.instance.Status.PrivateIP = server.Status.PrivateIP
 	p.instance.Status.PublicIP = server.Status.PublicIP
 	p.instance.Status.MACAddress = server.Status.MacAddress
-	p.instance.Status.PowerState = convertPowerState(server.Status.PowerState)
+
+	// Mirror the backing server's lifecycle/power state onto the Active condition.
+	if reason, ok := activeConditionReason(server.Status.PowerState); ok {
+		p.instance.SetActiveCondition(reason)
+	}
 }
 
-func shouldLogUnhealthyServerTransition(serverHealth coreapi.ResourceHealthStatus, previousHealthReason unikornv1core.ConditionReason) bool {
-	var reason unikornv1core.ConditionReason
+// instanceActiveReason returns the instance's current Active-condition reason, or
+// empty if the condition is absent (not yet observed).
+func instanceActiveReason(r unikornv1core.StatusConditionReader) regionv1.ActiveConditionReason {
+	active, err := unikornv1.GetActiveCondition(r)
+	if err != nil {
+		return ""
+	}
+
+	return active.Reason
+}
+
+// logLifecycleTransition emits the instance's Active-condition transition to the
+// structured lifecycle stream (msg == "lifecycle"), at parity with the
+// provisioning stream. It is edge-triggered: it emits only when the mirrored
+// lifecycle reason actually changed from previousReason, so a poll that observes
+// no change stays silent.
+func (p *Provisioner) logLifecycleTransition(ctx context.Context, previousReason regionv1.ActiveConditionReason) {
+	active, err := unikornv1.GetActiveCondition(&p.instance)
+	if err != nil || active.Reason == previousReason {
+		return
+	}
+
+	cli, err := coreclient.FromContext(ctx)
+	if err != nil {
+		return
+	}
+
+	provisioninglog.Emit(ctx, cli.Scheme(), &p.instance, provisioninglog.StreamLifecycle,
+		string(active.Status), string(active.Reason), active.Message)
+}
+
+func shouldLogUnhealthyServerTransition(serverHealth coreapi.ResourceHealthStatus, previousHealthReason unikornv1core.HealthConditionReason) bool {
+	var reason unikornv1core.HealthConditionReason
 
 	switch serverHealth {
-	case coreapi.ResourceHealthStatusDegraded:
+	// Degraded and Error both project to the Degraded health reason (the instance
+	// health axis has no Errored), so a Degraded<->Error change is not a distinct
+	// transition here; the first move into unhealthy still logs.
+	case coreapi.ResourceHealthStatusDegraded, coreapi.ResourceHealthStatusError:
 		reason = unikornv1core.ConditionReasonDegraded
-	case coreapi.ResourceHealthStatusError:
-		reason = unikornv1core.ConditionReasonErrored
 	case coreapi.ResourceHealthStatusHealthy, coreapi.ResourceHealthStatusUnknown:
 		return false
 	}
@@ -379,8 +430,8 @@ func shouldLogUnhealthyServerTransition(serverHealth coreapi.ResourceHealthStatu
 	return previousHealthReason != reason
 }
 
-func healthConditionReason(conditions []unikornv1core.Condition) unikornv1core.ConditionReason {
-	condition, err := unikornv1core.GetCondition(conditions, unikornv1core.ConditionHealthy)
+func healthConditionReason(r unikornv1core.StatusConditionReader) unikornv1core.HealthConditionReason {
+	condition, err := unikornv1core.GetHealthyCondition(r)
 	if err != nil {
 		return ""
 	}
@@ -388,7 +439,7 @@ func healthConditionReason(conditions []unikornv1core.Condition) unikornv1core.C
 	return condition.Reason
 }
 
-func (p *Provisioner) logUnhealthyServer(ctx context.Context, server *regionapi.ServerV2Response, previousHealthReason unikornv1core.ConditionReason) {
+func (p *Provisioner) logUnhealthyServer(ctx context.Context, server *regionapi.ServerV2Response, previousHealthReason unikornv1core.HealthConditionReason) {
 	if !shouldLogUnhealthyServerTransition(server.Metadata.HealthStatus, previousHealthReason) {
 		return
 	}
@@ -430,18 +481,48 @@ func (p *Provisioner) Provision(ctx context.Context) error {
 		return err
 	}
 
-	previousHealthReason := healthConditionReason(p.instance.Status.Conditions)
+	previousHealthReason := healthConditionReason(&p.instance)
 	healthStatus, healthReason, healthMessage := convertHealthStatusCondition(server.Metadata.HealthStatus)
-	unikornv1core.UpdateCondition(&p.instance.Status.Conditions, unikornv1core.ConditionHealthy, healthStatus, healthReason, healthMessage)
+	p.instance.SetHealthCondition(healthStatus, healthReason, healthMessage)
 
 	p.logUnhealthyServer(ctx, server, previousHealthReason)
+
+	previousActiveReason := instanceActiveReason(&p.instance)
 	p.updateInstanceStatus(server)
+	p.logLifecycleTransition(ctx, previousActiveReason)
 
 	if server.Metadata.ProvisioningStatus != coreapi.ResourceProvisioningStatusProvisioned {
-		return provisioners.ErrYield
+		return serverProvisioningError(server)
 	}
 
 	return nil
+}
+
+// serverProvisioningError reconstructs a typed provisioning error from the backing
+// region server's read metadata, so the instance's own Available condition — and
+// thus its API provisioningStatusDetail — carries the server's reason and user-safe
+// message through to the end user (e.g. "waiting on network", "provider create
+// failed"). The disposition is taken from the coarse provisioningStatus (error is
+// terminal, anything else still in flight); the reason and message come from the
+// provisioningStatusDetail. With no detail we fall back to a bare yield.
+func serverProvisioningError(server *regionapi.ServerV2Response) error {
+	detail := server.Metadata.ProvisioningStatusDetail
+	if detail == nil {
+		// The backing server exists (we just created it) but has not reported its
+		// provisioning state yet — an instance is a thin wrapper over its server, so
+		// that is a dependency wait. Use the generic core reason (compute does not
+		// mint provisioning reasons) with a compute-authored message; the server is
+		// private to the user, so name the concept, not its internal ID.
+		return provisioners.Yield(unikornv1core.ConditionReasonDependencyNotReady, "waiting for the backing server")
+	}
+
+	reason := unikornv1core.ProvisioningConditionReason(detail.Reason)
+
+	if server.Metadata.ProvisioningStatus == coreapi.ResourceProvisioningStatusError {
+		return provisioners.Terminal(reason, detail.Message)
+	}
+
+	return provisioners.Yield(reason, detail.Message)
 }
 
 // Deprovision implements the Provision interface.
