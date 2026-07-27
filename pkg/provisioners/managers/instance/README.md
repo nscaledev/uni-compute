@@ -19,9 +19,13 @@ where that contract is translated into the hidden execution primitive.
   instance tag, not by an explicit foreign key stored on the instance.
 - Create and update requests sent to region always carry the reserved instance
   tag so later lookup and reverse mapping can find the server again.
-- Instance status is projection-only here: IP addresses, MAC address, power
-  state (lifecycle Phase, including Queued/Building for baremetal), and health
-  are copied from the server response.
+- Instance status is projection-only here: IP addresses, MAC address, lifecycle,
+  and health are mirrored from the backing server. Lifecycle is the generic
+  `Active` condition (reusing region's `ActiveConditionReason` vocabulary —
+  `Queued`/`Building` for baremetal, plus the `Rebuilding` reimage state),
+  replacing region's retired `Status.Phase`. The backing server's error detail
+  is reconstructed onto the instance's `provisioningStatusDetail`, and lifecycle
+  transitions are logged to the structured stream at parity with provisioning.
 - Deprovision is two-stage:
   delete the backing server first, then release the identity allocation record
   only after the server is gone.

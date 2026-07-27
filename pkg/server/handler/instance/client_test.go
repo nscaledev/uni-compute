@@ -617,35 +617,41 @@ func TestValidateSecurityGroupNetworkMismatch(t *testing.T) {
 	require.True(t, coreerrors.IsUnprocessableContent(err), "expected 422, got: %v", err)
 }
 
-// TestConvertPowerStateRoundTrip verifies the handler-side projection from
-// the persisted regionv1 phase enum back into the regionapi phase enum
-// returned to API clients. Unknown values drop to nil; this is the
-// design choice documented in convertPowerState and mirrored by the
-// provisioner-side conversion.
-func TestConvertPowerStateRoundTrip(t *testing.T) {
+// TestInstancePowerState verifies the handler-side projection of the instance's
+// Active condition (the lifecycle/power axis mirrored from the backing server)
+// onto the regionapi phase enum returned to API clients. An absent condition or
+// an unrecognised reason drops to nil, mirroring the provisioner-side ingest.
+func TestInstancePowerState(t *testing.T) {
 	t.Parallel()
+
+	instanceWithReason := func(reason regionv1.ActiveConditionReason) *computev1.ComputeInstance {
+		c := &computev1.ComputeInstance{}
+		c.SetActiveCondition(reason)
+
+		return c
+	}
 
 	tests := []struct {
 		name string
-		in   *regionv1.InstanceLifecyclePhase
+		in   *computev1.ComputeInstance
 		want *regionapi.InstanceLifecyclePhase
 	}{
-		{name: "nil input", in: nil, want: nil},
-		{name: "empty string sentinel", in: ptr.To(regionv1.InstanceLifecyclePhase("")), want: nil},
-		{name: "pending", in: ptr.To(regionv1.InstanceLifecyclePhasePending), want: ptr.To(regionapi.InstanceLifecyclePhasePending)},
-		{name: "queued", in: ptr.To(regionv1.InstanceLifecyclePhaseQueued), want: ptr.To(regionapi.InstanceLifecyclePhaseQueued)},
-		{name: "building", in: ptr.To(regionv1.InstanceLifecyclePhaseBuilding), want: ptr.To(regionapi.InstanceLifecyclePhaseBuilding)},
-		{name: "running", in: ptr.To(regionv1.InstanceLifecyclePhaseRunning), want: ptr.To(regionapi.InstanceLifecyclePhaseRunning)},
-		{name: "stopping", in: ptr.To(regionv1.InstanceLifecyclePhaseStopping), want: ptr.To(regionapi.InstanceLifecyclePhaseStopping)},
-		{name: "stopped", in: ptr.To(regionv1.InstanceLifecyclePhaseStopped), want: ptr.To(regionapi.InstanceLifecyclePhaseStopped)},
-		{name: "unknown future phase falls through to nil", in: ptr.To(regionv1.InstanceLifecyclePhase("FutureUnknown")), want: nil},
+		{name: "absent condition", in: &computev1.ComputeInstance{}, want: nil},
+		{name: "pending", in: instanceWithReason(regionv1.ActiveConditionReasonPending), want: ptr.To(regionapi.InstanceLifecyclePhasePending)},
+		{name: "queued", in: instanceWithReason(regionv1.ActiveConditionReasonQueued), want: ptr.To(regionapi.InstanceLifecyclePhaseQueued)},
+		{name: "building", in: instanceWithReason(regionv1.ActiveConditionReasonBuilding), want: ptr.To(regionapi.InstanceLifecyclePhaseBuilding)},
+		{name: "running", in: instanceWithReason(regionv1.ActiveConditionReasonRunning), want: ptr.To(regionapi.InstanceLifecyclePhaseRunning)},
+		{name: "stopping", in: instanceWithReason(regionv1.ActiveConditionReasonStopping), want: ptr.To(regionapi.InstanceLifecyclePhaseStopping)},
+		{name: "stopped", in: instanceWithReason(regionv1.ActiveConditionReasonStopped), want: ptr.To(regionapi.InstanceLifecyclePhaseStopped)},
+		{name: "error", in: instanceWithReason(regionv1.ActiveConditionReasonError), want: ptr.To(regionapi.InstanceLifecyclePhaseError)},
+		{name: "unknown reason falls through to nil", in: instanceWithReason("FutureUnknown"), want: nil},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			got := instance.ConvertPowerState(tc.in)
+			got := instance.InstancePowerState(tc.in)
 			if tc.want == nil {
 				assert.Nil(t, got)
 				return

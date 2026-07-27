@@ -50,6 +50,6 @@ func (p *Provisioner) UpdateInstanceStatus(server *regionapi.ServerV2Response) {
 	p.updateInstanceStatus(server)
 }
 
-func ConvertPowerState(in *regionapi.InstanceLifecyclePhase) *regionv1.InstanceLifecyclePhase {
-	return convertPowerState(in)
+func ActiveConditionReason(in *regionapi.InstanceLifecyclePhase) (regionv1.ActiveConditionReason, bool) {
+	return activeConditionReason(in)
 }
