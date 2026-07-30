@@ -95,6 +95,13 @@ jobs:
         token: ${{ secrets.GITHUB_TOKEN }}
         name: Release ${{ github.ref_name }}
         tag_name: ${{ github.ref_name }}
+    - name: Publish OpenAPI spec
+      uses: nscaledev/openapi/.github/actions/publish-spec@main
+      with:
+        service: compute
+        spec-path: pkg/openapi/server.spec.yaml
+        version: ${{ github.ref_name }}
+        token: ${{ secrets.OPENAPI_PUBLISH_TOKEN }}
 #        files: |
 #          sboms/*.spdx
 #          docs/server-api.md
