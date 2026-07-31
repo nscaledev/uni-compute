@@ -91,10 +91,11 @@ region:
   host: region.unikorn-cloud.org
 
 # Sets the OTLP endpoint for shipping spans.
-# otlp:
-#   endpoint: jaeger-collector.default:4318
-#   resourceAttributes:
-#     deployment.environment: dev
+# global:
+#   otlp:
+#     endpoint: jaeger-collector.default:4318
+#     resourceAttributes:
+#       deployment.environment: <environment>
 
 # Defines Prometheus monitoring integration.
 monitoring:
