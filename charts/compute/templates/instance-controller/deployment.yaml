@@ -23,6 +23,10 @@ spec:
         {{- include "unikorn.region.flags" . | nindent 8 }}
         {{- include "unikorn.otlp.flags" . | nindent 8 }}
         {{- include "unikorn.mtls.flags" . | nindent 8 }}
+        {{- with include "unikorn.otlp.env" . }}
+        env:
+{{ . | indent 8 }}
+        {{- end }}
         ports:
         - name: prometheus
           containerPort: 8080
