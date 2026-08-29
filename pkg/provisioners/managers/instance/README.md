@@ -44,18 +44,38 @@ where that contract is translated into the hidden execution primitive.
 ## Destructive Update Semantics
 
 This package hides a major nuance the higher-level architecture needs to state
-clearly: some instance updates are actually rebuilds.
+clearly: some instance updates replace the backing server, and some rebuild it.
 
-When flavor or image changes are detected, the controller treats that as
-replacement-worthy and deletes the existing backing server before continuing.
-That is not a cosmetic implementation detail. It means an apparently simple
-instance update can imply loss of server-local state and changes to IP/disk
-continuity.
+Flavor drift is replacement-worthy: the controller deletes the
+existing backing server and recreates it, which loses server-local state and
+changes IP/disk continuity.
+
+SSH certificate authority drift is likewise replacement-worthy. Region's server
+update body (`ServerV2Spec`) carries no CA field — the CA is a create-only input
+— so an in-place update can never change it. The controller therefore treats a
+CA change (set, unset, or swapped) as a recreate trigger, comparing the instance's
+desired CA against the live CA region reports in the server's status. Without this,
+a CA change would be silently dropped.
+
+Image-only drift is not destructive at the compute layer: the controller updates
+the existing region server, and the region controller performs an in-place Nova
+rebuild. The instance record and its backing server survive, though the rebuild
+reimages the server's root disk.
+
+A rebuild that fails is not retried by region: region parks the server and
+surfaces the failure (as an error requiring user action) rather than looping. The
+compute controller does not treat this specially — recovery is expressed
+per-instance, by changing the image again (which drives a fresh rebuild) or by
+recreating the instance.
 
 Instance names are immutable end-to-end: the API handler rejects renames with
 HTTP 422 and region enforces the same at its layer. The controller therefore
 never encounters a name change at reconcile time; name-change detection has been
-removed from the rebuild heuristic.
+removed from the recreate heuristic.
+
+userData drift is not acted on against a running server: user data is first-boot
+initialization data, so a change is stored on the spec and consumed by future
+servers without rebuilding or recreating the running one.
 
 ## Caveats
 

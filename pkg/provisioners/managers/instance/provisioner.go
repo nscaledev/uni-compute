@@ -253,24 +253,28 @@ func (p *Provisioner) generateServerUpdateRequest() (*regionapi.ServerV2Update, 
 	}, nil
 }
 
-func needsRebuildSpec(a, b *regionapi.ServerV2Spec) bool {
+func needsRecreateSpec(a, b *regionapi.ServerV2Spec) bool {
 	// Problematically, the region controller doesn't have access to the server's
 	// flavor (due to a more recent microversion returning metadata, not the ID)
-	// so spotting this change is complex and fragile.  Ideally we would also
-	// capture when a live migration is possible to preserve server IPs and disks.
-	if a.FlavorId != b.FlavorId {
-		return true
-	}
-
-	if a.ImageId != b.ImageId {
-		return true
-	}
-
-	return false
+	// so spotting this change is complex and fragile.
+	return a.FlavorId != b.FlavorId
 }
 
-func needsRebuild(current *regionapi.ServerV2Read, desired *regionapi.ServerV2Update) bool {
-	return needsRebuildSpec(&current.Spec, &desired.Spec)
+// sshCertificateAuthorityDrift reports whether the backing server's SSH
+// certificate authority differs from the instance's desired one. Both a nil
+// pointer and an empty string mean "no CA", so they are normalised before
+// comparison; this catches set→unset, unset→set and changed alike.
+func sshCertificateAuthorityDrift(current, desired *string) bool {
+	return ptr.Deref(current, "") != ptr.Deref(desired, "")
+}
+
+func needsRecreate(current *regionapi.ServerV2Read, desired *regionapi.ServerV2Update, desiredSSHCertificateAuthorityID *string) bool {
+	// The SSH CA is a create-only field on region: ServerV2Spec (the update body)
+	// carries no CA, so an in-place PUT can never change it. The only way to push a
+	// changed CA to the backing server is to delete and recreate it, mirroring
+	// flavor drift. The live CA is read back from region's status, not its spec.
+	return needsRecreateSpec(&current.Spec, &desired.Spec) ||
+		sshCertificateAuthorityDrift(current.Status.SshCertificateAuthorityId, desiredSSHCertificateAuthorityID)
 }
 
 func (p *Provisioner) createOrUpdateServer(ctx context.Context, region regionapi.ClientWithResponsesInterface, server *regionapi.ServerV2Read) (*regionapi.ServerV2Read, error) {
@@ -290,8 +294,8 @@ func (p *Provisioner) createOrUpdateServer(ctx context.Context, region regionapi
 
 	// The server ID comes from the region read model (a string); parse it to the
 	// typed ID for the region API calls, failing closed on a malformed value. It is
-	// only needed on the rebuild/update paths, not the no-op (specs equal) path.
-	if needsRebuild(server, request) {
+	// only needed on the recreate/update paths, not the no-op (specs equal) path.
+	if needsRecreate(server, request, p.instance.Spec.SSHCertificateAuthorityID) {
 		serverID, err := regionids.ParseServerID(server.Metadata.Id)
 		if err != nil {
 			return nil, err
@@ -308,6 +312,9 @@ func (p *Provisioner) createOrUpdateServer(ctx context.Context, region regionapi
 		return server, nil
 	}
 
+	// Remaining drift is non-recreate (image, userData, networking): it flows through
+	// region's in-place update PUT rather than a delete/recreate. For an image change
+	// region translates that PUT into an in-place Nova rebuild of the backing server.
 	serverID, err := regionids.ParseServerID(server.Metadata.Id)
 	if err != nil {
 		return nil, err
