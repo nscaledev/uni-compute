@@ -407,10 +407,54 @@ func convertHealthStatusCondition(in coreapi.ResourceHealthStatus) (corev1.Condi
 	return corev1.ConditionFalse, unikornv1core.ConditionReasonUnknown, "health unknown"
 }
 
+func volumeProvisioningStatus(in coreapi.ResourceProvisioningStatus) coreapi.ResourceProvisioningStatus {
+	switch in {
+	case coreapi.ResourceProvisioningStatusPending,
+		coreapi.ResourceProvisioningStatusProvisioning,
+		coreapi.ResourceProvisioningStatusProvisioned,
+		coreapi.ResourceProvisioningStatusDeprovisioning,
+		coreapi.ResourceProvisioningStatusError:
+		return in
+	default:
+		return coreapi.ResourceProvisioningStatusPending
+	}
+}
+
+func volumeStatuses(desired []string, observed *regionapi.ServerV2VolumeStatusList) []unikornv1.ComputeInstanceVolumeStatus {
+	var result []unikornv1.ComputeInstanceVolumeStatus
+
+	seen := map[string]struct{}{}
+
+	if observed != nil {
+		for _, status := range *observed {
+			item := unikornv1.ComputeInstanceVolumeStatus{
+				ID:                 status.Id.String(),
+				ProvisioningStatus: volumeProvisioningStatus(status.ProvisioningStatus),
+				Device:             status.Device,
+			}
+			if status.Message != nil {
+				item.Message = *status.Message
+			}
+
+			result = append(result, item)
+			seen[item.ID] = struct{}{}
+		}
+	}
+
+	for _, id := range desired {
+		if _, ok := seen[id]; !ok {
+			result = append(result, unikornv1.ComputeInstanceVolumeStatus{ID: id, ProvisioningStatus: coreapi.ResourceProvisioningStatusPending})
+		}
+	}
+
+	return result
+}
+
 func (p *Provisioner) updateInstanceStatus(server *regionapi.ServerV2Response) {
 	p.instance.Status.PrivateIP = server.Status.PrivateIP
 	p.instance.Status.PublicIP = server.Status.PublicIP
 	p.instance.Status.MACAddress = server.Status.MacAddress
+	p.instance.Status.Volumes = volumeStatuses(p.instance.Spec.Volumes, server.Status.Volumes)
 
 	// Mirror the backing server's lifecycle/power state onto the Active condition.
 	if reason, ok := activeConditionReason(server.Status.PowerState); ok {

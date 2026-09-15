@@ -461,6 +461,38 @@ func TestUpdateInstanceStatusCopiesMACAddress(t *testing.T) {
 	assert.Equal(t, regionv1.ActiveConditionReasonRunning, active.Reason)
 }
 
+func TestUpdateInstanceStatusProjectsVolumes(t *testing.T) {
+	t.Parallel()
+
+	device := "/dev/vdb"
+	message := "attachment failed"
+	provisioner := newProvisionerForTest(nil)
+	instanceObject, ok := provisioner.Object().(*unikornv1.ComputeInstance)
+	require.True(t, ok)
+
+	instanceObject.Spec.Volumes = []string{testVolumeID, testVolumeID2, testVolumeID5}
+	server := &regionapi.ServerV2Response{
+		Status: regionapi.ServerV2Status{
+			Volumes: &regionapi.ServerV2VolumeStatusList{
+				{Id: idstest.MustParseVolumeID(testVolumeID), ProvisioningStatus: coreapi.ResourceProvisioningStatusProvisioning},
+				{Id: idstest.MustParseVolumeID(testVolumeID2), ProvisioningStatus: coreapi.ResourceProvisioningStatusProvisioned, Device: &device},
+				{Id: idstest.MustParseVolumeID(testVolumeID3), ProvisioningStatus: coreapi.ResourceProvisioningStatusDeprovisioning},
+				{Id: idstest.MustParseVolumeID(testVolumeID4), ProvisioningStatus: coreapi.ResourceProvisioningStatusError, Message: &message},
+			},
+		},
+	}
+
+	provisioner.UpdateInstanceStatus(server)
+
+	assert.Equal(t, []unikornv1.ComputeInstanceVolumeStatus{
+		{ID: testVolumeID, ProvisioningStatus: coreapi.ResourceProvisioningStatusProvisioning},
+		{ID: testVolumeID2, ProvisioningStatus: coreapi.ResourceProvisioningStatusProvisioned, Device: &device},
+		{ID: testVolumeID3, ProvisioningStatus: coreapi.ResourceProvisioningStatusDeprovisioning},
+		{ID: testVolumeID4, ProvisioningStatus: coreapi.ResourceProvisioningStatusError, Message: message},
+		{ID: testVolumeID5, ProvisioningStatus: coreapi.ResourceProvisioningStatusPending},
+	}, instanceObject.Status.Volumes)
+}
+
 // TestActiveConditionReason verifies every known backing-server power state maps
 // to region's lifecycle reason vocabulary (which the instance's Active condition
 // mirrors). A nil or unrecognised phase returns ok=false so the caller leaves the
