@@ -123,6 +123,13 @@ spec:
                   as permitted by the cloud-init specification.
                 format: byte
                 type: string
+              volumes:
+                description: Volumes are existing Region volumes to attach to the
+                  instance.
+                items:
+                  type: string
+                type: array
+                x-kubernetes-list-type: set
             required:
             - flavorId
             - imageId
@@ -199,6 +206,40 @@ spec:
               publicIp:
                 description: PublicIP is the public IP address if requested.
                 type: string
+              volumes:
+                description: Volumes is the attachment state projected from the backing
+                  Region Server.
+                items:
+                  properties:
+                    device:
+                      description: Device is the provider-assigned guest device name,
+                        when available.
+                      type: string
+                    id:
+                      description: ID is the Region Volume resource ID.
+                      type: string
+                    message:
+                      description: Message is an API-safe description supplied by
+                        Region.
+                      type: string
+                    provisioningStatus:
+                      description: ProvisioningStatus describes the current attachment
+                        lifecycle state.
+                      enum:
+                      - pending
+                      - provisioning
+                      - provisioned
+                      - deprovisioning
+                      - error
+                      type: string
+                  required:
+                  - id
+                  - provisioningStatus
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - id
+                x-kubernetes-list-type: map
             type: object
         required:
         - spec

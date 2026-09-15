@@ -19,6 +19,7 @@ package v1alpha1
 
 import (
 	unikornv1core "github.com/unikorn-cloud/core/pkg/apis/unikorn/v1alpha1"
+	coreapi "github.com/unikorn-cloud/core/pkg/openapi"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -59,6 +60,9 @@ type ComputeInstanceSpec struct {
 	// UserData is passed to cloud-init and may be a script, a multipart MIME archive etc.
 	// as permitted by the cloud-init specification.
 	UserData []byte `json:"userData,omitempty"`
+	// Volumes are existing Region volumes to attach to the instance.
+	// +listType=set
+	Volumes []string `json:"volumes,omitempty"`
 }
 
 type ComputeInstanceNetworking struct {
@@ -82,8 +86,24 @@ type ComputeInstanceStatus struct {
 	PublicIP *string `json:"publicIp,omitempty"`
 	// MACAddress is the MAC address of the instance's primary network interface.
 	MACAddress *string `json:"macAddress,omitempty"`
+	// Volumes is the attachment state projected from the backing Region Server.
+	// +listType=map
+	// +listMapKey=id
+	Volumes []ComputeInstanceVolumeStatus `json:"volumes,omitempty"`
 	// Conditions is a set of status conditions for the machine. The instance's
 	// lifecycle/power state rides the generic Active condition (reusing region's
 	// ActiveConditionReason vocabulary), mirroring the backing region server.
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
+}
+
+type ComputeInstanceVolumeStatus struct {
+	// ID is the Region Volume resource ID.
+	ID string `json:"id"`
+	// ProvisioningStatus describes the current attachment lifecycle state.
+	// +kubebuilder:validation:Enum=pending;provisioning;provisioned;deprovisioning;error
+	ProvisioningStatus coreapi.ResourceProvisioningStatus `json:"provisioningStatus"`
+	// Device is the provider-assigned guest device name, when available.
+	Device *string `json:"device,omitempty"`
+	// Message is an API-safe description supplied by Region.
+	Message string `json:"message,omitempty"`
 }

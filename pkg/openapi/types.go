@@ -7,6 +7,7 @@ import (
 	computeids "github.com/unikorn-cloud/compute/pkg/ids"
 	externalRef0 "github.com/unikorn-cloud/core/pkg/openapi"
 	externalRef1 "github.com/unikorn-cloud/identity/pkg/openapi"
+	regionids "github.com/unikorn-cloud/region/pkg/ids"
 	externalRef2 "github.com/unikorn-cloud/region/pkg/openapi"
 )
 
@@ -56,6 +57,15 @@ type InstanceCreateSpec struct {
 	// The format of the data is governed by the cloud-init standard, and may be a script,
 	// a MIME multipart archive, etc.
 	UserData *[]byte `json:"userData,omitempty"`
+
+	// Volumes Complete desired set of existing Volumes to attach to the Instance.
+	// On update, omit this field to keep the current set. Send an empty list to
+	// detach all Volumes. Send a non-empty list to replace the current set.
+	// Each VolumeClass may restrict compatible flavors through supportedFlavorIds;
+	// the selected flavor must be present in a non-empty list. An omitted or empty
+	// list, an unsupported flavor, or an unresolved VolumeClass is rejected with
+	// HTTP 422.
+	Volumes *InstanceVolumeList `json:"volumes,omitempty"`
 }
 
 // InstanceId A compute instance ID.
@@ -128,6 +138,15 @@ type InstanceSpec struct {
 	// The format of the data is governed by the cloud-init standard, and may be a script,
 	// a MIME multipart archive, etc.
 	UserData *[]byte `json:"userData,omitempty"`
+
+	// Volumes Complete desired set of existing Volumes to attach to the Instance.
+	// On update, omit this field to keep the current set. Send an empty list to
+	// detach all Volumes. Send a non-empty list to replace the current set.
+	// Each VolumeClass may restrict compatible flavors through supportedFlavorIds;
+	// the selected flavor must be present in a non-empty list. An omitted or empty
+	// list, an unsupported flavor, or an unresolved VolumeClass is rejected with
+	// HTTP 422.
+	Volumes *InstanceVolumeList `json:"volumes,omitempty"`
 }
 
 // InstanceStatus Read only status information about a compute instance.
@@ -157,6 +176,9 @@ type InstanceStatus struct {
 
 	// RegionId The region a security group belongs to.
 	RegionId string `json:"regionId"`
+
+	// Volumes Observed Volume attachment state, including attachments still being removed.
+	Volumes *InstanceVolumeStatusList `json:"volumes,omitempty"`
 }
 
 // InstanceUpdate A compute instance update request.
@@ -176,11 +198,41 @@ type InstanceUpdate struct {
 	Spec InstanceSpec `json:"spec"`
 }
 
+// InstanceVolumeList Complete desired set of existing Volumes to attach to the Instance.
+// On update, omit this field to keep the current set. Send an empty list to
+// detach all Volumes. Send a non-empty list to replace the current set.
+// Each VolumeClass may restrict compatible flavors through supportedFlavorIds;
+// the selected flavor must be present in a non-empty list. An omitted or empty
+// list, an unsupported flavor, or an unresolved VolumeClass is rejected with
+// HTTP 422.
+type InstanceVolumeList = []VolumeId
+
+// InstanceVolumeStatus Observed attachment state for a Volume associated with an Instance.
+type InstanceVolumeStatus struct {
+	// Device The provider-assigned guest device name, when available.
+	Device *string `json:"device,omitempty"`
+
+	// Id A Region volume ID.
+	Id VolumeId `json:"id"`
+
+	// Message Optional API-safe description of the attachment state.
+	Message *string `json:"message,omitempty"`
+
+	// ProvisioningStatus The provisioning state of a resource.
+	ProvisioningStatus externalRef0.ResourceProvisioningStatus `json:"provisioningStatus"`
+}
+
+// InstanceVolumeStatusList Observed Volume attachment state, including attachments still being removed.
+type InstanceVolumeStatusList = []InstanceVolumeStatus
+
 // InstancesRead A list of compute instances.
 type InstancesRead = []InstanceRead
 
 // SecurityGroupIDList A list of security group IDs.
 type SecurityGroupIDList = []string
+
+// VolumeId A Region volume ID.
+type VolumeId = regionids.VolumeID
 
 // HardRebootParameter defines model for hardRebootParameter.
 type HardRebootParameter = bool

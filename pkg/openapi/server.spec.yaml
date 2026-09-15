@@ -505,6 +505,14 @@ components:
       x-go-type-import:
         name: computeids
         path: github.com/unikorn-cloud/compute/pkg/ids
+    volumeId:
+      description: A Region volume ID.
+      type: string
+      format: uuid
+      x-go-type: regionids.VolumeID
+      x-go-type-import:
+        name: regionids
+        path: github.com/unikorn-cloud/region/pkg/ids
     volume:
       description: A volume.  This is currently only valid for VM based flavors.
       type: object
@@ -541,6 +549,40 @@ components:
           type: boolean
         allowedSourceAddresses:
           $ref: '#/components/schemas/allowedSourceAddresses'
+    instanceVolumeList:
+      description: |-
+        Complete desired set of existing Volumes to attach to the Instance.
+        On update, omit this field to keep the current set. Send an empty list to
+        detach all Volumes. Send a non-empty list to replace the current set.
+        Each VolumeClass may restrict compatible flavors through supportedFlavorIds;
+        the selected flavor must be present in a non-empty list. An omitted or empty
+        list, an unsupported flavor, or an unresolved VolumeClass is rejected with
+        HTTP 422.
+      type: array
+      items:
+        $ref: '#/components/schemas/volumeId'
+    instanceVolumeStatus:
+      description: Observed attachment state for a Volume associated with an Instance.
+      type: object
+      required:
+      - id
+      - provisioningStatus
+      properties:
+        id:
+          $ref: '#/components/schemas/volumeId'
+        provisioningStatus:
+          $ref: 'https://raw.githubusercontent.com/unikorn-cloud/core/v1.17.1/pkg/openapi/common.spec.yaml#/components/schemas/resourceProvisioningStatus'
+        device:
+          description: The provider-assigned guest device name, when available.
+          type: string
+        message:
+          description: Optional API-safe description of the attachment state.
+          type: string
+    instanceVolumeStatusList:
+      description: Observed Volume attachment state, including attachments still being removed.
+      type: array
+      items:
+        $ref: '#/components/schemas/instanceVolumeStatus'
     instanceSpec:
       description: |-
         A compute instance.
@@ -563,6 +605,8 @@ components:
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/region/v1.21.1/pkg/openapi/server.spec.yaml#/components/schemas/imageId'
         networking:
           $ref: '#/components/schemas/instanceNetworking'
+        volumes:
+          $ref: '#/components/schemas/instanceVolumeList'
         sshCertificateAuthorityId:
           $ref: 'https://raw.githubusercontent.com/unikorn-cloud/region/v1.21.1/pkg/openapi/server.spec.yaml#/components/schemas/sshCertificateAuthorityId'
         userData:
@@ -613,6 +657,8 @@ components:
         macAddress:
           description: The MAC address of the server.
           type: string
+        volumes:
+          $ref: '#/components/schemas/instanceVolumeStatusList'
     instanceRead:
       description: A compute instance.
       type: object
