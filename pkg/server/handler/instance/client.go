@@ -139,6 +139,75 @@ func ConvertUserData(in []byte) *[]byte {
 	return &in
 }
 
+func convertVolumes(in []string) (*computeapi.InstanceVolumeList, error) {
+	if len(in) == 0 {
+		//nolint:nilnil
+		return nil, nil
+	}
+
+	out := make(computeapi.InstanceVolumeList, len(in))
+
+	for i := range in {
+		id, err := regionids.ParseVolumeID(in[i])
+		if err != nil {
+			return nil, err
+		}
+
+		out[i] = id
+	}
+
+	return &out, nil
+}
+
+func generateVolumes(in *computeapi.InstanceVolumeList) []string {
+	if in == nil {
+		return nil
+	}
+
+	out := make([]string, len(*in))
+
+	for i := range *in {
+		out[i] = (*in)[i].String()
+	}
+
+	return out
+}
+
+func updatedVolumes(in *computeapi.InstanceVolumeList, current []string) []string {
+	if in == nil {
+		return current
+	}
+
+	return generateVolumes(in)
+}
+
+func convertVolumeStatuses(in []computev1.ComputeInstanceVolumeStatus) (*computeapi.InstanceVolumeStatusList, error) {
+	if len(in) == 0 {
+		//nolint:nilnil
+		return nil, nil
+	}
+
+	out := make(computeapi.InstanceVolumeStatusList, len(in))
+
+	for i := range in {
+		id, err := regionids.ParseVolumeID(in[i].ID)
+		if err != nil {
+			return nil, err
+		}
+
+		out[i] = computeapi.InstanceVolumeStatus{
+			Id:                 id,
+			ProvisioningStatus: in[i].ProvisioningStatus,
+			Device:             in[i].Device,
+		}
+		if in[i].Message != "" {
+			out[i].Message = ptr.To(in[i].Message)
+		}
+	}
+
+	return &out, nil
+}
+
 // instancePowerState projects the instance's Active condition (the lifecycle/power
 // axis mirrored from the backing region server) onto the API enum. An absent
 // condition or an unrecognised reason yields nil, so the field is omitted rather
@@ -208,6 +277,16 @@ func convert(in *computev1.ComputeInstance) (*computeapi.InstanceRead, error) {
 		return nil, err
 	}
 
+	volumes, err := convertVolumes(in.Spec.Volumes)
+	if err != nil {
+		return nil, err
+	}
+
+	volumeStatuses, err := convertVolumeStatuses(in.Status.Volumes)
+	if err != nil {
+		return nil, err
+	}
+
 	out := &computeapi.InstanceRead{
 		Metadata: conversion.ProjectScopedResourceReadMetadata(in, in.Spec.Tags),
 		Spec: computeapi.InstanceSpec{
@@ -216,6 +295,7 @@ func convert(in *computev1.ComputeInstance) (*computeapi.InstanceRead, error) {
 			Networking:                ConvertNetworking(in.Spec.Networking),
 			SshCertificateAuthorityId: sshCertificateAuthorityID,
 			UserData:                  ConvertUserData(in.Spec.UserData),
+			Volumes:                   volumes,
 		},
 		Status: computeapi.InstanceStatus{
 			RegionId:   in.Labels[regionconstants.RegionLabel],
@@ -224,6 +304,7 @@ func convert(in *computev1.ComputeInstance) (*computeapi.InstanceRead, error) {
 			PrivateIP:  in.Status.PrivateIP,
 			PublicIP:   in.Status.PublicIP,
 			MacAddress: in.Status.MACAddress,
+			Volumes:    volumeStatuses,
 		},
 	}
 
@@ -422,6 +503,7 @@ func (c *Client) generate(ctx context.Context, in *computeapi.InstanceUpdate, or
 			Networking:                networking,
 			SSHCertificateAuthorityID: sshCertificateAuthorityID,
 			UserData:                  GenerateUserData(in.Spec.UserData),
+			Volumes:                   generateVolumes(in.Spec.Volumes),
 		},
 	}
 
@@ -931,6 +1013,7 @@ func (c *Client) Update(ctx context.Context, instanceID computeids.InstanceID, r
 	updated.Labels = required.Labels
 	updated.Annotations = required.Annotations
 	updated.Spec = required.Spec
+	updated.Spec.Volumes = updatedVolumes(request.Spec.Volumes, current.Spec.Volumes)
 
 	s := newUpdateSaga(c, current, updated, currentFlavor, flavor)
 

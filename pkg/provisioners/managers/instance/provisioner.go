@@ -167,6 +167,21 @@ func (p *Provisioner) generateUserData() *[]byte {
 	return &p.instance.Spec.UserData
 }
 
+func (p *Provisioner) generateServerVolumes() (*regionapi.ServerV2VolumeList, error) {
+	out := make(regionapi.ServerV2VolumeList, len(p.instance.Spec.Volumes))
+
+	for i := range p.instance.Spec.Volumes {
+		id, err := regionids.ParseVolumeID(p.instance.Spec.Volumes[i])
+		if err != nil {
+			return nil, err
+		}
+
+		out[i] = id
+	}
+
+	return &out, nil
+}
+
 func (p *Provisioner) generateServerCreateRequest() (*regionapi.ServerV2Create, error) {
 	// The network, flavor, image and SSH CA IDs are read from the instance's labels
 	// and spec (strings); parse them to the typed IDs the region API expects, failing
@@ -191,6 +206,11 @@ func (p *Provisioner) generateServerCreateRequest() (*regionapi.ServerV2Create, 
 		return nil, err
 	}
 
+	volumes, err := p.generateServerVolumes()
+	if err != nil {
+		return nil, err
+	}
+
 	return &regionapi.ServerV2Create{
 		Metadata: coreapi.ResourceWriteMetadata{
 			Name:        p.instance.Labels[coreconstants.NameLabel],
@@ -211,6 +231,7 @@ func (p *Provisioner) generateServerCreateRequest() (*regionapi.ServerV2Create, 
 			// stored CRD value (also a string) passes through unparsed.
 			SshCertificateAuthorityId: p.instance.Spec.SSHCertificateAuthorityID,
 			UserData:                  p.generateUserData(),
+			Volumes:                   volumes,
 		},
 	}, nil
 }
@@ -233,6 +254,11 @@ func (p *Provisioner) generateServerUpdateRequest() (*regionapi.ServerV2Update, 
 		return nil, err
 	}
 
+	volumes, err := p.generateServerVolumes()
+	if err != nil {
+		return nil, err
+	}
+
 	return &regionapi.ServerV2Update{
 		Metadata: coreapi.ResourceWriteMetadata{
 			Name:        p.instance.Labels[coreconstants.NameLabel],
@@ -249,6 +275,7 @@ func (p *Provisioner) generateServerUpdateRequest() (*regionapi.ServerV2Update, 
 			ImageId:    imageID,
 			Networking: networking,
 			UserData:   p.generateUserData(),
+			Volumes:    volumes,
 		},
 	}, nil
 }
@@ -273,14 +300,18 @@ func needsRebuild(current *regionapi.ServerV2Read, desired *regionapi.ServerV2Up
 	return needsRebuildSpec(&current.Spec, &desired.Spec)
 }
 
+func (p *Provisioner) createServerFromInstance(ctx context.Context, region regionapi.ClientWithResponsesInterface) (*regionapi.ServerV2Read, error) {
+	request, err := p.generateServerCreateRequest()
+	if err != nil {
+		return nil, err
+	}
+
+	return p.createServer(ctx, region, request)
+}
+
 func (p *Provisioner) createOrUpdateServer(ctx context.Context, region regionapi.ClientWithResponsesInterface, server *regionapi.ServerV2Read) (*regionapi.ServerV2Read, error) {
 	if server == nil {
-		request, err := p.generateServerCreateRequest()
-		if err != nil {
-			return nil, err
-		}
-
-		return p.createServer(ctx, region, request)
+		return p.createServerFromInstance(ctx, region)
 	}
 
 	request, err := p.generateServerUpdateRequest()
@@ -302,6 +333,10 @@ func (p *Provisioner) createOrUpdateServer(ctx context.Context, region regionapi
 		}
 
 		return nil, provisioners.ErrYield
+	}
+
+	if len(*request.Spec.Volumes) == 0 && server.Spec.Volumes == nil {
+		request.Spec.Volumes = nil
 	}
 
 	if reflect.DeepEqual(server.Spec, request.Spec) {

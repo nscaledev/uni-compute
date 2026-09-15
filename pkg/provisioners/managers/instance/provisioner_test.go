@@ -17,6 +17,10 @@ limitations under the License.
 package instance_test
 
 import (
+	"bytes"
+	"encoding/json"
+	"io"
+	"net/http"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -28,6 +32,7 @@ import (
 	unikornv1core "github.com/unikorn-cloud/core/pkg/apis/unikorn/v1alpha1"
 	coreconstants "github.com/unikorn-cloud/core/pkg/constants"
 	coreapi "github.com/unikorn-cloud/core/pkg/openapi"
+	coreerrors "github.com/unikorn-cloud/core/pkg/server/errors"
 	regionv1 "github.com/unikorn-cloud/region/pkg/apis/unikorn/v1alpha1"
 	regionconstants "github.com/unikorn-cloud/region/pkg/constants"
 	idstest "github.com/unikorn-cloud/region/pkg/ids/idstest"
@@ -43,7 +48,37 @@ const (
 	testImageID   = "a10e30e8-006a-48e6-a3c7-3c9416891f31"
 	testFlavorID2 = "d1e2f3a4-b5c6-4d7e-8f90-1a2b3c4d5e6f"
 	testImageID2  = "e2f3a4b5-c6d7-4e8f-9012-2b3c4d5e6f70"
+	testVolumeID  = "f5c1ccbf-cbdd-49fd-b5b9-90902464851f"
+	testVolumeID2 = "3a21348e-d20a-459c-a57f-d1b24c94ba7f"
+	testVolumeID3 = "880360b0-d975-439c-a4d1-4ea13946cb03"
+	testVolumeID4 = "ea142ff6-d263-4971-9a56-cfd5c4b04840"
+	testVolumeID5 = "dba84415-0fa2-46d2-8075-8199e2775d19"
+	testServerID  = "10f9d1cf-bb76-4644-8b48-890ab083182d"
 )
+
+type regionRoundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f regionRoundTripFunc) RoundTrip(request *http.Request) (*http.Response, error) {
+	return f(request)
+}
+
+func newRegionClient(t *testing.T, transport regionRoundTripFunc) regionapi.ClientWithResponsesInterface {
+	t.Helper()
+
+	client, err := regionapi.NewClientWithResponses("http://region.example", regionapi.WithHTTPClient(&http.Client{Transport: transport}))
+	require.NoError(t, err)
+
+	return client
+}
+
+func volumeList(ids ...string) *regionapi.ServerV2VolumeList {
+	result := make(regionapi.ServerV2VolumeList, len(ids))
+	for i := range ids {
+		result[i] = idstest.MustParseVolumeID(ids[i])
+	}
+
+	return &result
+}
 
 func newProvisionerForTest(sshCertificateAuthorityID *string) *instance.Provisioner {
 	return instance.NewProvisionerForTest(unikornv1.ComputeInstance{
@@ -86,6 +121,211 @@ func TestGenerateServerCreateRequestIncludesSSHCertificateAuthority(t *testing.T
 	require.NotNil(t, request.Spec.Networking)
 	require.NotNil(t, request.Metadata.Tags)
 	assert.Equal(t, constants.InstanceLabel, (*request.Metadata.Tags)[0].Name)
+}
+
+func TestGenerateServerRequestsIncludeVolumes(t *testing.T) {
+	t.Parallel()
+
+	provisioner := newProvisionerForTest(nil)
+	instanceObject, ok := provisioner.Object().(*unikornv1.ComputeInstance)
+	require.True(t, ok)
+
+	instanceObject.Spec.Volumes = []string{testVolumeID}
+
+	create, err := provisioner.GenerateServerCreateRequest()
+	require.NoError(t, err)
+	require.NotNil(t, create.Spec.Volumes)
+	require.Len(t, *create.Spec.Volumes, 1)
+	assert.Equal(t, testVolumeID, (*create.Spec.Volumes)[0].String())
+
+	update, err := provisioner.GenerateServerUpdateRequest()
+	require.NoError(t, err)
+	require.NotNil(t, update.Spec.Volumes)
+	require.Len(t, *update.Spec.Volumes, 1)
+	assert.Equal(t, testVolumeID, (*update.Spec.Volumes)[0].String())
+}
+
+func TestGenerateServerUpdateRequestClearsVolumes(t *testing.T) {
+	t.Parallel()
+
+	request, err := newProvisionerForTest(nil).GenerateServerUpdateRequest()
+	require.NoError(t, err)
+	require.NotNil(t, request.Spec.Volumes)
+	assert.Empty(t, *request.Spec.Volumes)
+}
+
+func TestCreateOrUpdateServerNoopWithNoVolumes(t *testing.T) {
+	t.Parallel()
+
+	provisioner := newProvisionerForTest(nil)
+	request, err := provisioner.GenerateServerUpdateRequest()
+	require.NoError(t, err)
+
+	current := &regionapi.ServerV2Read{
+		Metadata: coreapi.ProjectScopedResourceReadMetadata{
+			Name: request.Metadata.Name,
+		},
+		Spec: request.Spec,
+	}
+	current.Spec.Volumes = nil
+
+	updated, err := provisioner.CreateOrUpdateServer(t.Context(), nil, current)
+	require.NoError(t, err)
+	assert.Same(t, current, updated)
+}
+
+func TestCreateOrUpdateServerPropagatesVolumeChanges(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name           string
+		currentVolumes *regionapi.ServerV2VolumeList
+		desiredVolumes []string
+		create         bool
+		attempts       int
+		expectedCalls  int
+	}{
+		{name: "create multiple", desiredVolumes: []string{testVolumeID, testVolumeID2}, create: true, attempts: 1, expectedCalls: 1},
+		{name: "add", desiredVolumes: []string{testVolumeID}, attempts: 1, expectedCalls: 1},
+		{name: "remove", currentVolumes: volumeList(testVolumeID), desiredVolumes: []string{}, attempts: 1, expectedCalls: 1},
+		{name: "replace and retry", currentVolumes: volumeList(testVolumeID), desiredVolumes: []string{testVolumeID2}, attempts: 2, expectedCalls: 2},
+		{name: "no-op", currentVolumes: volumeList(testVolumeID), desiredVolumes: []string{testVolumeID}, attempts: 1},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			var received [][]string
+
+			regionClient := newRegionClient(t, func(r *http.Request) (*http.Response, error) {
+				if test.create {
+					assert.Equal(t, http.MethodPost, r.Method)
+					assert.Equal(t, "/api/v2/servers", r.URL.Path)
+				} else {
+					assert.Equal(t, http.MethodPut, r.Method)
+					assert.Equal(t, "/api/v2/servers/"+testServerID, r.URL.Path)
+				}
+
+				var request struct {
+					Spec struct {
+						Volumes *[]string `json:"volumes"`
+					} `json:"spec"`
+				}
+
+				require.NoError(t, json.NewDecoder(r.Body).Decode(&request))
+				require.NotNil(t, request.Spec.Volumes)
+				received = append(received, *request.Spec.Volumes)
+
+				status := http.StatusAccepted
+				if test.create {
+					status = http.StatusCreated
+				}
+
+				return &http.Response{
+					StatusCode: status,
+					Body:       io.NopCloser(bytes.NewBufferString("{}")),
+					Header:     http.Header{"Content-Type": []string{"application/json"}},
+					Request:    r,
+				}, nil
+			})
+
+			provisioner := newProvisionerForTest(nil)
+			instanceObject, ok := provisioner.Object().(*unikornv1.ComputeInstance)
+			require.True(t, ok)
+
+			instanceObject.Spec.Volumes = test.desiredVolumes
+
+			var current *regionapi.ServerV2Read
+
+			if !test.create {
+				request, err := provisioner.GenerateServerUpdateRequest()
+				require.NoError(t, err)
+
+				current = &regionapi.ServerV2Read{
+					Metadata: coreapi.ProjectScopedResourceReadMetadata{Id: testServerID, Name: request.Metadata.Name},
+					Spec:     request.Spec,
+				}
+				current.Spec.Volumes = test.currentVolumes
+			}
+
+			for range test.attempts {
+				result, err := provisioner.CreateOrUpdateServer(t.Context(), regionClient, current)
+				require.NoError(t, err)
+
+				if test.expectedCalls == 0 {
+					assert.Same(t, current, result)
+				}
+			}
+
+			require.Len(t, received, test.expectedCalls)
+
+			for _, volumes := range received {
+				assert.Equal(t, test.desiredVolumes, volumes)
+			}
+		})
+	}
+}
+
+func TestCreateOrUpdateServerPropagatesRegionValidationError(t *testing.T) {
+	t.Parallel()
+
+	body, err := json.Marshal(coreapi.Error{
+		Error:            coreapi.Conflict,
+		ErrorDescription: "volume is already claimed",
+	})
+	require.NoError(t, err)
+
+	regionClient := newRegionClient(t, func(r *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusConflict,
+			Body:       io.NopCloser(bytes.NewReader(body)),
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Request:    r,
+		}, nil
+	})
+
+	provisioner := newProvisionerForTest(nil)
+	instanceObject, ok := provisioner.Object().(*unikornv1.ComputeInstance)
+	require.True(t, ok)
+
+	instanceObject.Spec.Volumes = []string{testVolumeID2}
+
+	request, err := provisioner.GenerateServerUpdateRequest()
+	require.NoError(t, err)
+
+	current := &regionapi.ServerV2Read{
+		Metadata: coreapi.ProjectScopedResourceReadMetadata{Id: testServerID, Name: request.Metadata.Name},
+		Spec:     request.Spec,
+	}
+	current.Spec.Volumes = volumeList(testVolumeID)
+
+	_, err = provisioner.CreateOrUpdateServer(t.Context(), regionClient, current)
+	require.Error(t, err)
+	require.True(t, coreerrors.IsConflict(err), "expected conflict, got: %v", err)
+}
+
+func TestDeleteServerDoesNotManageVolumes(t *testing.T) {
+	t.Parallel()
+
+	var requests int
+
+	regionClient := newRegionClient(t, func(r *http.Request) (*http.Response, error) {
+		requests++
+
+		assert.Equal(t, http.MethodDelete, r.Method)
+		assert.Equal(t, "/api/v2/servers/"+testServerID, r.URL.Path)
+
+		return &http.Response{
+			StatusCode: http.StatusAccepted,
+			Body:       io.NopCloser(bytes.NewReader(nil)),
+			Request:    r,
+		}, nil
+	})
+
+	err := newProvisionerForTest(nil).DeleteServer(t.Context(), regionClient, idstest.MustParseServerID(testServerID))
+	require.NoError(t, err)
+	assert.Equal(t, 1, requests)
 }
 
 func TestCreateOrUpdateServerIgnoresSSHCertificateAuthorityOnlyChange(t *testing.T) {
