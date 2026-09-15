@@ -85,7 +85,7 @@ Compute depends on region for:
 
 - network scoping and authorization
 - flavor catalog and region-available image visibility
-- security-group and SSH CA validation
+- security-group, SSH CA, Volume, and VolumeClass validation
 - the actual server lifecycle and operational verbs
 - projected runtime status
 
@@ -98,7 +98,7 @@ Resource identifiers are UUID-backed typed IDs (see [ids](./ids/README.md)), not
 bare strings, from the router to the edge of the handler and controller layers.
 
 - Compute owns `InstanceID`; it consumes identity's organization/project IDs and
-  region's region/network/flavor/image/server/SSH-CA IDs as a black box.
+  region's region/network/flavor/image/server/SSH-CA/Volume IDs as a black box.
 - Validation happens at the trust boundary: path parameters at the router,
   create-body IDs at unmarshal. Stored IDs (CRD labels and spec, region read
   models) are re-parsed fail-closed when they re-enter the typed world.

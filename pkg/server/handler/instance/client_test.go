@@ -52,6 +52,7 @@ const (
 	organizationID       = "d4600d6e-e965-4b44-a808-84fb2fa36702"
 	projectID            = "cae219d7-10e5-4601-8c2c-ee7e066b93ce"
 	nonexistentProjectID = "f1e2d3c4-b5a6-4798-8a9b-0c1d2e3f4a5b"
+	instanceFlavorID     = "c7568e2d-f9ab-453d-9a3a-51375f78426b"
 )
 
 // aclWithOrgScopeCreate grants compute:instances/Create at organization scope,
@@ -615,6 +616,496 @@ func TestValidateSecurityGroupNetworkMismatch(t *testing.T) {
 	}, idstest.MustParseNetworkID("a1b2c3d4-e5f6-4789-8abc-def012345678"))
 	require.Error(t, err)
 	require.True(t, coreerrors.IsUnprocessableContent(err), "expected 422, got: %v", err)
+}
+
+func TestValidateVolumes(t *testing.T) {
+	t.Parallel()
+
+	const (
+		regionID            = "a73e9c26-af56-4562-8352-9512e0586f3b"
+		otherRegionID       = "22222222-2222-4222-8222-222222222222"
+		volumeID            = "f5c1ccbf-cbdd-49fd-b5b9-90902464851f"
+		networkID           = "a1b2c3d4-e5f6-4789-8abc-def012345678"
+		otherNetworkID      = "11111111-1111-4111-a111-111111111111"
+		otherOrganizationID = "33333333-3333-4333-8333-333333333333"
+		otherProjectID      = "44444444-4444-4444-8444-444444444444"
+	)
+
+	tests := []struct {
+		name           string
+		organizationID string
+		projectID      string
+		regionID       string
+		networkID      string
+	}{
+		{name: "organization mismatch", organizationID: otherOrganizationID, projectID: projectID, regionID: regionID, networkID: networkID},
+		{name: "project mismatch", organizationID: organizationID, projectID: otherProjectID, regionID: regionID, networkID: networkID},
+		{name: "region mismatch", organizationID: organizationID, projectID: projectID, regionID: otherRegionID, networkID: networkID},
+		{name: "network mismatch", organizationID: organizationID, projectID: projectID, regionID: regionID, networkID: otherNetworkID},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			body, err := json.Marshal(regionapi.VolumeV2Response{
+				Metadata: coreapi.ProjectScopedResourceReadMetadata{
+					OrganizationId: test.organizationID,
+					ProjectId:      test.projectID,
+				},
+				Spec: regionapi.VolumeV2Spec{NetworkId: idstest.MustParseNetworkID(test.networkID)},
+				Status: regionapi.VolumeV2Status{
+					RegionId: idstest.MustParseRegionID(test.regionID),
+				},
+			})
+			require.NoError(t, err)
+
+			regionClient, err := regionapi.NewClientWithResponses("http://region.example", regionapi.WithHTTPClient(regionRoundTripFunc(func(r *http.Request) (*http.Response, error) {
+				require.Equal(t, "/api/v2/volumes/"+volumeID, r.URL.Path)
+
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(bytes.NewReader(body)),
+					Header:     http.Header{"Content-Type": []string{"application/json"}},
+					Request:    r,
+				}, nil
+			})))
+			require.NoError(t, err)
+
+			volumes := computeapi.InstanceVolumeList{idstest.MustParseVolumeID(volumeID)}
+			err = instance.NewClient(nil, "", nil, regionClient).ValidateVolumes(
+				t.Context(),
+				&volumes,
+				nil,
+				identityids.MustParseOrganizationID(organizationID),
+				identityids.MustParseProjectID(projectID),
+				idstest.MustParseRegionID(regionID),
+				idstest.MustParseNetworkID(networkID),
+				idstest.MustParseFlavorID(instanceFlavorID),
+			)
+
+			require.Error(t, err)
+			require.True(t, coreerrors.IsUnprocessableContent(err), "expected 422, got: %v", err)
+		})
+	}
+}
+
+func TestValidateVolumesRejectsDuplicates(t *testing.T) {
+	t.Parallel()
+
+	id := idstest.MustParseVolumeID("f5c1ccbf-cbdd-49fd-b5b9-90902464851f")
+	volumes := computeapi.InstanceVolumeList{id, id}
+	err := instance.NewClient(nil, "", nil, nil).ValidateVolumes(
+		t.Context(),
+		&volumes,
+		nil,
+		identityids.MustParseOrganizationID(organizationID),
+		identityids.MustParseProjectID(projectID),
+		idstest.MustParseRegionID("a73e9c26-af56-4562-8352-9512e0586f3b"),
+		idstest.MustParseNetworkID("a1b2c3d4-e5f6-4789-8abc-def012345678"),
+		idstest.MustParseFlavorID(instanceFlavorID),
+	)
+
+	require.Error(t, err)
+	require.True(t, coreerrors.IsUnprocessableContent(err), "expected 422, got: %v", err)
+}
+
+func TestValidateVolumesHidesForbiddenReferences(t *testing.T) {
+	t.Parallel()
+
+	const (
+		regionID  = "a73e9c26-af56-4562-8352-9512e0586f3b"
+		volumeID  = "f5c1ccbf-cbdd-49fd-b5b9-90902464851f"
+		networkID = "a1b2c3d4-e5f6-4789-8abc-def012345678"
+	)
+
+	for _, status := range []int{http.StatusForbidden, http.StatusNotFound} {
+		t.Run(http.StatusText(status), func(t *testing.T) {
+			t.Parallel()
+
+			body, err := json.Marshal(coreapi.Error{
+				Error:            coreapi.NotFound,
+				ErrorDescription: "resource not found",
+			})
+			require.NoError(t, err)
+
+			regionClient, err := regionapi.NewClientWithResponses("http://region.example", regionapi.WithHTTPClient(regionRoundTripFunc(func(r *http.Request) (*http.Response, error) {
+				return &http.Response{
+					StatusCode: status,
+					Body:       io.NopCloser(bytes.NewReader(body)),
+					Header:     http.Header{"Content-Type": []string{"application/json"}},
+					Request:    r,
+				}, nil
+			})))
+			require.NoError(t, err)
+
+			volumes := computeapi.InstanceVolumeList{idstest.MustParseVolumeID(volumeID)}
+			err = instance.NewClient(nil, "", nil, regionClient).ValidateVolumes(
+				t.Context(),
+				&volumes,
+				nil,
+				identityids.MustParseOrganizationID(organizationID),
+				identityids.MustParseProjectID(projectID),
+				idstest.MustParseRegionID(regionID),
+				idstest.MustParseNetworkID(networkID),
+				idstest.MustParseFlavorID(instanceFlavorID),
+			)
+
+			require.Error(t, err)
+			require.True(t, coreerrors.IsHTTPNotFound(err), "expected 404, got: %v", err)
+		})
+	}
+}
+
+func TestValidateVolumesRejectsNewAttachedVolume(t *testing.T) {
+	t.Parallel()
+
+	const (
+		regionID      = "a73e9c26-af56-4562-8352-9512e0586f3b"
+		volumeID      = "f5c1ccbf-cbdd-49fd-b5b9-90902464851f"
+		networkID     = "a1b2c3d4-e5f6-4789-8abc-def012345678"
+		volumeClassID = "44444444-4444-4444-8444-444444444444"
+	)
+
+	body, err := json.Marshal(map[string]any{
+		"metadata": coreapi.ProjectScopedResourceReadMetadata{
+			OrganizationId: organizationID,
+			ProjectId:      projectID,
+		},
+		"spec": map[string]any{
+			"networkId":     idstest.MustParseNetworkID(networkID),
+			"volumeClassId": volumeClassID,
+		},
+		"status": map[string]any{
+			"regionId":   idstest.MustParseRegionID(regionID),
+			"attachedAt": metav1.Now(),
+		},
+	})
+	require.NoError(t, err)
+
+	for _, test := range []struct {
+		name           string
+		currentVolumes []string
+		wantError      bool
+	}{
+		{name: "new volume", wantError: true},
+		{name: "already desired", currentVolumes: []string{volumeID}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			classesBody, err := json.Marshal(regionapi.VolumeClassListV2Response{{
+				Metadata: coreapi.StaticResourceMetadata{Id: volumeClassID},
+				Spec: regionapi.VolumeClassV2Spec{
+					SupportedFlavorIds: &[]regionapi.FlavorId{idstest.MustParseFlavorID(instanceFlavorID)},
+				},
+			}})
+			require.NoError(t, err)
+
+			regionClient, err := regionapi.NewClientWithResponses("http://region.example", regionapi.WithHTTPClient(regionRoundTripFunc(func(r *http.Request) (*http.Response, error) {
+				responseBody := body
+				if r.URL.Path == "/api/v2/volumeclasses" {
+					responseBody = classesBody
+				}
+
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(bytes.NewReader(responseBody)),
+					Header:     http.Header{"Content-Type": []string{"application/json"}},
+					Request:    r,
+				}, nil
+			})))
+			require.NoError(t, err)
+
+			volumes := computeapi.InstanceVolumeList{idstest.MustParseVolumeID(volumeID)}
+			err = instance.NewClient(nil, "", nil, regionClient).ValidateVolumes(
+				t.Context(),
+				&volumes,
+				test.currentVolumes,
+				identityids.MustParseOrganizationID(organizationID),
+				identityids.MustParseProjectID(projectID),
+				idstest.MustParseRegionID(regionID),
+				idstest.MustParseNetworkID(networkID),
+				idstest.MustParseFlavorID(instanceFlavorID),
+			)
+
+			if test.wantError {
+				require.Error(t, err)
+				require.True(t, coreerrors.IsUnprocessableContent(err), "expected 422, got: %v", err)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestValidateVolumesRejectsDeprovisioningVolume(t *testing.T) {
+	t.Parallel()
+
+	const (
+		regionID  = "a73e9c26-af56-4562-8352-9512e0586f3b"
+		volumeID  = "f5c1ccbf-cbdd-49fd-b5b9-90902464851f"
+		networkID = "a1b2c3d4-e5f6-4789-8abc-def012345678"
+	)
+
+	body, err := json.Marshal(regionapi.VolumeV2Response{
+		Metadata: coreapi.ProjectScopedResourceReadMetadata{
+			OrganizationId:     organizationID,
+			ProjectId:          projectID,
+			ProvisioningStatus: coreapi.ResourceProvisioningStatusDeprovisioning,
+		},
+		Spec: regionapi.VolumeV2Spec{NetworkId: idstest.MustParseNetworkID(networkID)},
+		Status: regionapi.VolumeV2Status{
+			RegionId: idstest.MustParseRegionID(regionID),
+		},
+	})
+	require.NoError(t, err)
+
+	regionClient, err := regionapi.NewClientWithResponses("http://region.example", regionapi.WithHTTPClient(regionRoundTripFunc(func(*http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(bytes.NewReader(body)),
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+		}, nil
+	})))
+	require.NoError(t, err)
+
+	volumes := computeapi.InstanceVolumeList{idstest.MustParseVolumeID(volumeID)}
+	err = instance.NewClient(nil, "", nil, regionClient).ValidateVolumes(
+		t.Context(),
+		&volumes,
+		nil,
+		identityids.MustParseOrganizationID(organizationID),
+		identityids.MustParseProjectID(projectID),
+		idstest.MustParseRegionID(regionID),
+		idstest.MustParseNetworkID(networkID),
+		idstest.MustParseFlavorID(instanceFlavorID),
+	)
+
+	require.Error(t, err)
+	require.True(t, coreerrors.IsUnprocessableContent(err), "expected 422, got: %v", err)
+}
+
+func TestValidateVolumesChecksVolumeClassFlavorAllowlist(t *testing.T) {
+	t.Parallel()
+
+	const (
+		regionID      = "a73e9c26-af56-4562-8352-9512e0586f3b"
+		volumeID      = "f5c1ccbf-cbdd-49fd-b5b9-90902464851f"
+		networkID     = "a1b2c3d4-e5f6-4789-8abc-def012345678"
+		volumeClassID = "44444444-4444-4444-8444-444444444444"
+	)
+
+	allowed := []regionapi.FlavorId{idstest.MustParseFlavorID(instanceFlavorID)}
+	disallowed := []regionapi.FlavorId{idstest.MustParseFlavorID("55555555-5555-4555-8555-555555555555")}
+	empty := []regionapi.FlavorId{}
+	requested := computeapi.InstanceVolumeList{idstest.MustParseVolumeID(volumeID)}
+
+	for _, test := range []struct {
+		name               string
+		volumes            *computeapi.InstanceVolumeList
+		currentVolumes     []string
+		supportedFlavorIDs *[]regionapi.FlavorId
+		advertisedClassID  string
+		wantError          bool
+		wantErrorContains  string
+	}{
+		{name: "allowed", volumes: &requested, supportedFlavorIDs: &allowed, advertisedClassID: volumeClassID},
+		{name: "unsupported", volumes: &requested, supportedFlavorIDs: &disallowed, advertisedClassID: volumeClassID, wantError: true, wantErrorContains: "volume class does not support the server flavor"},
+		{name: "omitted skips validation", currentVolumes: []string{volumeID}, supportedFlavorIDs: &disallowed, advertisedClassID: volumeClassID},
+		{name: "empty allowlist", volumes: &requested, supportedFlavorIDs: &empty, advertisedClassID: volumeClassID, wantError: true, wantErrorContains: "volume class does not support the server flavor"},
+		{name: "omitted allowlist", volumes: &requested, advertisedClassID: volumeClassID, wantError: true, wantErrorContains: "volume class does not support the server flavor"},
+		{name: "class absent from inventory", volumes: &requested, advertisedClassID: "66666666-6666-4666-8666-666666666666", wantError: true, wantErrorContains: volumeClassID},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			volumeBody, err := json.Marshal(regionapi.VolumeV2Response{
+				Metadata: coreapi.ProjectScopedResourceReadMetadata{
+					OrganizationId: organizationID,
+					ProjectId:      projectID,
+				},
+				Spec: regionapi.VolumeV2Spec{
+					NetworkId:     idstest.MustParseNetworkID(networkID),
+					VolumeClassId: volumeClassID,
+				},
+				Status: regionapi.VolumeV2Status{RegionId: idstest.MustParseRegionID(regionID)},
+			})
+			require.NoError(t, err)
+
+			classesBody, err := json.Marshal(regionapi.VolumeClassListV2Response{{
+				Metadata: coreapi.StaticResourceMetadata{Id: test.advertisedClassID},
+				Spec: regionapi.VolumeClassV2Spec{
+					RegionId:           idstest.MustParseRegionID(regionID),
+					SupportedFlavorIds: test.supportedFlavorIDs,
+				},
+			}})
+			require.NoError(t, err)
+
+			regionClient, err := regionapi.NewClientWithResponses("http://region.example", regionapi.WithHTTPClient(regionRoundTripFunc(func(r *http.Request) (*http.Response, error) {
+				responseBody := volumeBody
+
+				if r.URL.Path == "/api/v2/volumeclasses" {
+					require.Equal(t, []string{regionID}, r.URL.Query()["regionID"])
+
+					responseBody = classesBody
+				}
+
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(bytes.NewReader(responseBody)),
+					Header:     http.Header{"Content-Type": []string{"application/json"}},
+					Request:    r,
+				}, nil
+			})))
+			require.NoError(t, err)
+
+			err = instance.NewClient(nil, "", nil, regionClient).ValidateVolumes(
+				t.Context(),
+				test.volumes,
+				test.currentVolumes,
+				identityids.MustParseOrganizationID(organizationID),
+				identityids.MustParseProjectID(projectID),
+				idstest.MustParseRegionID(regionID),
+				idstest.MustParseNetworkID(networkID),
+				idstest.MustParseFlavorID(instanceFlavorID),
+			)
+
+			if test.wantError {
+				require.Error(t, err)
+				require.True(t, coreerrors.IsUnprocessableContent(err), "expected 422, got: %v", err)
+				assert.Contains(t, err.Error(), test.wantErrorContains)
+
+				return
+			}
+
+			require.NoError(t, err)
+		})
+	}
+}
+
+func TestValidateUpdateVolumesChecksRetainedVolumesAfterFlavorChange(t *testing.T) {
+	t.Parallel()
+
+	const (
+		regionID        = "a73e9c26-af56-4562-8352-9512e0586f3b"
+		volumeID        = "f5c1ccbf-cbdd-49fd-b5b9-90902464851f"
+		networkID       = "a1b2c3d4-e5f6-4789-8abc-def012345678"
+		volumeClassID   = "44444444-4444-4444-8444-444444444444"
+		oldFlavorID     = "55555555-5555-4555-8555-555555555555"
+		allowedFlavorID = "66666666-6666-4666-8666-666666666666"
+	)
+
+	t.Run("unchanged flavor skips validation", func(t *testing.T) {
+		t.Parallel()
+
+		err := instance.NewClient(nil, "", nil, nil).ValidateUpdateVolumes(
+			t.Context(),
+			nil,
+			[]string{volumeID},
+			instanceFlavorID,
+			identityids.MustParseOrganizationID(organizationID),
+			identityids.MustParseProjectID(projectID),
+			idstest.MustParseRegionID(regionID),
+			idstest.MustParseNetworkID(networkID),
+			idstest.MustParseFlavorID(instanceFlavorID),
+		)
+		require.NoError(t, err)
+	})
+
+	t.Run("changed flavor rejects incompatible retained volume", func(t *testing.T) {
+		t.Parallel()
+
+		volumeBody, err := json.Marshal(regionapi.VolumeV2Response{
+			Spec: regionapi.VolumeV2Spec{VolumeClassId: volumeClassID},
+		})
+		require.NoError(t, err)
+
+		classesBody, err := json.Marshal(regionapi.VolumeClassListV2Response{{
+			Metadata: coreapi.StaticResourceMetadata{Id: volumeClassID},
+			Spec: regionapi.VolumeClassV2Spec{
+				SupportedFlavorIds: &[]regionapi.FlavorId{idstest.MustParseFlavorID(allowedFlavorID)},
+			},
+		}})
+		require.NoError(t, err)
+
+		regionClient, err := regionapi.NewClientWithResponses("http://region.example", regionapi.WithHTTPClient(regionRoundTripFunc(func(r *http.Request) (*http.Response, error) {
+			responseBody := volumeBody
+			if r.URL.Path == "/api/v2/volumeclasses" {
+				responseBody = classesBody
+			}
+
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(bytes.NewReader(responseBody)),
+				Header:     http.Header{"Content-Type": []string{"application/json"}},
+				Request:    r,
+			}, nil
+		})))
+		require.NoError(t, err)
+
+		err = instance.NewClient(nil, "", nil, regionClient).ValidateUpdateVolumes(
+			t.Context(),
+			nil,
+			[]string{volumeID},
+			oldFlavorID,
+			identityids.MustParseOrganizationID(organizationID),
+			identityids.MustParseProjectID(projectID),
+			idstest.MustParseRegionID(regionID),
+			idstest.MustParseNetworkID(networkID),
+			idstest.MustParseFlavorID(instanceFlavorID),
+		)
+
+		require.Error(t, err)
+		require.True(t, coreerrors.IsUnprocessableContent(err), "expected 422, got: %v", err)
+	})
+}
+
+func TestConvertVolumes(t *testing.T) {
+	t.Parallel()
+
+	const (
+		volumeID        = "f5c1ccbf-cbdd-49fd-b5b9-90902464851f"
+		removedVolumeID = "3a21348e-d20a-459c-a57f-d1b24c94ba7f"
+	)
+
+	device := "/dev/vdb"
+	message := "detaching"
+
+	resource := &computev1.ComputeInstance{
+		ObjectMeta: metav1.ObjectMeta{
+			Labels: map[string]string{
+				coreconstants.OrganizationLabel: organizationID,
+				coreconstants.ProjectLabel:      projectID,
+				regionconstants.RegionLabel:     "region-1",
+				regionconstants.NetworkLabel:    "network-1",
+			},
+		},
+		Spec: computev1.ComputeInstanceSpec{
+			MachineGeneric: unikornv1core.MachineGeneric{
+				FlavorID: "c7568e2d-f9ab-453d-9a3a-51375f78426b",
+				ImageID:  "a10e30e8-006a-48e6-a3c7-3c9416891f31",
+			},
+			Volumes: []string{volumeID},
+		},
+		Status: computev1.ComputeInstanceStatus{
+			Volumes: []computev1.ComputeInstanceVolumeStatus{
+				{ID: volumeID, ProvisioningStatus: coreapi.ResourceProvisioningStatusProvisioned, Device: &device},
+				{ID: removedVolumeID, ProvisioningStatus: coreapi.ResourceProvisioningStatusDeprovisioning, Message: message},
+			},
+		},
+	}
+
+	result, err := instance.Convert(resource)
+	require.NoError(t, err)
+	require.NotNil(t, result.Spec.Volumes)
+	require.Len(t, *result.Spec.Volumes, 1)
+	assert.Equal(t, volumeID, (*result.Spec.Volumes)[0].String())
+	require.NotNil(t, result.Status.Volumes)
+	assert.Equal(t, computeapi.InstanceVolumeStatusList{
+		{Id: idstest.MustParseVolumeID(volumeID), ProvisioningStatus: coreapi.ResourceProvisioningStatusProvisioned, Device: &device},
+		{Id: idstest.MustParseVolumeID(removedVolumeID), ProvisioningStatus: coreapi.ResourceProvisioningStatusDeprovisioning, Message: &message},
+	}, *result.Status.Volumes)
 }
 
 // TestInstancePowerState verifies the handler-side projection of the instance's

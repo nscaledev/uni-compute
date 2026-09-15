@@ -117,7 +117,7 @@ This service requires access to both identity and region APIs in order to:
 - authorize instance operations
 - charge and release project-scoped resource allocations
 - validate region-owned resources such as networks, flavors, images, security
-  groups, and SSH certificate authorities
+  groups, VolumeClasses, Volumes, and SSH certificate authorities
 - create, update, delete, and operate the hidden backing `region.Server`
   associated with each instance
 
@@ -127,8 +127,9 @@ It will need the built in role `infra-manager-service` that allows:
 * Access to allocation endpoints in `identity` to create, update, and delete
   compute-related resource allocations
 * Read access to `region` resources used to validate and scope instances, such
-  as networks, flavors, images, security groups, and SSH certificate
-  authorities
+  as networks, flavors, images, security groups, VolumeClasses, Volumes, and
+  SSH certificate authorities (including `region:volumeclasses:v2/read` and
+  `region:volumes:v2/read`)
 * Create/Read/Update/Delete and operational access to `region` `servers`
   endpoints in order to realize and operate hidden backing server lifecycle for
   compute instances

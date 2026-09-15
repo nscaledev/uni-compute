@@ -9,7 +9,7 @@ It turns the public `Instance` API into:
 - scoped Kubernetes `ComputeInstance` objects
 - quota/allocation updates in identity
 - validation against region-owned networks, flavors, images, security groups,
-  and SSH certificate authorities
+  SSH certificate authorities, and Volumes
 - operational pass-through to the hidden backing `region.Server`
 
 The most important architectural fact here is that compute does not expose
@@ -43,6 +43,23 @@ key retrieval, or snapshotting are requested.
     the same field, so it is uniform across both services.
   - a referenced SSH CA (which is not network-scoped) must share the instance's
     organization and project.
+  - each referenced Volume must be visible through Region, share the instance's
+    organization, project, Region, and network, not be deprovisioning, and not
+    already be attached. Its VolumeClass must define a non-empty
+    `supportedFlavorIds` list that contains the instance flavor. An omitted or
+    empty list rejects all flavors. If Region does not return the referenced
+    VolumeClass, Compute rejects the request instead of skipping the compatibility
+    check.
+    Network v2 creates one hidden provider Identity per
+    network, so same-network also enforces same-Identity for Compute's supported
+    flow. On update, the attachment check permits Volumes already desired by this
+    instance so idempotent updates remain valid. Missing and inaccessible Volumes
+    both return HTTP 404. Region revalidates the provider Identity and claim state
+    when the backing Server is updated.
+- `spec.volumes` is the complete desired set of existing Region Volumes. On
+  update, omission preserves the current set, an empty list detaches all, and a
+  non-empty list replaces it. If an update omits `spec.volumes` but changes the
+  flavor, Compute checks the preserved Volumes against the new flavor.
 - User data is validated on create against the region server provisioner's
   cloud-init parser, so malformed payloads are rejected with HTTP 422 at the
   boundary instead of failing region-side during managed cloud-init augmentation
@@ -74,8 +91,8 @@ This package is a trust boundary for resource identifiers (see
 
 - Inbound IDs arrive already typed: the instance path parameter is UUID-validated
   at the router, and create-body IDs (organization, project, network, flavor,
-  image, SSH CA) are UUID-validated at unmarshal. Handlers never defend against a
-  malformed inbound ID.
+  image, SSH CA, and Volumes) are UUID-validated at unmarshal. Handlers never
+  defend against a malformed inbound ID.
 - RBAC and tenancy are consumed from identity's scope-reader surface: the
   `AllowOrganizationScopeID` / `AllowProjectScopeID` / `AllowProjectScopeCreateID`
   variants take typed IDs directly.
@@ -84,9 +101,9 @@ This package is a trust boundary for resource identifiers (see
   `ComputeInstance` CRD spec, and region API calls.
 - Read models are produced by parsing the stored CRD strings back to typed IDs.
   Because the instance spec schema is shared between the read and write surfaces,
-  `convert` fails closed if a stored flavor/image/SSH-CA ID is malformed; the
-  read-only status IDs (`regionId` / `networkId`, mirrored from labels) and the
-  security-group ID list stay string-typed, matching region's treatment of
+  `convert` fails closed if a stored flavor/image/SSH-CA/Volume ID is malformed;
+  the read-only status IDs (`regionId` / `networkId`, mirrored from labels) and
+  the security-group ID list stay string-typed, matching region's treatment of
   status and list IDs.
 
 ## Hidden-Primitive Model
@@ -117,6 +134,11 @@ new lifecycle reason before compute learns about it, callers see no `powerState`
 rather than a misleading value, surfacing the gap immediately. The
 provisioner-side ingest (`activeConditionReason`) follows the same fall-through
 rule so controller and handler agree on what "unknown" means.
+
+Instance reads expose desired Volume IDs under `spec.volumes` and the separately
+projected attachment lifecycle under `status.volumes`. Device names and messages
+are copied only from Region's API response; Compute does not expose provider
+objects or synthesize provider-specific diagnostics.
 
 ## Caveats
 
