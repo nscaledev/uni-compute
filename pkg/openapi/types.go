@@ -60,10 +60,8 @@ type InstanceCreateSpec struct {
 	// Volumes Complete desired set of existing Volumes to attach to the Instance.
 	// On update, omit this field to keep the current set. Send an empty list to
 	// detach all Volumes. Send a non-empty list to replace the current set.
-	// Each VolumeClass must define a non-empty supportedFlavorIds list containing
-	// the selected flavor. If that allowlist is omitted or empty, the flavor is not
-	// listed, or the VolumeClass cannot be resolved, the request is rejected with
-	// HTTP 422.
+	// Every referenced Volume must support the selected instance flavor. If
+	// compatibility cannot be confirmed, the request is rejected with HTTP 422.
 	Volumes *InstanceVolumeList `json:"volumes,omitempty"`
 }
 
@@ -141,10 +139,8 @@ type InstanceSpec struct {
 	// Volumes Complete desired set of existing Volumes to attach to the Instance.
 	// On update, omit this field to keep the current set. Send an empty list to
 	// detach all Volumes. Send a non-empty list to replace the current set.
-	// Each VolumeClass must define a non-empty supportedFlavorIds list containing
-	// the selected flavor. If that allowlist is omitted or empty, the flavor is not
-	// listed, or the VolumeClass cannot be resolved, the request is rejected with
-	// HTTP 422.
+	// Every referenced Volume must support the selected instance flavor. If
+	// compatibility cannot be confirmed, the request is rejected with HTTP 422.
 	Volumes *InstanceVolumeList `json:"volumes,omitempty"`
 }
 
@@ -200,10 +196,8 @@ type InstanceUpdate struct {
 // InstanceVolumeList Complete desired set of existing Volumes to attach to the Instance.
 // On update, omit this field to keep the current set. Send an empty list to
 // detach all Volumes. Send a non-empty list to replace the current set.
-// Each VolumeClass must define a non-empty supportedFlavorIds list containing
-// the selected flavor. If that allowlist is omitted or empty, the flavor is not
-// listed, or the VolumeClass cannot be resolved, the request is rejected with
-// HTTP 422.
+// Every referenced Volume must support the selected instance flavor. If
+// compatibility cannot be confirmed, the request is rejected with HTTP 422.
 type InstanceVolumeList = []externalRef2.VolumeId
 
 // InstanceVolumeStatus Observed attachment state for a Volume associated with an Instance.

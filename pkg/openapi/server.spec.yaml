@@ -546,10 +546,8 @@ components:
         Complete desired set of existing Volumes to attach to the Instance.
         On update, omit this field to keep the current set. Send an empty list to
         detach all Volumes. Send a non-empty list to replace the current set.
-        Each VolumeClass must define a non-empty supportedFlavorIds list containing
-        the selected flavor. If that allowlist is omitted or empty, the flavor is not
-        listed, or the VolumeClass cannot be resolved, the request is rejected with
-        HTTP 422.
+        Every referenced Volume must support the selected instance flavor. If
+        compatibility cannot be confirmed, the request is rejected with HTTP 422.
       type: array
       items:
         $ref: 'https://raw.githubusercontent.com/unikorn-cloud/region/v1.25.0-rc2/pkg/openapi/server.spec.yaml#/components/schemas/volumeId'
