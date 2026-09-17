@@ -20,8 +20,8 @@ where that contract is translated into the hidden execution primitive.
 - Create and update requests sent to region always carry the reserved instance
   tag so later lookup and reverse mapping can find the server again.
 - Create and update requests carry the instance's complete desired Volume set.
-  An empty set is sent explicitly when Region currently reports attachments,
-  so removing every Volume is not mistaken for an omitted update.
+  An empty set is sent explicitly when the current Region Server spec still
+  desires Volumes, so removing every Volume is not mistaken for an omitted update.
 - Volume claims and provider attach/detach operations remain Region-owned.
   Replacements and retries resend only the complete desired set, and instance
   deletion deletes the backing Server without separate Volume cleanup.

@@ -7,7 +7,6 @@ import (
 	computeids "github.com/unikorn-cloud/compute/pkg/ids"
 	externalRef0 "github.com/unikorn-cloud/core/pkg/openapi"
 	externalRef1 "github.com/unikorn-cloud/identity/pkg/openapi"
-	regionids "github.com/unikorn-cloud/region/pkg/ids"
 	externalRef2 "github.com/unikorn-cloud/region/pkg/openapi"
 )
 
@@ -61,9 +60,9 @@ type InstanceCreateSpec struct {
 	// Volumes Complete desired set of existing Volumes to attach to the Instance.
 	// On update, omit this field to keep the current set. Send an empty list to
 	// detach all Volumes. Send a non-empty list to replace the current set.
-	// Each VolumeClass may restrict compatible flavors through supportedFlavorIds;
-	// the selected flavor must be present in a non-empty list. An omitted or empty
-	// list, an unsupported flavor, or an unresolved VolumeClass is rejected with
+	// Each VolumeClass must define a non-empty supportedFlavorIds list containing
+	// the selected flavor. If that allowlist is omitted or empty, the flavor is not
+	// listed, or the VolumeClass cannot be resolved, the request is rejected with
 	// HTTP 422.
 	Volumes *InstanceVolumeList `json:"volumes,omitempty"`
 }
@@ -142,9 +141,9 @@ type InstanceSpec struct {
 	// Volumes Complete desired set of existing Volumes to attach to the Instance.
 	// On update, omit this field to keep the current set. Send an empty list to
 	// detach all Volumes. Send a non-empty list to replace the current set.
-	// Each VolumeClass may restrict compatible flavors through supportedFlavorIds;
-	// the selected flavor must be present in a non-empty list. An omitted or empty
-	// list, an unsupported flavor, or an unresolved VolumeClass is rejected with
+	// Each VolumeClass must define a non-empty supportedFlavorIds list containing
+	// the selected flavor. If that allowlist is omitted or empty, the flavor is not
+	// listed, or the VolumeClass cannot be resolved, the request is rejected with
 	// HTTP 422.
 	Volumes *InstanceVolumeList `json:"volumes,omitempty"`
 }
@@ -201,19 +200,19 @@ type InstanceUpdate struct {
 // InstanceVolumeList Complete desired set of existing Volumes to attach to the Instance.
 // On update, omit this field to keep the current set. Send an empty list to
 // detach all Volumes. Send a non-empty list to replace the current set.
-// Each VolumeClass may restrict compatible flavors through supportedFlavorIds;
-// the selected flavor must be present in a non-empty list. An omitted or empty
-// list, an unsupported flavor, or an unresolved VolumeClass is rejected with
+// Each VolumeClass must define a non-empty supportedFlavorIds list containing
+// the selected flavor. If that allowlist is omitted or empty, the flavor is not
+// listed, or the VolumeClass cannot be resolved, the request is rejected with
 // HTTP 422.
-type InstanceVolumeList = []VolumeId
+type InstanceVolumeList = []externalRef2.VolumeId
 
 // InstanceVolumeStatus Observed attachment state for a Volume associated with an Instance.
 type InstanceVolumeStatus struct {
 	// Device The provider-assigned guest device name, when available.
 	Device *string `json:"device,omitempty"`
 
-	// Id A Region volume ID.
-	Id VolumeId `json:"id"`
+	// Id A volume ID.
+	Id externalRef2.VolumeId `json:"id"`
 
 	// Message Optional API-safe description of the attachment state.
 	Message *string `json:"message,omitempty"`
@@ -230,9 +229,6 @@ type InstancesRead = []InstanceRead
 
 // SecurityGroupIDList A list of security group IDs.
 type SecurityGroupIDList = []string
-
-// VolumeId A Region volume ID.
-type VolumeId = regionids.VolumeID
 
 // HardRebootParameter defines model for hardRebootParameter.
 type HardRebootParameter = bool
