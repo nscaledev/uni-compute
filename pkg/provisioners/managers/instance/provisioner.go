@@ -300,39 +300,19 @@ func needsRebuild(current *regionapi.ServerV2Read, desired *regionapi.ServerV2Up
 	return needsRebuildSpec(&current.Spec, &desired.Spec)
 }
 
-func (p *Provisioner) createServerFromInstance(ctx context.Context, region regionapi.ClientWithResponsesInterface) (*regionapi.ServerV2Read, error) {
-	request, err := p.generateServerCreateRequest()
-	if err != nil {
-		return nil, err
-	}
-
-	return p.createServer(ctx, region, request)
-}
-
 func (p *Provisioner) createOrUpdateServer(ctx context.Context, region regionapi.ClientWithResponsesInterface, server *regionapi.ServerV2Read) (*regionapi.ServerV2Read, error) {
 	if server == nil {
-		return p.createServerFromInstance(ctx, region)
+		request, err := p.generateServerCreateRequest()
+		if err != nil {
+			return nil, err
+		}
+
+		return p.createServer(ctx, region, request)
 	}
 
 	request, err := p.generateServerUpdateRequest()
 	if err != nil {
 		return nil, err
-	}
-
-	// The server ID comes from the region read model (a string); parse it to the
-	// typed ID for the region API calls, failing closed on a malformed value. It is
-	// only needed on the rebuild/update paths, not the no-op (specs equal) path.
-	if needsRebuild(server, request) {
-		serverID, err := regionids.ParseServerID(server.Metadata.Id)
-		if err != nil {
-			return nil, err
-		}
-
-		if err := p.deleteServer(ctx, region, serverID); err != nil {
-			return nil, provisioners.ErrYield
-		}
-
-		return nil, provisioners.ErrYield
 	}
 
 	if len(*request.Spec.Volumes) == 0 && server.Spec.Volumes == nil {
@@ -346,6 +326,14 @@ func (p *Provisioner) createOrUpdateServer(ctx context.Context, region regionapi
 	serverID, err := regionids.ParseServerID(server.Metadata.Id)
 	if err != nil {
 		return nil, err
+	}
+
+	if needsRebuild(server, request) {
+		if err := p.deleteServer(ctx, region, serverID); err != nil {
+			return nil, provisioners.ErrYield
+		}
+
+		return nil, provisioners.ErrYield
 	}
 
 	return p.updateServer(ctx, region, serverID, request)
