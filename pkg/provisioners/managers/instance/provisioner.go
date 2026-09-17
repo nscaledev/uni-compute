@@ -432,6 +432,8 @@ func volumeStatuses(desired []string, observed *regionapi.ServerV2VolumeStatusLi
 		}
 	}
 
+	// Region's first observed attachment state is provisioning. Pending covers
+	// the gap where the Volume is desired but Region has not published a status row.
 	for _, id := range desired {
 		if _, ok := seen[id]; !ok {
 			result = append(result, unikornv1.ComputeInstanceVolumeStatus{ID: id, ProvisioningStatus: coreapi.ResourceProvisioningStatusPending})
