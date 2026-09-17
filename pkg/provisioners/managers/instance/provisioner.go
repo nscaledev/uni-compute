@@ -315,6 +315,9 @@ func (p *Provisioner) createOrUpdateServer(ctx context.Context, region regionapi
 		return nil, err
 	}
 
+	// Region represents an empty desired Volume set as nil. Normalize only the
+	// generated Region request so the equality check does not trigger repeated
+	// no-op updates; the instance's persisted empty list remains unchanged.
 	if len(*request.Spec.Volumes) == 0 && server.Spec.Volumes == nil {
 		request.Spec.Volumes = nil
 	}
