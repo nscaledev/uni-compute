@@ -61,8 +61,16 @@ type ComputeInstanceSpec struct {
 	// as permitted by the cloud-init specification.
 	UserData []byte `json:"userData,omitempty"`
 	// Volumes are existing Region volumes to attach to the instance.
-	// +listType=set
-	Volumes []string `json:"volumes,omitempty"`
+	// +listType=map
+	// +listMapKey=id
+	// +patchStrategy=merge
+	// +patchMergeKey=id
+	Volumes []ComputeInstanceVolumeSpec `json:"volumes,omitempty"`
+}
+
+type ComputeInstanceVolumeSpec struct {
+	// ID is the existing Region Volume resource ID to attach to the instance.
+	ID string `json:"id"`
 }
 
 type ComputeInstanceNetworking struct {

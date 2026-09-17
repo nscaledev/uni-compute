@@ -45,9 +45,10 @@ principal metadata through shared helpers outside this package.
   `provisioningStatusDetail`. Once provisioning status reaches `provisioned`,
   the Active condition is the live readiness signal: clients should treat
   `Running` (not `provisioned`) as ready-to-use.
-- `spec.volumes` remains desired state. `status.volumes` is an eventual
-  projection of Region attachment rows; desired Volumes without a row are
-  `pending`, while removed rows remain until Region finishes detachment.
+- `spec.volumes` remains desired state and follows Region's map-style list keyed
+  by Volume ID. `status.volumes` is an eventual projection of Region attachment
+  rows; desired Volumes without a row are `pending`, while removed rows remain
+  until Region finishes detachment.
 - `PublicIPEnabled()` is part of the accounting contract: quota allocation logic
   derives floating-IP usage from this persisted intent.
 

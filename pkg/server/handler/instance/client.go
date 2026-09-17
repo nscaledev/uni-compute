@@ -139,7 +139,7 @@ func ConvertUserData(in []byte) *[]byte {
 	return &in
 }
 
-func convertVolumes(in []string) (*computeapi.InstanceVolumeList, error) {
+func convertVolumes(in []computev1.ComputeInstanceVolumeSpec) (*computeapi.InstanceVolumeList, error) {
 	if len(in) == 0 {
 		//nolint:nilnil
 		return nil, nil
@@ -148,7 +148,7 @@ func convertVolumes(in []string) (*computeapi.InstanceVolumeList, error) {
 	out := make(computeapi.InstanceVolumeList, len(in))
 
 	for i := range in {
-		id, err := regionids.ParseVolumeID(in[i])
+		id, err := regionids.ParseVolumeID(in[i].ID)
 		if err != nil {
 			return nil, err
 		}
@@ -159,21 +159,21 @@ func convertVolumes(in []string) (*computeapi.InstanceVolumeList, error) {
 	return &out, nil
 }
 
-func generateVolumes(in *computeapi.InstanceVolumeList) []string {
+func generateVolumes(in *computeapi.InstanceVolumeList) []computev1.ComputeInstanceVolumeSpec {
 	if in == nil {
 		return nil
 	}
 
-	out := make([]string, len(*in))
+	out := make([]computev1.ComputeInstanceVolumeSpec, len(*in))
 
 	for i := range *in {
-		out[i] = (*in)[i].String()
+		out[i].ID = (*in)[i].String()
 	}
 
 	return out
 }
 
-func updatedVolumes(in *computeapi.InstanceVolumeList, current []string) []string {
+func updatedVolumes(in *computeapi.InstanceVolumeList, current []computev1.ComputeInstanceVolumeSpec) []computev1.ComputeInstanceVolumeSpec {
 	if in == nil {
 		return current
 	}
@@ -484,7 +484,7 @@ func (c *Client) getVolumes(ctx context.Context, volumes computeapi.InstanceVolu
 	return resources, nil
 }
 
-func validateVolume(resource *regionapi.VolumeV2Response, id regionids.VolumeID, currentVolumes []string, organizationID identityids.OrganizationID, projectID identityids.ProjectID, regionID regionids.RegionID, networkID regionids.NetworkID) error {
+func validateVolume(resource *regionapi.VolumeV2Response, id regionids.VolumeID, currentVolumes []computev1.ComputeInstanceVolumeSpec, organizationID identityids.OrganizationID, projectID identityids.ProjectID, regionID regionids.RegionID, networkID regionids.NetworkID) error {
 	if err := validateVolumeScope(resource, organizationID, projectID, regionID); err != nil {
 		return err
 	}
@@ -497,7 +497,9 @@ func validateVolume(resource *regionapi.VolumeV2Response, id regionids.VolumeID,
 		return errors.HTTPUnprocessableContent("volume is being deleted")
 	}
 
-	if resource.Status.AttachedAt != nil && !slices.Contains(currentVolumes, id.String()) {
+	if resource.Status.AttachedAt != nil && !slices.ContainsFunc(currentVolumes, func(current computev1.ComputeInstanceVolumeSpec) bool {
+		return current.ID == id.String()
+	}) {
 		return errors.HTTPUnprocessableContent("volumes must not reference attached volumes")
 	}
 
@@ -539,7 +541,7 @@ func validateVolumeClasses(resources []*regionapi.VolumeV2Response, classes regi
 	return nil
 }
 
-func (c *Client) validateVolumes(ctx context.Context, volumes *computeapi.InstanceVolumeList, currentVolumes []string, organizationID identityids.OrganizationID, projectID identityids.ProjectID, regionID regionids.RegionID, networkID regionids.NetworkID, flavorID regionids.FlavorID) error {
+func (c *Client) validateVolumes(ctx context.Context, volumes *computeapi.InstanceVolumeList, currentVolumes []computev1.ComputeInstanceVolumeSpec, organizationID identityids.OrganizationID, projectID identityids.ProjectID, regionID regionids.RegionID, networkID regionids.NetworkID, flavorID regionids.FlavorID) error {
 	if volumes == nil || len(*volumes) == 0 {
 		return nil
 	}
@@ -568,7 +570,7 @@ func (c *Client) validateVolumes(ctx context.Context, volumes *computeapi.Instan
 	return validateVolumeClasses(resources, classes, flavorID)
 }
 
-func (c *Client) validateUpdateVolumes(ctx context.Context, volumes *computeapi.InstanceVolumeList, currentVolumes []string, currentFlavorID string, organizationID identityids.OrganizationID, projectID identityids.ProjectID, regionID regionids.RegionID, networkID regionids.NetworkID, flavorID regionids.FlavorID) error {
+func (c *Client) validateUpdateVolumes(ctx context.Context, volumes *computeapi.InstanceVolumeList, currentVolumes []computev1.ComputeInstanceVolumeSpec, currentFlavorID string, organizationID identityids.OrganizationID, projectID identityids.ProjectID, regionID regionids.RegionID, networkID regionids.NetworkID, flavorID regionids.FlavorID) error {
 	if volumes != nil {
 		return c.validateVolumes(ctx, volumes, currentVolumes, organizationID, projectID, regionID, networkID, flavorID)
 	}

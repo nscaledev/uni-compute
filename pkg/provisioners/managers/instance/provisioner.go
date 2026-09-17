@@ -171,7 +171,7 @@ func (p *Provisioner) generateServerVolumes() (*regionapi.ServerV2VolumeList, er
 	out := make(regionapi.ServerV2VolumeList, len(p.instance.Spec.Volumes))
 
 	for i := range p.instance.Spec.Volumes {
-		id, err := regionids.ParseVolumeID(p.instance.Spec.Volumes[i])
+		id, err := regionids.ParseVolumeID(p.instance.Spec.Volumes[i].ID)
 		if err != nil {
 			return nil, err
 		}
@@ -411,7 +411,7 @@ func volumeProvisioningStatus(in coreapi.ResourceProvisioningStatus) coreapi.Res
 	}
 }
 
-func volumeStatuses(desired []string, observed *regionapi.ServerV2VolumeStatusList) []unikornv1.ComputeInstanceVolumeStatus {
+func volumeStatuses(desired []unikornv1.ComputeInstanceVolumeSpec, observed *regionapi.ServerV2VolumeStatusList) []unikornv1.ComputeInstanceVolumeStatus {
 	var result []unikornv1.ComputeInstanceVolumeStatus
 
 	seen := map[string]struct{}{}
@@ -434,9 +434,9 @@ func volumeStatuses(desired []string, observed *regionapi.ServerV2VolumeStatusLi
 
 	// Region's first observed attachment state is provisioning. Pending covers
 	// the gap where the Volume is desired but Region has not published a status row.
-	for _, id := range desired {
-		if _, ok := seen[id]; !ok {
-			result = append(result, unikornv1.ComputeInstanceVolumeStatus{ID: id, ProvisioningStatus: coreapi.ResourceProvisioningStatusPending})
+	for _, volume := range desired {
+		if _, ok := seen[volume.ID]; !ok {
+			result = append(result, unikornv1.ComputeInstanceVolumeStatus{ID: volume.ID, ProvisioningStatus: coreapi.ResourceProvisioningStatusPending})
 		}
 	}
 

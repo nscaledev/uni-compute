@@ -785,11 +785,11 @@ func TestValidateVolumesRejectsNewAttachedVolume(t *testing.T) {
 
 	for _, test := range []struct {
 		name           string
-		currentVolumes []string
+		currentVolumes []computev1.ComputeInstanceVolumeSpec
 		wantError      bool
 	}{
 		{name: "new volume", wantError: true},
-		{name: "already desired", currentVolumes: []string{volumeID}},
+		{name: "already desired", currentVolumes: []computev1.ComputeInstanceVolumeSpec{{ID: volumeID}}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
@@ -904,7 +904,7 @@ func TestValidateVolumesChecksVolumeClassFlavorAllowlist(t *testing.T) {
 	for _, test := range []struct {
 		name               string
 		volumes            *computeapi.InstanceVolumeList
-		currentVolumes     []string
+		currentVolumes     []computev1.ComputeInstanceVolumeSpec
 		supportedFlavorIDs *[]regionapi.FlavorId
 		advertisedClassID  string
 		wantError          bool
@@ -912,7 +912,7 @@ func TestValidateVolumesChecksVolumeClassFlavorAllowlist(t *testing.T) {
 	}{
 		{name: "allowed", volumes: &requested, supportedFlavorIDs: &allowed, advertisedClassID: volumeClassID},
 		{name: "unsupported", volumes: &requested, supportedFlavorIDs: &disallowed, advertisedClassID: volumeClassID, wantError: true, wantErrorContains: "volume class does not support the server flavor"},
-		{name: "omitted skips validation", currentVolumes: []string{volumeID}, supportedFlavorIDs: &disallowed, advertisedClassID: volumeClassID},
+		{name: "omitted skips validation", currentVolumes: []computev1.ComputeInstanceVolumeSpec{{ID: volumeID}}, supportedFlavorIDs: &disallowed, advertisedClassID: volumeClassID},
 		{name: "empty allowlist", volumes: &requested, supportedFlavorIDs: &empty, advertisedClassID: volumeClassID, wantError: true, wantErrorContains: "volume class does not support the server flavor"},
 		{name: "omitted allowlist", volumes: &requested, advertisedClassID: volumeClassID, wantError: true, wantErrorContains: "volume class does not support the server flavor"},
 		{name: "class absent from inventory", volumes: &requested, advertisedClassID: "66666666-6666-4666-8666-666666666666", wantError: true, wantErrorContains: volumeClassID},
@@ -1002,7 +1002,7 @@ func TestValidateUpdateVolumesChecksRetainedVolumesAfterFlavorChange(t *testing.
 		err := instance.NewClient(nil, "", nil, nil).ValidateUpdateVolumes(
 			t.Context(),
 			nil,
-			[]string{volumeID},
+			[]computev1.ComputeInstanceVolumeSpec{{ID: volumeID}},
 			instanceFlavorID,
 			identityids.MustParseOrganizationID(organizationID),
 			identityids.MustParseProjectID(projectID),
@@ -1047,7 +1047,7 @@ func TestValidateUpdateVolumesChecksRetainedVolumesAfterFlavorChange(t *testing.
 		err = instance.NewClient(nil, "", nil, regionClient).ValidateUpdateVolumes(
 			t.Context(),
 			nil,
-			[]string{volumeID},
+			[]computev1.ComputeInstanceVolumeSpec{{ID: volumeID}},
 			oldFlavorID,
 			identityids.MustParseOrganizationID(organizationID),
 			identityids.MustParseProjectID(projectID),
@@ -1086,7 +1086,7 @@ func TestConvertVolumes(t *testing.T) {
 				FlavorID: "c7568e2d-f9ab-453d-9a3a-51375f78426b",
 				ImageID:  "a10e30e8-006a-48e6-a3c7-3c9416891f31",
 			},
-			Volumes: []string{volumeID},
+			Volumes: []computev1.ComputeInstanceVolumeSpec{{ID: volumeID}},
 		},
 		Status: computev1.ComputeInstanceStatus{
 			Volumes: []computev1.ComputeInstanceVolumeStatus{

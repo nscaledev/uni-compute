@@ -43,15 +43,15 @@ func ValidateSecurityGroupNetwork(resource *regionapi.SecurityGroupV2Read, netwo
 	return validateSecurityGroupNetwork(resource, networkID)
 }
 
-func (c *Client) ValidateVolumes(ctx context.Context, volumes *computeapi.InstanceVolumeList, currentVolumes []string, organizationID identityids.OrganizationID, projectID identityids.ProjectID, regionID regionids.RegionID, networkID regionids.NetworkID, flavorID regionids.FlavorID) error {
+func (c *Client) ValidateVolumes(ctx context.Context, volumes *computeapi.InstanceVolumeList, currentVolumes []computev1.ComputeInstanceVolumeSpec, organizationID identityids.OrganizationID, projectID identityids.ProjectID, regionID regionids.RegionID, networkID regionids.NetworkID, flavorID regionids.FlavorID) error {
 	return c.validateVolumes(ctx, volumes, currentVolumes, organizationID, projectID, regionID, networkID, flavorID)
 }
 
-func (c *Client) ValidateUpdateVolumes(ctx context.Context, volumes *computeapi.InstanceVolumeList, currentVolumes []string, currentFlavorID string, organizationID identityids.OrganizationID, projectID identityids.ProjectID, regionID regionids.RegionID, networkID regionids.NetworkID, flavorID regionids.FlavorID) error {
+func (c *Client) ValidateUpdateVolumes(ctx context.Context, volumes *computeapi.InstanceVolumeList, currentVolumes []computev1.ComputeInstanceVolumeSpec, currentFlavorID string, organizationID identityids.OrganizationID, projectID identityids.ProjectID, regionID regionids.RegionID, networkID regionids.NetworkID, flavorID regionids.FlavorID) error {
 	return c.validateUpdateVolumes(ctx, volumes, currentVolumes, currentFlavorID, organizationID, projectID, regionID, networkID, flavorID)
 }
 
-func UpdatedVolumes(in *computeapi.InstanceVolumeList, current []string) []string {
+func UpdatedVolumes(in *computeapi.InstanceVolumeList, current []computev1.ComputeInstanceVolumeSpec) []computev1.ComputeInstanceVolumeSpec {
 	return updatedVolumes(in, current)
 }
 

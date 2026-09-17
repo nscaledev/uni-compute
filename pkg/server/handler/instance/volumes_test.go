@@ -21,6 +21,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	computev1 "github.com/unikorn-cloud/compute/pkg/apis/unikorn/v1alpha1"
 	computeapi "github.com/unikorn-cloud/compute/pkg/openapi"
 	"github.com/unikorn-cloud/compute/pkg/server/handler/instance"
 	idstest "github.com/unikorn-cloud/region/pkg/ids/idstest"
@@ -29,11 +30,11 @@ import (
 func TestUpdatedVolumes(t *testing.T) {
 	t.Parallel()
 
-	current := []string{"f5c1ccbf-cbdd-49fd-b5b9-90902464851f"}
+	current := []computev1.ComputeInstanceVolumeSpec{{ID: "f5c1ccbf-cbdd-49fd-b5b9-90902464851f"}}
 	empty := computeapi.InstanceVolumeList{}
 	replacement := computeapi.InstanceVolumeList{idstest.MustParseVolumeID("3a21348e-d20a-459c-a57f-d1b24c94ba7f")}
 
 	assert.Equal(t, current, instance.UpdatedVolumes(nil, current))
 	assert.Empty(t, instance.UpdatedVolumes(&empty, current))
-	assert.Equal(t, []string{replacement[0].String()}, instance.UpdatedVolumes(&replacement, current))
+	assert.Equal(t, []computev1.ComputeInstanceVolumeSpec{{ID: replacement[0].String()}}, instance.UpdatedVolumes(&replacement, current))
 }

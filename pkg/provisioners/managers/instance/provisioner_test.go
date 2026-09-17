@@ -80,6 +80,15 @@ func volumeList(ids ...string) *regionapi.ServerV2VolumeList {
 	return &result
 }
 
+func instanceVolumeSpecs(ids ...string) []unikornv1.ComputeInstanceVolumeSpec {
+	result := make([]unikornv1.ComputeInstanceVolumeSpec, len(ids))
+	for i := range ids {
+		result[i].ID = ids[i]
+	}
+
+	return result
+}
+
 func newProvisionerForTest(sshCertificateAuthorityID *string) *instance.Provisioner {
 	return instance.NewProvisionerForTest(unikornv1.ComputeInstance{
 		ObjectMeta: metav1.ObjectMeta{
@@ -130,7 +139,7 @@ func TestGenerateServerRequestsIncludeVolumes(t *testing.T) {
 	instanceObject, ok := provisioner.Object().(*unikornv1.ComputeInstance)
 	require.True(t, ok)
 
-	instanceObject.Spec.Volumes = []string{testVolumeID}
+	instanceObject.Spec.Volumes = instanceVolumeSpecs(testVolumeID)
 
 	create, err := provisioner.GenerateServerCreateRequest()
 	require.NoError(t, err)
@@ -234,7 +243,7 @@ func TestCreateOrUpdateServerPropagatesVolumeChanges(t *testing.T) {
 			instanceObject, ok := provisioner.Object().(*unikornv1.ComputeInstance)
 			require.True(t, ok)
 
-			instanceObject.Spec.Volumes = test.desiredVolumes
+			instanceObject.Spec.Volumes = instanceVolumeSpecs(test.desiredVolumes...)
 
 			var current *regionapi.ServerV2Read
 
@@ -289,7 +298,7 @@ func TestCreateOrUpdateServerPropagatesRegionValidationError(t *testing.T) {
 	instanceObject, ok := provisioner.Object().(*unikornv1.ComputeInstance)
 	require.True(t, ok)
 
-	instanceObject.Spec.Volumes = []string{testVolumeID2}
+	instanceObject.Spec.Volumes = instanceVolumeSpecs(testVolumeID2)
 
 	request, err := provisioner.GenerateServerUpdateRequest()
 	require.NoError(t, err)
@@ -470,7 +479,7 @@ func TestUpdateInstanceStatusProjectsVolumes(t *testing.T) {
 	instanceObject, ok := provisioner.Object().(*unikornv1.ComputeInstance)
 	require.True(t, ok)
 
-	instanceObject.Spec.Volumes = []string{testVolumeID, testVolumeID2, testVolumeID5}
+	instanceObject.Spec.Volumes = instanceVolumeSpecs(testVolumeID, testVolumeID2, testVolumeID5)
 	server := &regionapi.ServerV2Response{
 		Status: regionapi.ServerV2Status{
 			Volumes: &regionapi.ServerV2VolumeStatusList{

@@ -127,9 +127,18 @@ spec:
                 description: Volumes are existing Region volumes to attach to the
                   instance.
                 items:
-                  type: string
+                  properties:
+                    id:
+                      description: ID is the existing Region Volume resource ID to
+                        attach to the instance.
+                      type: string
+                  required:
+                  - id
+                  type: object
                 type: array
-                x-kubernetes-list-type: set
+                x-kubernetes-list-map-keys:
+                - id
+                x-kubernetes-list-type: map
             required:
             - flavorId
             - imageId
