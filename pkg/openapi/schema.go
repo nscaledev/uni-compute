@@ -28,7 +28,7 @@ var swaggerSpec = []string{
 	"XlwMdCKnDyxMzQRCQoRYJtNMItOrDijmaxVYCJUwAa5npiDvGL8Znv6ieq9YwXEcszuBOAiW8RAEkgwF",
 	"gMYklsAhQsEM2bHqFpRPVVoTkZCIwuKE5IROvPuG+wFzjmd6rYxPMCUfsVrRg2gsNq5HZXnIjdGZUXLD",
 	"OPXDmGXRNYmASiJn17ftZnu/uX+d3kyuWQoUp+RaAL8Ffl2aOKrY3hbwURywDilLANgIMylnf0Iot7Jq",
-	"O1bdgvOpNl0rh8k69GOa1VOOG2ZLNGOGUxTT6TdbPg87VVRjJ41KG9kCzM1QdSAvbHUjiJd3GjIOljPa",
+	"O1bdgvOpNl0rh8k69GOa1VOOG2ZLNGOGUxTT6TdbPg+7VVRjJ41KG9kCzM1QdSAvbHUjiJd3GjIOljPa",
 	"pT2GLEkYvZZ4cgExhJLxVZtCAiRiYyTxRO8owTKcIjzBSrQWNkuoPkjGjCdopHf0/S2OMxh5jRGV00yg",
 	"uylQBDRkEURoxjI0AYlG3r8knnw/Zuwf3dMQy1HWanUG6qcA8390TyM2GXl1AJN4shms7g0xgZAvWERA",
 	"93FHxQkHLOGt+aw+hIxKoPqPOE1jEmom3vtTKAB98uADTtIY1B8TkDjCUq/FLjGZ+VMmpFqDSCFUX8Yx",
@@ -178,7 +178,7 @@ var swaggerSpec = []string{
 	"ZmmfywoyaX3P7PrMrru1fixr/M2Wj5CY/w2GT61CcaHWo1/f0lV+HhVqVBAZelfPVsWztPiaD3fNCjsw",
 	"KiRLvyiOZynC+dueqjPFj2d4lj7z+zO/f938ztLN2b2uYLJLig/qXtddpchn3Fb+K/defHY3Z96l13dH",
 	"VJIEGibjX5dPNLXHtGfgZIgmpnwYU0OT8QzBBxzKeIbupiSc5g/iEjGiEaQxm5nS9pWmgwXA7lPaF98y",
-	"/ls49OtReBV9OOTl2fC3ObYclb+bV9vWNF6ucWGJ/f7+/wcAAP//mj/Y5BDeAAA=",
+	"/ls49OtReBV9OOTl2fC3ObYclb+bV9vWNF6ucWGJ/f7+/wcAAP//YaJEgRDeAAA=",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file
@@ -230,7 +230,7 @@ func PathToRawSpec(pathToFile string) map[string]func() ([]byte, error) {
 		}
 		res[rawPath] = rawFunc
 	}
-	for rawPath, rawFunc := range externalRef2.PathToRawSpec(path.Join(path.Dir(pathToFile), "https://raw.githubusercontent.com/unikorn-cloud/region/v1.25.0-rc2/pkg/openapi/server.spec.yaml")) {
+	for rawPath, rawFunc := range externalRef2.PathToRawSpec(path.Join(path.Dir(pathToFile), "https://raw.githubusercontent.com/unikorn-cloud/region/v1.25.0-rc3/pkg/openapi/server.spec.yaml")) {
 		if _, ok := res[rawPath]; ok {
 			// it is not possible to compare functions in golang, so always overwrite the old value
 		}
