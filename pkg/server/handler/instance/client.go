@@ -139,6 +139,75 @@ func ConvertUserData(in []byte) *[]byte {
 	return &in
 }
 
+func convertVolumes(in []computev1.ComputeInstanceVolumeSpec) (*computeapi.InstanceVolumeList, error) {
+	if len(in) == 0 {
+		//nolint:nilnil
+		return nil, nil
+	}
+
+	out := make(computeapi.InstanceVolumeList, len(in))
+
+	for i := range in {
+		id, err := regionids.ParseVolumeID(in[i].ID)
+		if err != nil {
+			return nil, err
+		}
+
+		out[i] = id
+	}
+
+	return &out, nil
+}
+
+func generateVolumes(in *computeapi.InstanceVolumeList) []computev1.ComputeInstanceVolumeSpec {
+	if in == nil {
+		return nil
+	}
+
+	out := make([]computev1.ComputeInstanceVolumeSpec, len(*in))
+
+	for i := range *in {
+		out[i].ID = (*in)[i].String()
+	}
+
+	return out
+}
+
+func updatedVolumes(in *computeapi.InstanceVolumeList, current []computev1.ComputeInstanceVolumeSpec) []computev1.ComputeInstanceVolumeSpec {
+	if in == nil {
+		return current
+	}
+
+	return generateVolumes(in)
+}
+
+func convertVolumeStatuses(in []computev1.ComputeInstanceVolumeStatus) (*computeapi.InstanceVolumeStatusList, error) {
+	if len(in) == 0 {
+		//nolint:nilnil
+		return nil, nil
+	}
+
+	out := make(computeapi.InstanceVolumeStatusList, len(in))
+
+	for i := range in {
+		id, err := regionids.ParseVolumeID(in[i].ID)
+		if err != nil {
+			return nil, err
+		}
+
+		out[i] = computeapi.InstanceVolumeStatus{
+			Id:                 id,
+			ProvisioningStatus: in[i].ProvisioningStatus,
+			Device:             in[i].Device,
+		}
+		if in[i].Message != "" {
+			out[i].Message = ptr.To(in[i].Message)
+		}
+	}
+
+	return &out, nil
+}
+
 // instancePowerState projects the instance's Active condition (the lifecycle/power
 // axis mirrored from the backing region server) onto the API enum. An absent
 // condition or an unrecognised reason yields nil, so the field is omitted rather
@@ -208,6 +277,16 @@ func convert(in *computev1.ComputeInstance) (*computeapi.InstanceRead, error) {
 		return nil, err
 	}
 
+	volumes, err := convertVolumes(in.Spec.Volumes)
+	if err != nil {
+		return nil, err
+	}
+
+	volumeStatuses, err := convertVolumeStatuses(in.Status.Volumes)
+	if err != nil {
+		return nil, err
+	}
+
 	out := &computeapi.InstanceRead{
 		Metadata: conversion.ProjectScopedResourceReadMetadata(in, in.Spec.Tags),
 		Spec: computeapi.InstanceSpec{
@@ -216,6 +295,7 @@ func convert(in *computev1.ComputeInstance) (*computeapi.InstanceRead, error) {
 			Networking:                ConvertNetworking(in.Spec.Networking),
 			SshCertificateAuthorityId: sshCertificateAuthorityID,
 			UserData:                  ConvertUserData(in.Spec.UserData),
+			Volumes:                   volumes,
 		},
 		Status: computeapi.InstanceStatus{
 			RegionId:   in.Labels[regionconstants.RegionLabel],
@@ -224,6 +304,7 @@ func convert(in *computev1.ComputeInstance) (*computeapi.InstanceRead, error) {
 			PrivateIP:  in.Status.PrivateIP,
 			PublicIP:   in.Status.PublicIP,
 			MacAddress: in.Status.MACAddress,
+			Volumes:    volumeStatuses,
 		},
 	}
 
@@ -349,6 +430,173 @@ func validateSSHCertificateAuthorityScope(resource *regionapi.SshCertificateAuth
 	return nil
 }
 
+func validateVolumeScope(resource *regionapi.VolumeV2Response, organizationID identityids.OrganizationID, projectID identityids.ProjectID, regionID regionids.RegionID) error {
+	if resource.Metadata.OrganizationId != organizationID.String() || resource.Metadata.ProjectId != projectID.String() || resource.Status.RegionId != regionID {
+		return errors.HTTPUnprocessableContent("volumes must reference volumes in the same organization, project, and region as the instance")
+	}
+
+	return nil
+}
+
+func validateUniqueVolumes(volumes computeapi.InstanceVolumeList) error {
+	seen := map[regionids.VolumeID]struct{}{}
+
+	for _, id := range volumes {
+		if _, ok := seen[id]; ok {
+			return errors.HTTPUnprocessableContent("volumes must not contain duplicate IDs")
+		}
+
+		seen[id] = struct{}{}
+	}
+
+	return nil
+}
+
+func (c *Client) getVolume(ctx context.Context, id regionids.VolumeID) (*regionapi.VolumeV2Response, error) {
+	response, err := c.region.GetApiV2VolumesVolumeIDWithResponse(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	if response.StatusCode() == http.StatusForbidden {
+		return nil, errors.HTTPNotFound()
+	}
+
+	if response.StatusCode() != http.StatusOK {
+		return nil, errors.PropagateError(response.HTTPResponse, response)
+	}
+
+	return response.JSON200, nil
+}
+
+func (c *Client) getVolumes(ctx context.Context, volumes computeapi.InstanceVolumeList) ([]*regionapi.VolumeV2Response, error) {
+	resources := make([]*regionapi.VolumeV2Response, 0, len(volumes))
+
+	for _, id := range volumes {
+		resource, err := c.getVolume(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+
+		resources = append(resources, resource)
+	}
+
+	return resources, nil
+}
+
+func validateVolume(resource *regionapi.VolumeV2Response, id regionids.VolumeID, currentVolumes []computev1.ComputeInstanceVolumeSpec, organizationID identityids.OrganizationID, projectID identityids.ProjectID, regionID regionids.RegionID, networkID regionids.NetworkID) error {
+	if err := validateVolumeScope(resource, organizationID, projectID, regionID); err != nil {
+		return err
+	}
+
+	if resource.Spec.NetworkId != networkID {
+		return errors.HTTPUnprocessableContent("a referenced volume must belong to the same network as the instance")
+	}
+
+	if resource.Metadata.ProvisioningStatus == coreapi.ResourceProvisioningStatusDeprovisioning {
+		return errors.HTTPUnprocessableContent("volume is being deleted")
+	}
+
+	if resource.Status.AttachedAt != nil && !slices.ContainsFunc(currentVolumes, func(current computev1.ComputeInstanceVolumeSpec) bool {
+		return current.ID == id.String()
+	}) {
+		return errors.HTTPUnprocessableContent("volumes must not reference attached volumes")
+	}
+
+	return nil
+}
+
+func (c *Client) getVolumeClasses(ctx context.Context, regionID regionids.RegionID) (regionapi.VolumeClassListV2Response, error) {
+	params := &regionapi.GetApiV2VolumeclassesParams{
+		RegionID: &regionapi.RegionIDQueryParameter{regionID.String()},
+	}
+
+	response, err := c.region.GetApiV2VolumeclassesWithResponse(ctx, params)
+	if err != nil {
+		return nil, err
+	}
+
+	if response.StatusCode() != http.StatusOK {
+		return nil, errors.PropagateError(response.HTTPResponse, response)
+	}
+
+	return *response.JSON200, nil
+}
+
+func validateVolumeClasses(resources []*regionapi.VolumeV2Response, classes regionapi.VolumeClassListV2Response, flavorID regionids.FlavorID) error {
+	for _, resource := range resources {
+		index := slices.IndexFunc(classes, func(class regionapi.VolumeClassV2Read) bool {
+			return class.Metadata.Id == resource.Spec.VolumeClassId
+		})
+		if index < 0 {
+			return errors.HTTPUnprocessableContent(fmt.Sprintf("volume class %s was not found in the instance region", resource.Spec.VolumeClassId))
+		}
+
+		supportedFlavorIDs := classes[index].Spec.SupportedFlavorIds
+		if supportedFlavorIDs == nil || len(*supportedFlavorIDs) == 0 || !slices.Contains(*supportedFlavorIDs, flavorID) {
+			return errors.HTTPUnprocessableContent("volume class does not support the server flavor")
+		}
+	}
+
+	return nil
+}
+
+func (c *Client) validateVolumes(ctx context.Context, volumes *computeapi.InstanceVolumeList, currentVolumes []computev1.ComputeInstanceVolumeSpec, organizationID identityids.OrganizationID, projectID identityids.ProjectID, regionID regionids.RegionID, networkID regionids.NetworkID, flavorID regionids.FlavorID) error {
+	if volumes == nil || len(*volumes) == 0 {
+		return nil
+	}
+
+	if err := validateUniqueVolumes(*volumes); err != nil {
+		return err
+	}
+
+	resources, err := c.getVolumes(ctx, *volumes)
+	if err != nil {
+		return err
+	}
+
+	for i, resource := range resources {
+		id := (*volumes)[i]
+		if err := validateVolume(resource, id, currentVolumes, organizationID, projectID, regionID, networkID); err != nil {
+			return err
+		}
+	}
+
+	classes, err := c.getVolumeClasses(ctx, regionID)
+	if err != nil {
+		return err
+	}
+
+	return validateVolumeClasses(resources, classes, flavorID)
+}
+
+func (c *Client) validateUpdateVolumes(ctx context.Context, volumes *computeapi.InstanceVolumeList, currentVolumes []computev1.ComputeInstanceVolumeSpec, currentFlavorID string, organizationID identityids.OrganizationID, projectID identityids.ProjectID, regionID regionids.RegionID, networkID regionids.NetworkID, flavorID regionids.FlavorID) error {
+	if volumes != nil {
+		return c.validateVolumes(ctx, volumes, currentVolumes, organizationID, projectID, regionID, networkID, flavorID)
+	}
+
+	if currentFlavorID == flavorID.String() || len(currentVolumes) == 0 {
+		return nil
+	}
+
+	retainedVolumes, err := convertVolumes(currentVolumes)
+	if err != nil {
+		return err
+	}
+
+	resources, err := c.getVolumes(ctx, *retainedVolumes)
+	if err != nil {
+		return err
+	}
+
+	classes, err := c.getVolumeClasses(ctx, regionID)
+	if err != nil {
+		return err
+	}
+
+	return validateVolumeClasses(resources, classes, flavorID)
+}
+
 func (c *Client) validateCreateRequest(ctx context.Context, request *computeapi.InstanceCreate, organizationID identityids.OrganizationID, projectID identityids.ProjectID, regionID regionids.RegionID) (*regionapi.Flavor, error) {
 	flavor, _, err := c.getAndValidateFlavorAndImage(principal.NewImpersonateContext(ctx), organizationID, regionID, request.Spec.FlavorId, request.Spec.ImageId)
 	if err != nil {
@@ -372,10 +620,14 @@ func (c *Client) validateCreateRequest(ctx context.Context, request *computeapi.
 		return nil, err
 	}
 
+	if err := c.validateVolumes(principal.NewImpersonateContext(ctx), request.Spec.Volumes, nil, organizationID, projectID, regionID, request.Spec.NetworkId, request.Spec.FlavorId); err != nil {
+		return nil, err
+	}
+
 	return flavor, nil
 }
 
-func (c *Client) validateUpdateRequest(ctx context.Context, request *computeapi.InstanceUpdate, organizationID identityids.OrganizationID, projectID identityids.ProjectID, networkID regionids.NetworkID) error {
+func (c *Client) validateUpdateRequest(ctx context.Context, request *computeapi.InstanceUpdate, current *computev1.ComputeInstance, organizationID identityids.OrganizationID, projectID identityids.ProjectID, regionID regionids.RegionID, networkID regionids.NetworkID) error {
 	if err := c.validateSecurityGroups(principal.NewImpersonateContext(ctx), networkID, request.Spec.Networking); err != nil {
 		return err
 	}
@@ -385,6 +637,10 @@ func (c *Client) validateUpdateRequest(ctx context.Context, request *computeapi.
 	}
 
 	if err := c.validateSSHCertificateAuthorityReference(principal.NewImpersonateContext(ctx), organizationID, projectID, request.Spec.SshCertificateAuthorityId); err != nil {
+		return err
+	}
+
+	if err := c.validateUpdateVolumes(principal.NewImpersonateContext(ctx), request.Spec.Volumes, current.Spec.Volumes, current.Spec.FlavorID, organizationID, projectID, regionID, networkID, request.Spec.FlavorId); err != nil {
 		return err
 	}
 
@@ -422,6 +678,7 @@ func (c *Client) generate(ctx context.Context, in *computeapi.InstanceUpdate, or
 			Networking:                networking,
 			SSHCertificateAuthorityID: sshCertificateAuthorityID,
 			UserData:                  GenerateUserData(in.Spec.UserData),
+			Volumes:                   generateVolumes(in.Spec.Volumes),
 		},
 	}
 
@@ -913,7 +1170,7 @@ func (c *Client) Update(ctx context.Context, instanceID computeids.InstanceID, r
 		return nil, err
 	}
 
-	if err := c.validateUpdateRequest(ctx, request, organizationID, projectID, networkID); err != nil {
+	if err := c.validateUpdateRequest(ctx, request, current, organizationID, projectID, regionID, networkID); err != nil {
 		return nil, err
 	}
 
@@ -931,6 +1188,7 @@ func (c *Client) Update(ctx context.Context, instanceID computeids.InstanceID, r
 	updated.Labels = required.Labels
 	updated.Annotations = required.Annotations
 	updated.Spec = required.Spec
+	updated.Spec.Volumes = updatedVolumes(request.Spec.Volumes, current.Spec.Volumes)
 
 	s := newUpdateSaga(c, current, updated, currentFlavor, flavor)
 

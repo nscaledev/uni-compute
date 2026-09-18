@@ -56,6 +56,13 @@ type InstanceCreateSpec struct {
 	// The format of the data is governed by the cloud-init standard, and may be a script,
 	// a MIME multipart archive, etc.
 	UserData *[]byte `json:"userData,omitempty"`
+
+	// Volumes Complete desired set of existing Volumes to attach to the Instance.
+	// On update, omit this field to keep the current set. Send an empty list to
+	// detach all Volumes. Send a non-empty list to replace the current set.
+	// Every referenced Volume must support the selected instance flavor. If
+	// compatibility cannot be confirmed, the request is rejected with HTTP 422.
+	Volumes *InstanceVolumeList `json:"volumes,omitempty"`
 }
 
 // InstanceId A compute instance ID.
@@ -128,6 +135,13 @@ type InstanceSpec struct {
 	// The format of the data is governed by the cloud-init standard, and may be a script,
 	// a MIME multipart archive, etc.
 	UserData *[]byte `json:"userData,omitempty"`
+
+	// Volumes Complete desired set of existing Volumes to attach to the Instance.
+	// On update, omit this field to keep the current set. Send an empty list to
+	// detach all Volumes. Send a non-empty list to replace the current set.
+	// Every referenced Volume must support the selected instance flavor. If
+	// compatibility cannot be confirmed, the request is rejected with HTTP 422.
+	Volumes *InstanceVolumeList `json:"volumes,omitempty"`
 }
 
 // InstanceStatus Read only status information about a compute instance.
@@ -157,6 +171,9 @@ type InstanceStatus struct {
 
 	// RegionId The region a security group belongs to.
 	RegionId string `json:"regionId"`
+
+	// Volumes Observed Volume attachment state, including attachments still being removed.
+	Volumes *InstanceVolumeStatusList `json:"volumes,omitempty"`
 }
 
 // InstanceUpdate A compute instance update request.
@@ -175,6 +192,31 @@ type InstanceUpdate struct {
 	// Compute image catalog.
 	Spec InstanceSpec `json:"spec"`
 }
+
+// InstanceVolumeList Complete desired set of existing Volumes to attach to the Instance.
+// On update, omit this field to keep the current set. Send an empty list to
+// detach all Volumes. Send a non-empty list to replace the current set.
+// Every referenced Volume must support the selected instance flavor. If
+// compatibility cannot be confirmed, the request is rejected with HTTP 422.
+type InstanceVolumeList = []externalRef2.VolumeId
+
+// InstanceVolumeStatus Observed attachment state for a Volume associated with an Instance.
+type InstanceVolumeStatus struct {
+	// Device The provider-assigned guest device name, when available.
+	Device *string `json:"device,omitempty"`
+
+	// Id A volume ID.
+	Id externalRef2.VolumeId `json:"id"`
+
+	// Message Optional API-safe description of the attachment state.
+	Message *string `json:"message,omitempty"`
+
+	// ProvisioningStatus The provisioning state of a resource.
+	ProvisioningStatus externalRef0.ResourceProvisioningStatus `json:"provisioningStatus"`
+}
+
+// InstanceVolumeStatusList Observed Volume attachment state, including attachments still being removed.
+type InstanceVolumeStatusList = []InstanceVolumeStatus
 
 // InstancesRead A list of compute instances.
 type InstancesRead = []InstanceRead

@@ -19,9 +19,17 @@ where that contract is translated into the hidden execution primitive.
   instance tag, not by an explicit foreign key stored on the instance.
 - Create and update requests sent to region always carry the reserved instance
   tag so later lookup and reverse mapping can find the server again.
-- Instance status is projection-only here: IP addresses, MAC address, lifecycle,
-  and health are mirrored from the backing server. Lifecycle is the generic
-  `Active` condition (reusing region's `ActiveConditionReason` vocabulary —
+- Create and update requests carry the instance's complete desired Volume set.
+  An empty set is sent explicitly when the current Region Server spec still
+  desires Volumes, so removing every Volume is not mistaken for an omitted update.
+- Volume claims and provider attach/detach operations remain Region-owned.
+  Replacements and retries resend only the complete desired set, and instance
+  deletion deletes the backing Server without separate Volume cleanup.
+- Instance status is projection-only here: IP addresses, MAC address, Volume
+  attachment rows, lifecycle, and health are mirrored from the backing server.
+  Desired Volumes without an observed row are synthesized as `pending`; Region
+  rows for removed Volumes are retained through deprovisioning. Lifecycle is the
+  generic `Active` condition (reusing region's `ActiveConditionReason` vocabulary —
   `Queued`/`Building` for baremetal, plus the `Rebuilding` reimage state),
   replacing region's retired `Status.Phase`. The backing server's error detail
   is reconstructed onto the instance's `provisioningStatusDetail`, and lifecycle

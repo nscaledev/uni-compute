@@ -21,6 +21,7 @@ import (
 
 	unikornv1 "github.com/unikorn-cloud/compute/pkg/apis/unikorn/v1alpha1"
 	regionv1 "github.com/unikorn-cloud/region/pkg/apis/unikorn/v1alpha1"
+	regionids "github.com/unikorn-cloud/region/pkg/ids"
 	regionapi "github.com/unikorn-cloud/region/pkg/openapi"
 )
 
@@ -44,6 +45,10 @@ func NeedsRebuild(current *regionapi.ServerV2Read, desired *regionapi.ServerV2Up
 
 func (p *Provisioner) CreateOrUpdateServer(ctx context.Context, region regionapi.ClientWithResponsesInterface, server *regionapi.ServerV2Read) (*regionapi.ServerV2Read, error) {
 	return p.createOrUpdateServer(ctx, region, server)
+}
+
+func (p *Provisioner) DeleteServer(ctx context.Context, region regionapi.ClientWithResponsesInterface, serverID regionids.ServerID) error {
+	return p.deleteServer(ctx, region, serverID)
 }
 
 func (p *Provisioner) UpdateInstanceStatus(server *regionapi.ServerV2Response) {

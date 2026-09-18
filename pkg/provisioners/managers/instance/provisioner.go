@@ -167,6 +167,21 @@ func (p *Provisioner) generateUserData() *[]byte {
 	return &p.instance.Spec.UserData
 }
 
+func (p *Provisioner) generateServerVolumes() (*regionapi.ServerV2VolumeList, error) {
+	out := make(regionapi.ServerV2VolumeList, len(p.instance.Spec.Volumes))
+
+	for i := range p.instance.Spec.Volumes {
+		id, err := regionids.ParseVolumeID(p.instance.Spec.Volumes[i].ID)
+		if err != nil {
+			return nil, err
+		}
+
+		out[i] = id
+	}
+
+	return &out, nil
+}
+
 func (p *Provisioner) generateServerCreateRequest() (*regionapi.ServerV2Create, error) {
 	// The network, flavor, image and SSH CA IDs are read from the instance's labels
 	// and spec (strings); parse them to the typed IDs the region API expects, failing
@@ -191,6 +206,11 @@ func (p *Provisioner) generateServerCreateRequest() (*regionapi.ServerV2Create, 
 		return nil, err
 	}
 
+	volumes, err := p.generateServerVolumes()
+	if err != nil {
+		return nil, err
+	}
+
 	return &regionapi.ServerV2Create{
 		Metadata: coreapi.ResourceWriteMetadata{
 			Name:        p.instance.Labels[coreconstants.NameLabel],
@@ -211,6 +231,7 @@ func (p *Provisioner) generateServerCreateRequest() (*regionapi.ServerV2Create, 
 			// stored CRD value (also a string) passes through unparsed.
 			SshCertificateAuthorityId: p.instance.Spec.SSHCertificateAuthorityID,
 			UserData:                  p.generateUserData(),
+			Volumes:                   volumes,
 		},
 	}, nil
 }
@@ -233,6 +254,11 @@ func (p *Provisioner) generateServerUpdateRequest() (*regionapi.ServerV2Update, 
 		return nil, err
 	}
 
+	volumes, err := p.generateServerVolumes()
+	if err != nil {
+		return nil, err
+	}
+
 	return &regionapi.ServerV2Update{
 		Metadata: coreapi.ResourceWriteMetadata{
 			Name:        p.instance.Labels[coreconstants.NameLabel],
@@ -249,6 +275,7 @@ func (p *Provisioner) generateServerUpdateRequest() (*regionapi.ServerV2Update, 
 			ImageId:    imageID,
 			Networking: networking,
 			UserData:   p.generateUserData(),
+			Volumes:    volumes,
 		},
 	}, nil
 }
@@ -288,20 +315,11 @@ func (p *Provisioner) createOrUpdateServer(ctx context.Context, region regionapi
 		return nil, err
 	}
 
-	// The server ID comes from the region read model (a string); parse it to the
-	// typed ID for the region API calls, failing closed on a malformed value. It is
-	// only needed on the rebuild/update paths, not the no-op (specs equal) path.
-	if needsRebuild(server, request) {
-		serverID, err := regionids.ParseServerID(server.Metadata.Id)
-		if err != nil {
-			return nil, err
-		}
-
-		if err := p.deleteServer(ctx, region, serverID); err != nil {
-			return nil, provisioners.ErrYield
-		}
-
-		return nil, provisioners.ErrYield
+	// Region represents an empty desired Volume set as nil. Normalize only the
+	// generated Region request so the equality check does not trigger repeated
+	// no-op updates; the instance's persisted empty list remains unchanged.
+	if len(*request.Spec.Volumes) == 0 && server.Spec.Volumes == nil {
+		request.Spec.Volumes = nil
 	}
 
 	if reflect.DeepEqual(server.Spec, request.Spec) {
@@ -311,6 +329,14 @@ func (p *Provisioner) createOrUpdateServer(ctx context.Context, region regionapi
 	serverID, err := regionids.ParseServerID(server.Metadata.Id)
 	if err != nil {
 		return nil, err
+	}
+
+	if needsRebuild(server, request) {
+		if err := p.deleteServer(ctx, region, serverID); err != nil {
+			return nil, provisioners.ErrYield
+		}
+
+		return nil, provisioners.ErrYield
 	}
 
 	return p.updateServer(ctx, region, serverID, request)
@@ -372,10 +398,56 @@ func convertHealthStatusCondition(in coreapi.ResourceHealthStatus) (corev1.Condi
 	return corev1.ConditionFalse, unikornv1core.ConditionReasonUnknown, "health unknown"
 }
 
+func volumeProvisioningStatus(in coreapi.ResourceProvisioningStatus) coreapi.ResourceProvisioningStatus {
+	switch in {
+	case coreapi.ResourceProvisioningStatusPending,
+		coreapi.ResourceProvisioningStatusProvisioning,
+		coreapi.ResourceProvisioningStatusProvisioned,
+		coreapi.ResourceProvisioningStatusDeprovisioning,
+		coreapi.ResourceProvisioningStatusError:
+		return in
+	default:
+		return coreapi.ResourceProvisioningStatusPending
+	}
+}
+
+func volumeStatuses(desired []unikornv1.ComputeInstanceVolumeSpec, observed *regionapi.ServerV2VolumeStatusList) []unikornv1.ComputeInstanceVolumeStatus {
+	var result []unikornv1.ComputeInstanceVolumeStatus
+
+	seen := map[string]struct{}{}
+
+	if observed != nil {
+		for _, status := range *observed {
+			item := unikornv1.ComputeInstanceVolumeStatus{
+				ID:                 status.Id.String(),
+				ProvisioningStatus: volumeProvisioningStatus(status.ProvisioningStatus),
+				Device:             status.Device,
+			}
+			if status.Message != nil {
+				item.Message = *status.Message
+			}
+
+			result = append(result, item)
+			seen[item.ID] = struct{}{}
+		}
+	}
+
+	// Region's first observed attachment state is provisioning. Pending covers
+	// the gap where the Volume is desired but Region has not published a status row.
+	for _, volume := range desired {
+		if _, ok := seen[volume.ID]; !ok {
+			result = append(result, unikornv1.ComputeInstanceVolumeStatus{ID: volume.ID, ProvisioningStatus: coreapi.ResourceProvisioningStatusPending})
+		}
+	}
+
+	return result
+}
+
 func (p *Provisioner) updateInstanceStatus(server *regionapi.ServerV2Response) {
 	p.instance.Status.PrivateIP = server.Status.PrivateIP
 	p.instance.Status.PublicIP = server.Status.PublicIP
 	p.instance.Status.MACAddress = server.Status.MacAddress
+	p.instance.Status.Volumes = volumeStatuses(p.instance.Spec.Volumes, server.Status.Volumes)
 
 	// Mirror the backing server's lifecycle/power state onto the Active condition.
 	if reason, ok := activeConditionReason(server.Status.PowerState); ok {

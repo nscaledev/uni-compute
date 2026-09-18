@@ -10,3 +10,4 @@ test/.env.*
 go.work
 go.work.sum
 .codex
+.mise.toml

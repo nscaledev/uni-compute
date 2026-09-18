@@ -20,9 +20,11 @@ root, not for the hidden execution primitive.
   security groups, and allowed source addresses
 - optional SSH certificate authority linkage
 - optional cloud-init user data
-- projected runtime status such as IP addresses, MAC address, lifecycle (the
-  generic `Active` condition, mirroring region's server — baremetal `Queued` /
-  `Building` and the `Rebuilding` reimage state), and health conditions
+- desired existing Region Volume attachments
+- projected runtime status such as IP addresses, MAC address, observed Volume
+  attachment state, lifecycle (the generic `Active` condition, mirroring
+  region's server — baremetal `Queued` / `Building` and the `Rebuilding` reimage
+  state), and health conditions
 
 The object also carries org/project/region/network labels and delegated
 principal metadata through shared helpers outside this package.
@@ -43,6 +45,10 @@ principal metadata through shared helpers outside this package.
   `provisioningStatusDetail`. Once provisioning status reaches `provisioned`,
   the Active condition is the live readiness signal: clients should treat
   `Running` (not `provisioned`) as ready-to-use.
+- `spec.volumes` remains desired state and follows Region's map-style list keyed
+  by Volume ID. `status.volumes` is an eventual projection of Region attachment
+  rows; desired Volumes without a row are `pending`, while removed rows remain
+  until Region finishes detachment.
 - `PublicIPEnabled()` is part of the accounting contract: quota allocation logic
   derives floating-IP usage from this persisted intent.
 
