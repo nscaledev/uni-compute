@@ -280,24 +280,12 @@ func (p *Provisioner) generateServerUpdateRequest() (*regionapi.ServerV2Update, 
 	}, nil
 }
 
-func needsRebuildSpec(a, b *regionapi.ServerV2Spec) bool {
-	// Problematically, the region controller doesn't have access to the server's
-	// flavor (due to a more recent microversion returning metadata, not the ID)
-	// so spotting this change is complex and fragile.  Ideally we would also
-	// capture when a live migration is possible to preserve server IPs and disks.
-	if a.FlavorId != b.FlavorId {
-		return true
-	}
-
-	if a.ImageId != b.ImageId {
-		return true
-	}
-
-	return false
-}
-
-func needsRebuild(current *regionapi.ServerV2Read, desired *regionapi.ServerV2Update) bool {
-	return needsRebuildSpec(&current.Spec, &desired.Spec)
+// needsReplacement reports whether the backing server must be deleted and
+// created again. Region refuses a flavor change on update. An image change is
+// a plain update: region rebuilds the server in place. See the README's
+// "Destructive Update Semantics" section.
+func needsReplacement(current *regionapi.ServerV2Read, desired *regionapi.ServerV2Update) bool {
+	return current.Spec.FlavorId != desired.Spec.FlavorId
 }
 
 func (p *Provisioner) createOrUpdateServer(ctx context.Context, region regionapi.ClientWithResponsesInterface, server *regionapi.ServerV2Read) (*regionapi.ServerV2Read, error) {
@@ -331,7 +319,7 @@ func (p *Provisioner) createOrUpdateServer(ctx context.Context, region regionapi
 		return nil, err
 	}
 
-	if needsRebuild(server, request) {
+	if needsReplacement(server, request) {
 		if err := p.deleteServer(ctx, region, serverID); err != nil {
 			return nil, provisioners.ErrYield
 		}

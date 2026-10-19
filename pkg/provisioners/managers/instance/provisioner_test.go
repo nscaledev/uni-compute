@@ -32,6 +32,7 @@ import (
 	unikornv1core "github.com/unikorn-cloud/core/pkg/apis/unikorn/v1alpha1"
 	coreconstants "github.com/unikorn-cloud/core/pkg/constants"
 	coreapi "github.com/unikorn-cloud/core/pkg/openapi"
+	"github.com/unikorn-cloud/core/pkg/provisioners"
 	coreerrors "github.com/unikorn-cloud/core/pkg/server/errors"
 	regionv1 "github.com/unikorn-cloud/region/pkg/apis/unikorn/v1alpha1"
 	regionconstants "github.com/unikorn-cloud/region/pkg/constants"
@@ -276,6 +277,61 @@ func TestCreateOrUpdateServerPropagatesVolumeChanges(t *testing.T) {
 	}
 }
 
+// TestCreateOrUpdateServerImageAndFlavorChanges: region rebuilds in place on
+// an image change, so only a flavor change replaces the server.
+func TestCreateOrUpdateServerImageAndFlavorChanges(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name   string
+		mutate func(spec *regionapi.ServerV2Spec)
+		method string
+		err    error
+	}{
+		{name: "image", mutate: func(spec *regionapi.ServerV2Spec) { spec.ImageId = idstest.MustParseImageID(testImageID2) }, method: http.MethodPut},
+		{name: "flavor", mutate: func(spec *regionapi.ServerV2Spec) { spec.FlavorId = idstest.MustParseFlavorID(testFlavorID2) }, method: http.MethodDelete, err: provisioners.ErrYield},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			var methods []string
+
+			regionClient := newRegionClient(t, func(r *http.Request) (*http.Response, error) {
+				methods = append(methods, r.Method)
+
+				return &http.Response{
+					StatusCode: http.StatusAccepted,
+					Body:       io.NopCloser(bytes.NewBufferString("{}")),
+					Header:     http.Header{"Content-Type": []string{"application/json"}},
+					Request:    r,
+				}, nil
+			})
+
+			provisioner := newProvisionerForTest(nil)
+
+			request, err := provisioner.GenerateServerUpdateRequest()
+			require.NoError(t, err)
+
+			current := &regionapi.ServerV2Read{
+				Metadata: coreapi.ProjectScopedResourceReadMetadata{Id: testServerID, Name: request.Metadata.Name},
+				Spec:     request.Spec,
+			}
+			test.mutate(&current.Spec)
+
+			_, err = provisioner.CreateOrUpdateServer(t.Context(), regionClient, current)
+			if test.err != nil {
+				require.ErrorIs(t, err, test.err)
+			} else {
+				require.NoError(t, err)
+			}
+
+			require.Equal(t, []string{test.method}, methods)
+		})
+	}
+}
+
 func TestCreateOrUpdateServerPropagatesRegionValidationError(t *testing.T) {
 	t.Parallel()
 
@@ -358,7 +414,7 @@ func TestCreateOrUpdateServerIgnoresSSHCertificateAuthorityOnlyChange(t *testing
 	assert.Same(t, current, updated)
 }
 
-func TestNeedsRebuild(t *testing.T) {
+func TestNeedsReplacement(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -431,7 +487,7 @@ func TestNeedsRebuild(t *testing.T) {
 					ImageId:  idstest.MustParseImageID(testImageID2),
 				},
 			},
-			expected: true,
+			expected: false,
 		},
 	}
 
@@ -439,7 +495,7 @@ func TestNeedsRebuild(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			assert.Equal(t, test.expected, instance.NeedsRebuild(test.current, test.desired))
+			assert.Equal(t, test.expected, instance.NeedsReplacement(test.current, test.desired))
 		})
 	}
 }
