@@ -31,8 +31,16 @@ func (c *Client) GenerateAllocation(flavor *regionapi.Flavor, publicIP bool) ide
 	return c.generateAllocation(flavor, publicIP)
 }
 
-func ValidateUserDataForManagedAugmentation(sshCertificateAuthorityID *regionapi.SshCertificateAuthorityId, userData *[]byte) error {
-	return validateUserDataForManagedAugmentation(sshCertificateAuthorityID, userData)
+func UpdatedInstance(current, required *computev1.ComputeInstance, request *computeapi.InstanceUpdate) *computev1.ComputeInstance {
+	return updatedInstance(current, required, request)
+}
+
+func ValidateSSHCertificateAuthorityUnchanged(current *computev1.ComputeInstance, request *computeapi.InstanceUpdate) error {
+	return validateSSHCertificateAuthorityUnchanged(current, request)
+}
+
+func ValidateUpdatedUserData(current *computev1.ComputeInstance, request *computeapi.InstanceUpdate) error {
+	return validateUpdatedUserData(current, request)
 }
 
 func ValidateSSHCertificateAuthorityScope(resource *regionapi.SshCertificateAuthorityV2Response, organizationID identityids.OrganizationID, projectID identityids.ProjectID) error {

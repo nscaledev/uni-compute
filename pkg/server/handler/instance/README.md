@@ -31,10 +31,11 @@ key retrieval, or snapshotting are requested.
   catalog (including an image carrying software-version metadata). The Compute
   image-list endpoint remains curated and does not expose those images.
 - Referenced resources must stay inside the instance's scope, rejected at the API
-  edge with HTTP 422 on both create and update. Fetching a reference from region
-  only proves the caller MAY see it — a caller authorized across several tenancies
-  could otherwise attach a resource from another tenancy — so an explicit scope
-  check is applied on top:
+  edge with HTTP 422 on create, and on update for those an update can change
+  (the SSH CA is create-time only, so it is not re-checked on update). Fetching a
+  reference from region only proves the caller MAY see it — a caller authorized
+  across several tenancies could otherwise attach a resource from another
+  tenancy — so an explicit scope check is applied on top:
   - a referenced security group must belong to the same **network** as the
     instance (`status.networkId`). A network belongs to exactly one identity (one
     underlying OpenStack project), which belongs to one organization and project,
@@ -65,12 +66,20 @@ key retrieval, or snapshotting are requested.
   boundary instead of failing region-side during managed cloud-init augmentation
   or silently inside the guest at boot. With an SSH CA attached the payload must
   additionally support managed augmentation (which excludes gzip); without one,
-  gzip payloads are accepted and passed through unmodified. Updates only
-  re-check the SSH CA coupling (against the CA in the update request; the
-  region API goes further and re-validates nothing on update, treating the CA
-  as immutable). User-data is not otherwise re-validated on update because it
-  is only consumed at initial bootstrap, and re-validating would block updates
-  of pre-existing instances whose user-data predates create-time validation.
+  gzip payloads are accepted and passed through unmodified. The parser follows
+  cloud-init: it rejects part-handlers, multipart without `MIME-Version`, and
+  text that is not UTF-8 (see the region server provisioner README). Updates
+  apply the same rules against the stored CA, as region does, but only when the
+  user-data or the flavor changes. A flavor change replaces the server through
+  region's create, which re-checks the stored user-data, so it must be refused
+  here before the old server is deleted. Otherwise unchanged user-data is never
+  re-checked: that would block every update of an instance whose stored
+  user-data predates the current rules.
+- The SSH CA is set at create only, as in region: SSH trust is set up by
+  first-boot user-data and cannot be reconciled afterwards. An update that
+  omits it keeps the stored one; one that changes or adds it gets HTTP 422.
+  IDs are compared parsed, not as strings, since older instances may hold a
+  non-canonical form.
 - Instance names are unique per network: the Kubernetes resource name is derived
   deterministically from `(networkID, instanceName)` via UUID v5, so a duplicate
   create collides at the Kubernetes layer and is rejected with HTTP 409 without a

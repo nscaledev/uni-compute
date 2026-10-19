@@ -18,6 +18,7 @@ limitations under the License.
 package instance
 
 import (
+	"bytes"
 	"cmp"
 	"context"
 	"encoding/json"
@@ -179,6 +180,20 @@ func updatedVolumes(in *computeapi.InstanceVolumeList, current []computev1.Compu
 	}
 
 	return generateVolumes(in)
+}
+
+// updatedInstance is the stored instance with the update applied. The SSH CA
+// is create-time only and MUST be kept from the stored instance, or omitting
+// it on update would clear it here while region keeps it.
+func updatedInstance(current, required *computev1.ComputeInstance, request *computeapi.InstanceUpdate) *computev1.ComputeInstance {
+	updated := current.DeepCopy()
+	updated.Labels = required.Labels
+	updated.Annotations = required.Annotations
+	updated.Spec = required.Spec
+	updated.Spec.SSHCertificateAuthorityID = current.Spec.SSHCertificateAuthorityID
+	updated.Spec.Volumes = updatedVolumes(request.Spec.Volumes, current.Spec.Volumes)
+
+	return updated
 }
 
 func convertVolumeStatuses(in []computev1.ComputeInstanceVolumeStatus) (*computeapi.InstanceVolumeStatusList, error) {
@@ -393,16 +408,48 @@ func GenerateUserData(in *[]byte) []byte {
 	return *in
 }
 
-// validateUserDataForManagedAugmentation guards only the SSH certificate
-// authority coupling on update: a CA-bearing instance must carry user-data that
-// managed augmentation can merge into. Without a CA the user-data is passed
-// through unvalidated, preserving updatability of pre-existing instances.
-func validateUserDataForManagedAugmentation(sshCertificateAuthorityID *regionapi.SshCertificateAuthorityId, userData *[]byte) error {
-	if sshCertificateAuthorityID == nil {
+// validateUpdatedUserData applies the create rules to user-data on update,
+// but only when it changes, or a flavor change will recreate the server
+// through region's create. Unchanged user-data is never re-checked otherwise,
+// so instances stored under older rules stay updatable. The stored CA governs,
+// as it does in region. See the README.
+func validateUpdatedUserData(current *computev1.ComputeInstance, request *computeapi.InstanceUpdate) error {
+	userDataChanged := !bytes.Equal(current.Spec.UserData, GenerateUserData(request.Spec.UserData))
+
+	if !userDataChanged && sameFlavor(current.Spec.FlavorID, request.Spec.FlavorId) {
 		return nil
 	}
 
-	return regionuserdata.Validate(userData, true)
+	return regionuserdata.Validate(request.Spec.UserData, current.Spec.SSHCertificateAuthorityID != nil)
+}
+
+// validateSSHCertificateAuthorityUnchanged: the CA is set at create only, as
+// in region, because SSH trust is set up by first-boot user-data and cannot be
+// reconciled afterwards. Omitting it on update keeps the stored one.
+func validateSSHCertificateAuthorityUnchanged(current *computev1.ComputeInstance, request *computeapi.InstanceUpdate) error {
+	if request.Spec.SshCertificateAuthorityId == nil || sameSSHCertificateAuthority(current.Spec.SSHCertificateAuthorityID, request.Spec.SshCertificateAuthorityId) {
+		return nil
+	}
+
+	return errors.HTTPUnprocessableContent("instance SSH certificate authorities are immutable")
+}
+
+// sameSSHCertificateAuthority compares IDs, not strings: older instances may
+// store a non-canonical form. One that does not parse counts as changed.
+func sameSSHCertificateAuthority(stored *string, requested *regionapi.SshCertificateAuthorityId) bool {
+	if stored == nil || requested == nil {
+		return stored == nil && requested == nil
+	}
+
+	id, err := regionids.ParseSSHCertificateAuthorityID(*stored)
+
+	return err == nil && id == *requested
+}
+
+func sameFlavor(stored string, requested regionapi.FlavorId) bool {
+	id, err := regionids.ParseFlavorID(stored)
+
+	return err == nil && id == requested
 }
 
 func (c *Client) validateSSHCertificateAuthorityReference(ctx context.Context, organizationID identityids.OrganizationID, projectID identityids.ProjectID, sshCertificateAuthorityID *regionapi.SshCertificateAuthorityId) error {
@@ -632,11 +679,11 @@ func (c *Client) validateUpdateRequest(ctx context.Context, request *computeapi.
 		return err
 	}
 
-	if err := validateUserDataForManagedAugmentation(request.Spec.SshCertificateAuthorityId, request.Spec.UserData); err != nil {
+	if err := validateSSHCertificateAuthorityUnchanged(current, request); err != nil {
 		return err
 	}
 
-	if err := c.validateSSHCertificateAuthorityReference(principal.NewImpersonateContext(ctx), organizationID, projectID, request.Spec.SshCertificateAuthorityId); err != nil {
+	if err := validateUpdatedUserData(current, request); err != nil {
 		return err
 	}
 
@@ -1184,11 +1231,7 @@ func (c *Client) Update(ctx context.Context, instanceID computeids.InstanceID, r
 	// current and updated resources, and that can transparently do the preservation.
 	required.Annotations[coreconstants.AllocationAnnotation] = current.Annotations[coreconstants.AllocationAnnotation]
 
-	updated := current.DeepCopy()
-	updated.Labels = required.Labels
-	updated.Annotations = required.Annotations
-	updated.Spec = required.Spec
-	updated.Spec.Volumes = updatedVolumes(request.Spec.Volumes, current.Spec.Volumes)
+	updated := updatedInstance(current, required, request)
 
 	s := newUpdateSaga(c, current, updated, currentFlavor, flavor)
 
