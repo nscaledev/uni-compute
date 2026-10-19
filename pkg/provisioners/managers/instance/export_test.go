@@ -39,8 +39,8 @@ func (p *Provisioner) GenerateServerUpdateRequest() (*regionapi.ServerV2Update, 
 	return p.generateServerUpdateRequest()
 }
 
-func NeedsRebuild(current *regionapi.ServerV2Read, desired *regionapi.ServerV2Update) bool {
-	return needsRebuild(current, desired)
+func NeedsReplacement(current *regionapi.ServerV2Read, desired *regionapi.ServerV2Update) bool {
+	return needsReplacement(current, desired)
 }
 
 func (p *Provisioner) CreateOrUpdateServer(ctx context.Context, region regionapi.ClientWithResponsesInterface, server *regionapi.ServerV2Read) (*regionapi.ServerV2Read, error) {

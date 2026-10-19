@@ -150,8 +150,9 @@ objects or synthesize provider-specific diagnostics.
   is absent or corrupt on an existing object (e.g. manually edited via kubectl),
   the parse fails and the update returns a 500. The admission policy guards
   against this for new objects, but cannot repair already-corrupt state.
-- Update is not always an in-place mutation in effect. Flavor or image changes
-  can lead to destructive server replacement later in the controller layer.
+- Update is not always an in-place mutation in effect. A flavor change leads to
+  destructive server replacement later in the controller layer; an image change
+  reimages the server in place.
 - The package preserves allocation annotations manually during update, which is
   already marked in code as smell and signals a leaky boundary between handler
   mutation and allocation bookkeeping.
@@ -165,7 +166,7 @@ objects or synthesize provider-specific diagnostics.
 - Remove the allocation-annotation preservation hack by tightening the shared
   mutation/allocation interface.
 - Revisit whether the API should surface destructive-rebuild semantics more
-  explicitly for flavor/image changes.
+  explicitly for flavor changes.
 
 ## Cross-Package Context
 

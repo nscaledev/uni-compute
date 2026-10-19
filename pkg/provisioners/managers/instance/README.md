@@ -52,27 +52,34 @@ where that contract is translated into the hidden execution primitive.
 ## Destructive Update Semantics
 
 This package hides a major nuance the higher-level architecture needs to state
-clearly: some instance updates are actually rebuilds.
+clearly: some instance updates destroy server state. "Replace" below means
+delete and create; "rebuild" means region's in-place reimage.
 
-When flavor or image changes are detected, the controller treats that as
-replacement-worthy and deletes the existing backing server before continuing.
-That is not a cosmetic implementation detail. It means an apparently simple
-instance update can imply loss of server-local state and changes to IP/disk
-continuity.
+A flavor change replaces the backing server: the controller deletes it and
+creates a new one, because region refuses a flavor change on update. That is not
+a cosmetic implementation detail. It means an apparently simple instance update
+can imply loss of server-local state and changes to IP/disk continuity.
+
+An image change is a plain region update. Region rebuilds the server in place
+(Nova rebuild): the server ID, IPs, MAC and attached volumes are kept, but the
+root disk is wiped and reimaged. Nova keeps the create-time user-data, so
+changed user-data takes effect only on replacement. Region waits until the
+server has booted once before rebuilding, so an image change before first boot
+leaves the instance provisioning until then.
 
 Instance names are immutable end-to-end: the API handler rejects renames with
 HTTP 422 and region enforces the same at its layer. The controller therefore
 never encounters a name change at reconcile time; name-change detection has been
-removed from the rebuild heuristic.
+removed from the replacement check.
 
 ## Caveats
 
 - The lookup contract is weaker than the handler-side one. `getServer()` returns
   the first match and does not enforce uniqueness, so multiple matching servers
   would create ambiguous controller behaviour.
-- The current rebuild heuristic is intentionally incomplete. The code comments
-  already admit that flavor-change detection is constrained by lower-level
-  region/provider visibility and that live-migration preservation is not modeled.
+- The replacement check is intentionally simple: any flavor change replaces the
+  server. Resize or live migration, which could keep IPs and disks, is not
+  modelled.
 - The region client is not cached and the code already notes token/cache churn
   risk during busy periods.
 - This package depends on region to be the truth source for provisioning

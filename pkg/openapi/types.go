@@ -89,10 +89,11 @@ type InstanceRead struct {
 	Metadata externalRef0.ProjectScopedResourceReadMetadata `json:"metadata"`
 
 	// Spec A compute instance.
-	// Some stored desired-state changes only take effect on the backing server when that server is
-	// rebuilt or recreated. Currently, changing flavorId or imageId causes the backing server to
-	// be rebuilt or recreated. In those cases, backing server IP addresses are not preserved and
-	// may change when the replacement server is created. Instance names are immutable; rename
+	// Changing imageId rebuilds the backing server in place, once it has booted at least once:
+	// its IP addresses and volumes are kept, its root disk is wiped and reimaged, and it keeps
+	// the userData it was created with. Changing flavorId replaces the
+	// backing server: IP addresses are not preserved, and the new server uses the current
+	// userData. Instance names are immutable; rename
 	// attempts are rejected with HTTP 422.
 	// The imageId field may reference any image that Region reports as available to the
 	// organization in the target region; it is not limited to images returned by the curated
@@ -110,10 +111,11 @@ type InstanceSnapshotCreate struct {
 }
 
 // InstanceSpec A compute instance.
-// Some stored desired-state changes only take effect on the backing server when that server is
-// rebuilt or recreated. Currently, changing flavorId or imageId causes the backing server to
-// be rebuilt or recreated. In those cases, backing server IP addresses are not preserved and
-// may change when the replacement server is created. Instance names are immutable; rename
+// Changing imageId rebuilds the backing server in place, once it has booted at least once:
+// its IP addresses and volumes are kept, its root disk is wiped and reimaged, and it keeps
+// the userData it was created with. Changing flavorId replaces the
+// backing server: IP addresses are not preserved, and the new server uses the current
+// userData. Instance names are immutable; rename
 // attempts are rejected with HTTP 422.
 // The imageId field may reference any image that Region reports as available to the
 // organization in the target region; it is not limited to images returned by the curated
@@ -182,10 +184,11 @@ type InstanceUpdate struct {
 	Metadata externalRef0.ResourceWriteMetadata `json:"metadata"`
 
 	// Spec A compute instance.
-	// Some stored desired-state changes only take effect on the backing server when that server is
-	// rebuilt or recreated. Currently, changing flavorId or imageId causes the backing server to
-	// be rebuilt or recreated. In those cases, backing server IP addresses are not preserved and
-	// may change when the replacement server is created. Instance names are immutable; rename
+	// Changing imageId rebuilds the backing server in place, once it has booted at least once:
+	// its IP addresses and volumes are kept, its root disk is wiped and reimaged, and it keeps
+	// the userData it was created with. Changing flavorId replaces the
+	// backing server: IP addresses are not preserved, and the new server uses the current
+	// userData. Instance names are immutable; rename
 	// attempts are rejected with HTTP 422.
 	// The imageId field may reference any image that Region reports as available to the
 	// organization in the target region; it is not limited to images returned by the curated
