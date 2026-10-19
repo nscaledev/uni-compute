@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -512,45 +513,163 @@ func TestValidateUserDataSurfacesParserReason(t *testing.T) {
 	require.NotContains(t, err.Error(), "consistency error")
 }
 
-func TestValidateUserDataForManagedAugmentation(t *testing.T) {
+func TestValidateUpdatedUserData(t *testing.T) {
 	t.Parallel()
 
-	sshCAID := idstest.MustParseSSHCertificateAuthorityID("f1e2d3c4-b5a6-4798-8a9b-0c1d2e3f4a5b")
+	const (
+		sshCAID     = "f1e2d3c4-b5a6-4798-8a9b-0c1d2e3f4a5b"
+		otherFlavor = "d1e2f3a4-b5c6-4d7e-8f90-1a2b3c4d5e6f"
+	)
+
 	gzipData := []byte{0x1f, 0x8b, 0x08}
 	invalid := []byte("plain text")
+	partHandler := []byte("#part-handler\ndef list_types():\n    return []\n")
 	validCloudConfig := []byte("#cloud-config\nusers: []\n")
+
+	stored := func(sshCAID string, userData []byte) *computev1.ComputeInstance {
+		out := &computev1.ComputeInstance{}
+		out.Spec.FlavorID = instanceFlavorID
+		out.Spec.UserData = userData
+
+		if sshCAID != "" {
+			out.Spec.SSHCertificateAuthorityID = ptr.To(sshCAID)
+		}
+
+		return out
+	}
+
+	update := func(sshCAID, flavorID string, userData []byte) *computeapi.InstanceUpdate {
+		out := &computeapi.InstanceUpdate{}
+		out.Spec.FlavorId = idstest.MustParseFlavorID(flavorID)
+
+		if userData != nil {
+			out.Spec.UserData = &userData
+		}
+
+		if sshCAID != "" {
+			out.Spec.SshCertificateAuthorityId = ptr.To(idstest.MustParseSSHCertificateAuthorityID(sshCAID))
+		}
+
+		return out
+	}
 
 	tests := []struct {
 		name      string
-		sshCAID   *regionapi.SshCertificateAuthorityId
-		userData  *[]byte
+		current   *computev1.ComputeInstance
+		request   *computeapi.InstanceUpdate
 		wantError bool
 	}{
-		// Updates must not re-validate user-data without a CA: it is only consumed
-		// at initial bootstrap, and re-validating would block updates of instances
-		// whose user-data predates create-time validation.
-		{name: "no ssh ca unrecognized", sshCAID: nil, userData: &invalid, wantError: false},
-		{name: "no ssh ca gzip", sshCAID: nil, userData: &gzipData, wantError: false},
-		{name: "no user data", sshCAID: &sshCAID, userData: nil, wantError: false},
-		{name: "cloud config", sshCAID: &sshCAID, userData: &validCloudConfig, wantError: false},
-		{name: "gzip", sshCAID: &sshCAID, userData: &gzipData, wantError: true},
-		{name: "unrecognized", sshCAID: &sshCAID, userData: &invalid, wantError: true},
+		// Changed user-data gets the create rules, as region does.
+		{name: "no ssh ca changed unrecognized", current: stored("", nil), request: update("", instanceFlavorID, invalid), wantError: true},
+		{name: "no ssh ca changed gzip", current: stored("", nil), request: update("", instanceFlavorID, gzipData)},
+		{name: "no user data", current: stored(sshCAID, nil), request: update(sshCAID, instanceFlavorID, nil)},
+		{name: "cloud config", current: stored(sshCAID, nil), request: update(sshCAID, instanceFlavorID, validCloudConfig)},
+		{name: "gzip", current: stored(sshCAID, nil), request: update(sshCAID, instanceFlavorID, gzipData), wantError: true},
+		{name: "unrecognized", current: stored(sshCAID, nil), request: update(sshCAID, instanceFlavorID, invalid), wantError: true},
+		// Stored user-data the current rules reject must not block other updates.
+		{name: "unchanged legacy", current: stored(sshCAID, partHandler), request: update(sshCAID, instanceFlavorID, partHandler)},
+		{name: "unchanged legacy no ssh ca", current: stored("", invalid), request: update("", instanceFlavorID, invalid)},
+		{name: "empty and missing user data are equal", current: stored(sshCAID, nil), request: update(sshCAID, instanceFlavorID, []byte{})},
+		// The stored CA governs, as in region, even if the request omits it.
+		{name: "stored ssh ca governs", current: stored(sshCAID, nil), request: update("", instanceFlavorID, gzipData), wantError: true},
+		// A flavor change recreates the server through region's create.
+		{name: "flavor change", current: stored(sshCAID, partHandler), request: update(sshCAID, otherFlavor, partHandler), wantError: true},
+		{name: "flavor change no ssh ca", current: stored("", invalid), request: update("", otherFlavor, invalid), wantError: true},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			err := instance.ValidateUserDataForManagedAugmentation(tc.sshCAID, tc.userData)
+			err := instance.ValidateUpdatedUserData(tc.current, tc.request)
 
 			if tc.wantError {
-				require.Error(t, err)
 				require.ErrorContains(t, err, "userData must be a recognized cloud-init format")
 
 				return
 			}
 
 			require.NoError(t, err)
+		})
+	}
+}
+
+func TestValidateSSHCertificateAuthorityUnchanged(t *testing.T) {
+	t.Parallel()
+
+	const (
+		sshCAID      = "f1e2d3c4-b5a6-4798-8a9b-0c1d2e3f4a5b"
+		otherSSHCAID = "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d"
+	)
+
+	tests := []struct {
+		name      string
+		stored    *string
+		requested string
+		wantError bool
+	}{
+		{name: "same", stored: ptr.To(sshCAID), requested: sshCAID},
+		{name: "same non-canonical", stored: ptr.To(strings.ToUpper(sshCAID)), requested: sshCAID},
+		{name: "omitted keeps stored", stored: ptr.To(sshCAID)},
+		{name: "none", stored: nil},
+		{name: "changed", stored: ptr.To(otherSSHCAID), requested: sshCAID, wantError: true},
+		{name: "added", stored: nil, requested: sshCAID, wantError: true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			current := &computev1.ComputeInstance{}
+			current.Spec.SSHCertificateAuthorityID = tc.stored
+
+			request := &computeapi.InstanceUpdate{}
+			if tc.requested != "" {
+				request.Spec.SshCertificateAuthorityId = ptr.To(idstest.MustParseSSHCertificateAuthorityID(tc.requested))
+			}
+
+			err := instance.ValidateSSHCertificateAuthorityUnchanged(current, request)
+
+			if tc.wantError {
+				require.ErrorContains(t, err, "immutable")
+
+				return
+			}
+
+			require.NoError(t, err)
+		})
+	}
+}
+
+// TestUpdatedInstanceKeepsSSHCertificateAuthority: the request's CA, or its
+// absence, never reaches the stored instance.
+func TestUpdatedInstanceKeepsSSHCertificateAuthority(t *testing.T) {
+	t.Parallel()
+
+	const sshCAID = "f1e2d3c4-b5a6-4798-8a9b-0c1d2e3f4a5b"
+
+	tests := []struct {
+		name     string
+		stored   *string
+		required *string
+	}{
+		{name: "omitted", stored: ptr.To(sshCAID)},
+		{name: "different", stored: ptr.To(sshCAID), required: ptr.To("a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d")},
+		{name: "added", required: ptr.To(sshCAID)},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			current := &computev1.ComputeInstance{}
+			current.Spec.SSHCertificateAuthorityID = tc.stored
+
+			required := &computev1.ComputeInstance{}
+			required.Spec.SSHCertificateAuthorityID = tc.required
+
+			updated := instance.UpdatedInstance(current, required, &computeapi.InstanceUpdate{})
+			require.Equal(t, tc.stored, updated.Spec.SSHCertificateAuthorityID)
 		})
 	}
 }

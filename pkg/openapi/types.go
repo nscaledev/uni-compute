@@ -54,7 +54,12 @@ type InstanceCreateSpec struct {
 
 	// UserData Contains base64-encoded configuration information or scripts to use upon launch.
 	// The format of the data is governed by the cloud-init standard, and may be a script,
-	// a MIME multipart archive, etc.
+	// a MIME multipart archive, etc. It must be UTF-8 text cloud-init recognises: a marker
+	// such as #cloud-config or #!, or MIME with a MIME-Version header near the start.
+	// Without an SSH certificate authority, gzip is also accepted. Cloud-init part-handlers
+	// (#part-handler) are rejected, as the payload or as a top-level MIME part. On update
+	// it is checked only when it or the flavor changes, against the instance's stored SSH
+	// certificate authority.
 	UserData *[]byte `json:"userData,omitempty"`
 
 	// Volumes Complete desired set of existing Volumes to attach to the Instance.
@@ -93,7 +98,8 @@ type InstanceRead struct {
 	// its IP addresses and volumes are kept, its root disk is wiped and reimaged, and it keeps
 	// the userData it was created with. Changing flavorId replaces the
 	// backing server: IP addresses are not preserved, and the new server uses the current
-	// userData. Instance names are immutable; rename
+	// userData. sshCertificateAuthorityId is set at create only: an update that omits it keeps
+	// it, and one that changes it is rejected with HTTP 422. Instance names are immutable; rename
 	// attempts are rejected with HTTP 422.
 	// The imageId field may reference any image that Region reports as available to the
 	// organization in the target region; it is not limited to images returned by the curated
@@ -115,7 +121,8 @@ type InstanceSnapshotCreate struct {
 // its IP addresses and volumes are kept, its root disk is wiped and reimaged, and it keeps
 // the userData it was created with. Changing flavorId replaces the
 // backing server: IP addresses are not preserved, and the new server uses the current
-// userData. Instance names are immutable; rename
+// userData. sshCertificateAuthorityId is set at create only: an update that omits it keeps
+// it, and one that changes it is rejected with HTTP 422. Instance names are immutable; rename
 // attempts are rejected with HTTP 422.
 // The imageId field may reference any image that Region reports as available to the
 // organization in the target region; it is not limited to images returned by the curated
@@ -135,7 +142,12 @@ type InstanceSpec struct {
 
 	// UserData Contains base64-encoded configuration information or scripts to use upon launch.
 	// The format of the data is governed by the cloud-init standard, and may be a script,
-	// a MIME multipart archive, etc.
+	// a MIME multipart archive, etc. It must be UTF-8 text cloud-init recognises: a marker
+	// such as #cloud-config or #!, or MIME with a MIME-Version header near the start.
+	// Without an SSH certificate authority, gzip is also accepted. Cloud-init part-handlers
+	// (#part-handler) are rejected, as the payload or as a top-level MIME part. On update
+	// it is checked only when it or the flavor changes, against the instance's stored SSH
+	// certificate authority.
 	UserData *[]byte `json:"userData,omitempty"`
 
 	// Volumes Complete desired set of existing Volumes to attach to the Instance.
@@ -188,7 +200,8 @@ type InstanceUpdate struct {
 	// its IP addresses and volumes are kept, its root disk is wiped and reimaged, and it keeps
 	// the userData it was created with. Changing flavorId replaces the
 	// backing server: IP addresses are not preserved, and the new server uses the current
-	// userData. Instance names are immutable; rename
+	// userData. sshCertificateAuthorityId is set at create only: an update that omits it keeps
+	// it, and one that changes it is rejected with HTTP 422. Instance names are immutable; rename
 	// attempts are rejected with HTTP 422.
 	// The imageId field may reference any image that Region reports as available to the
 	// organization in the target region; it is not limited to images returned by the curated
