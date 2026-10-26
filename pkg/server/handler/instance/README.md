@@ -136,7 +136,7 @@ link is reconstructed rather than stored explicitly.
 `instancePowerState` projects the instance's mirrored `Active` condition (which
 carries region's `ActiveConditionReason`) into the public API as
 `status.powerState`. The mapping is lossless for known reasons — `Pending`,
-`Queued`, `Building`, `Rebuilding`, `Running`, `Stopping`, `Stopped`, `Error` —
+`Queued`, `Building`, `Rebuilding`, `Rebooting`, `Running`, `Stopping`, `Stopped`, `Error` —
 and intentionally drops an absent condition or an unrecognised reason to `nil`
 rather than collapsing to `Pending`. This keeps the API honest: if region adds a
 new lifecycle reason before compute learns about it, callers see no `powerState`

@@ -173,8 +173,11 @@ type InstanceStatus struct {
 	// baremetal servers waiting on hardware, Building for servers the
 	// provider is actively bringing up. Rebuilding means an already
 	// provisioned server is being reimaged in place and is not usable until
-	// it completes. Error means the provider reported the server in a
-	// terminal error state.
+	// it completes. Rebooting means a soft or hard reboot has been accepted
+	// and is in flight; it returns to Running once the provider has
+	// processed the request. To confirm the guest actually restarted, use
+	// OS-level evidence such as a changed boot ID or boot time. Error
+	// means the provider reported the server in a terminal error state.
 	PowerState *externalRef2.InstanceLifecyclePhase `json:"powerState,omitempty"`
 
 	// PrivateIP The private IP address of the server.
