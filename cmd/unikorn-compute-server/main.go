@@ -55,11 +55,17 @@ func start() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	if err := s.SetupOpenTelemetry(ctx); err != nil {
-		logger.Error(err, "failed to setup OpenTelemetry")
+	if err := s.SetupTelemetry(ctx); err != nil {
+		logger.Error(err, "failed to setup telemetry")
 
 		return
 	}
+
+	go func() {
+		if err := s.ServeMetrics(ctx); err != nil {
+			logger.Error(err, "metrics server error")
+		}
+	}()
 
 	client, err := client.New(ctx, unikornv1.AddToScheme)
 	if err != nil {
