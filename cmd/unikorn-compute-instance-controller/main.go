@@ -18,10 +18,11 @@ limitations under the License.
 package main
 
 import (
+	"github.com/unikorn-cloud/compute/pkg/constants"
 	"github.com/unikorn-cloud/compute/pkg/managers/instance"
 	"github.com/unikorn-cloud/core/pkg/manager"
 )
 
 func main() {
-	manager.Run(&instance.Factory{})
+	manager.RunService(constants.Service, &instance.Factory{})
 }

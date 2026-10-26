@@ -16,6 +16,7 @@ require (
 	github.com/unikorn-cloud/core v1.21.0
 	github.com/unikorn-cloud/identity v1.23.0
 	github.com/unikorn-cloud/region v1.26.1
+	go.opentelemetry.io/otel v1.45.0
 	go.uber.org/mock v0.5.2
 	golang.org/x/crypto v0.58.0
 	golang.org/x/mod v0.41.0
@@ -101,7 +102,6 @@ require (
 	github.com/x448/float16 v0.8.4 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/contrib/bridges/prometheus v0.68.0 // indirect
-	go.opentelemetry.io/otel v1.45.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp v1.43.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.45.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.45.0 // indirect

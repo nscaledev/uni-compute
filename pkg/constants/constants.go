@@ -55,6 +55,10 @@ func ServiceDescriptor() util.ServiceDescriptor {
 	}
 }
 
+// Service names compute in its traces and metrics. It is the same for every
+// binary in compute; dashboards and alerts select on it.
+const Service = "unikorn-compute"
+
 const (
 	// ResourceAPIVersionLabel defines what API version a resource belongs to
 	// for filtering purposes.

@@ -48,6 +48,13 @@ func main() {
 	logger := log.Log.WithName("init")
 	logger.Info("service starting", "application", constants.Application, "version", constants.Version, "revision", constants.Revision)
 
+	// The consumer's manager serves the controller-runtime registry, which
+	// this labels with the service.
+	if err := options.SetupMetrics(constants.Service); err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
 	ctx := cr.SetupSignalHandler()
 
 	// The consumer will listen for deletion events and propagate them to
