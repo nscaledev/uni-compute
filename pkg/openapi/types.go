@@ -94,11 +94,10 @@ type InstanceRead struct {
 	Metadata externalRef0.ProjectScopedResourceReadMetadata `json:"metadata"`
 
 	// Spec A compute instance.
-	// Changing imageId rebuilds the backing server in place, once it has booted at least once:
-	// its IP addresses and volumes are kept, its root disk is wiped and reimaged, and it keeps
-	// the userData it was created with. Changing flavorId replaces the
-	// backing server: IP addresses are not preserved, and the new server uses the current
-	// userData. sshCertificateAuthorityId is set at create only: an update that omits it keeps
+	// Changing flavorId replaces the backing server: IP addresses are not preserved, and the new
+	// server uses the current userData. Image and userData changes are passed to Region's Server
+	// controller, which owns the lifecycle decision for the backing machine.
+	// sshCertificateAuthorityId is set at create only: an update that omits it keeps
 	// it, and one that changes it is rejected with HTTP 422. Instance names are immutable; rename
 	// attempts are rejected with HTTP 422.
 	// The imageId field may reference any image that Region reports as available to the
@@ -117,11 +116,10 @@ type InstanceSnapshotCreate struct {
 }
 
 // InstanceSpec A compute instance.
-// Changing imageId rebuilds the backing server in place, once it has booted at least once:
-// its IP addresses and volumes are kept, its root disk is wiped and reimaged, and it keeps
-// the userData it was created with. Changing flavorId replaces the
-// backing server: IP addresses are not preserved, and the new server uses the current
-// userData. sshCertificateAuthorityId is set at create only: an update that omits it keeps
+// Changing flavorId replaces the backing server: IP addresses are not preserved, and the new
+// server uses the current userData. Image and userData changes are passed to Region's Server
+// controller, which owns the lifecycle decision for the backing machine.
+// sshCertificateAuthorityId is set at create only: an update that omits it keeps
 // it, and one that changes it is rejected with HTTP 422. Instance names are immutable; rename
 // attempts are rejected with HTTP 422.
 // The imageId field may reference any image that Region reports as available to the
@@ -199,11 +197,10 @@ type InstanceUpdate struct {
 	Metadata externalRef0.ResourceWriteMetadata `json:"metadata"`
 
 	// Spec A compute instance.
-	// Changing imageId rebuilds the backing server in place, once it has booted at least once:
-	// its IP addresses and volumes are kept, its root disk is wiped and reimaged, and it keeps
-	// the userData it was created with. Changing flavorId replaces the
-	// backing server: IP addresses are not preserved, and the new server uses the current
-	// userData. sshCertificateAuthorityId is set at create only: an update that omits it keeps
+	// Changing flavorId replaces the backing server: IP addresses are not preserved, and the new
+	// server uses the current userData. Image and userData changes are passed to Region's Server
+	// controller, which owns the lifecycle decision for the backing machine.
+	// sshCertificateAuthorityId is set at create only: an update that omits it keeps
 	// it, and one that changes it is rejected with HTTP 422. Instance names are immutable; rename
 	// attempts are rejected with HTTP 422.
 	// The imageId field may reference any image that Region reports as available to the
