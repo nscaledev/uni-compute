@@ -1250,6 +1250,8 @@ func TestInstancePowerState(t *testing.T) {
 		{name: "pending", in: instanceWithReason(regionv1.ActiveConditionReasonPending), want: ptr.To(regionapi.InstanceLifecyclePhasePending)},
 		{name: "queued", in: instanceWithReason(regionv1.ActiveConditionReasonQueued), want: ptr.To(regionapi.InstanceLifecyclePhaseQueued)},
 		{name: "building", in: instanceWithReason(regionv1.ActiveConditionReasonBuilding), want: ptr.To(regionapi.InstanceLifecyclePhaseBuilding)},
+		{name: "rebuilding", in: instanceWithReason(regionv1.ActiveConditionReasonRebuilding), want: ptr.To(regionapi.InstanceLifecyclePhaseRebuilding)},
+		{name: "rebooting", in: instanceWithReason(regionv1.ActiveConditionReasonRebooting), want: ptr.To(regionapi.InstanceLifecyclePhaseRebooting)},
 		{name: "running", in: instanceWithReason(regionv1.ActiveConditionReasonRunning), want: ptr.To(regionapi.InstanceLifecyclePhaseRunning)},
 		{name: "stopping", in: instanceWithReason(regionv1.ActiveConditionReasonStopping), want: ptr.To(regionapi.InstanceLifecyclePhaseStopping)},
 		{name: "stopped", in: instanceWithReason(regionv1.ActiveConditionReasonStopped), want: ptr.To(regionapi.InstanceLifecyclePhaseStopped)},

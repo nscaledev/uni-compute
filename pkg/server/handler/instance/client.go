@@ -228,6 +228,8 @@ func convertVolumeStatuses(in []computev1.ComputeInstanceVolumeStatus) (*compute
 // condition or an unrecognised reason yields nil, so the field is omitted rather
 // than reported as a bogus value; this matches the provisioner-side ingest
 // convention, keep them in lockstep.
+
+//nolint:cyclop // The explicit lifecycle mapping keeps unknown states fail-closed.
 func instancePowerState(in *computev1.ComputeInstance) *regionapi.InstanceLifecyclePhase {
 	active, err := computev1.GetActiveCondition(in)
 	if err != nil {
@@ -243,6 +245,8 @@ func instancePowerState(in *computev1.ComputeInstance) *regionapi.InstanceLifecy
 		return ptr.To(regionapi.InstanceLifecyclePhaseBuilding)
 	case regionv1.ActiveConditionReasonRebuilding:
 		return ptr.To(regionapi.InstanceLifecyclePhaseRebuilding)
+	case regionv1.ActiveConditionReasonRebooting:
+		return ptr.To(regionapi.InstanceLifecyclePhaseRebooting)
 	case regionv1.ActiveConditionReasonRunning:
 		return ptr.To(regionapi.InstanceLifecyclePhaseRunning)
 	case regionv1.ActiveConditionReasonStopping:

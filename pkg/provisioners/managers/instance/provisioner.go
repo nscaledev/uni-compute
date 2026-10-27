@@ -340,6 +340,8 @@ func (p *Provisioner) createOrUpdateServer(ctx context.Context, region regionapi
 // first observed. The handler-side projection in
 // pkg/server/handler/instance/client.go uses the same fall-through convention;
 // keep them in lockstep.
+
+//nolint:cyclop // The explicit lifecycle mapping keeps unknown states fail-closed.
 func activeConditionReason(in *regionapi.InstanceLifecyclePhase) (regionv1.ActiveConditionReason, bool) {
 	if in == nil {
 		return "", false
@@ -354,6 +356,8 @@ func activeConditionReason(in *regionapi.InstanceLifecyclePhase) (regionv1.Activ
 		return regionv1.ActiveConditionReasonBuilding, true
 	case regionapi.InstanceLifecyclePhaseRebuilding:
 		return regionv1.ActiveConditionReasonRebuilding, true
+	case regionapi.InstanceLifecyclePhaseRebooting:
+		return regionv1.ActiveConditionReasonRebooting, true
 	case regionapi.InstanceLifecyclePhaseRunning:
 		return regionv1.ActiveConditionReasonRunning, true
 	case regionapi.InstanceLifecyclePhaseStopping:

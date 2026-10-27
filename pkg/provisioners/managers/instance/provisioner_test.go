@@ -575,6 +575,8 @@ func TestActiveConditionReason(t *testing.T) {
 		{name: "pending", in: ptr.To(regionapi.InstanceLifecyclePhasePending), want: regionv1.ActiveConditionReasonPending, ok: true},
 		{name: "queued", in: ptr.To(regionapi.InstanceLifecyclePhaseQueued), want: regionv1.ActiveConditionReasonQueued, ok: true},
 		{name: "building", in: ptr.To(regionapi.InstanceLifecyclePhaseBuilding), want: regionv1.ActiveConditionReasonBuilding, ok: true},
+		{name: "rebuilding", in: ptr.To(regionapi.InstanceLifecyclePhaseRebuilding), want: regionv1.ActiveConditionReasonRebuilding, ok: true},
+		{name: "rebooting", in: ptr.To(regionapi.InstanceLifecyclePhaseRebooting), want: regionv1.ActiveConditionReasonRebooting, ok: true},
 		{name: "running", in: ptr.To(regionapi.InstanceLifecyclePhaseRunning), want: regionv1.ActiveConditionReasonRunning, ok: true},
 		{name: "stopping", in: ptr.To(regionapi.InstanceLifecyclePhaseStopping), want: regionv1.ActiveConditionReasonStopping, ok: true},
 		{name: "stopped", in: ptr.To(regionapi.InstanceLifecyclePhaseStopped), want: regionv1.ActiveConditionReasonStopped, ok: true},

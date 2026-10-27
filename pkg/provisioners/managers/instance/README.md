@@ -30,7 +30,8 @@ where that contract is translated into the hidden execution primitive.
   Desired Volumes without an observed row are synthesized as `pending`; Region
   rows for removed Volumes are retained through deprovisioning. Lifecycle is the
   generic `Active` condition (reusing region's `ActiveConditionReason` vocabulary —
-  `Queued`/`Building` for baremetal, plus the `Rebuilding` reimage state),
+  `Queued`/`Building` for baremetal, plus the `Rebuilding` reimage and
+  `Rebooting` in-progress-reboot states),
   replacing region's retired `Status.Phase`. The backing server's error detail
   is reconstructed onto the instance's `provisioningStatusDetail`, and lifecycle
   transitions are logged to the structured stream at parity with provisioning.
