@@ -277,9 +277,7 @@ func TestCreateOrUpdateServerPropagatesVolumeChanges(t *testing.T) {
 	}
 }
 
-// TestCreateOrUpdateServerImageAndFlavorChanges: region rebuilds in place on
-// an image change, so only a flavor change replaces the server.
-func TestCreateOrUpdateServerImageAndFlavorChanges(t *testing.T) {
+func TestCreateOrUpdateServerForwardsBootInputChanges(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -289,6 +287,9 @@ func TestCreateOrUpdateServerImageAndFlavorChanges(t *testing.T) {
 		err    error
 	}{
 		{name: "image", mutate: func(spec *regionapi.ServerV2Spec) { spec.ImageId = idstest.MustParseImageID(testImageID2) }, method: http.MethodPut},
+		{name: "user data", mutate: func(spec *regionapi.ServerV2Spec) {
+			spec.UserData = ptr.To([]byte("#cloud-config\nusers: [different]\n"))
+		}, method: http.MethodPut},
 		{name: "flavor", mutate: func(spec *regionapi.ServerV2Spec) { spec.FlavorId = idstest.MustParseFlavorID(testFlavorID2) }, method: http.MethodDelete, err: provisioners.ErrYield},
 	}
 
@@ -489,6 +490,30 @@ func TestNeedsReplacement(t *testing.T) {
 			},
 			expected: false,
 		},
+		{
+			name: "user data change",
+			current: &regionapi.ServerV2Read{
+				Metadata: coreapi.ProjectScopedResourceReadMetadata{
+					Name: "test-instance",
+				},
+				Spec: regionapi.ServerV2Spec{
+					FlavorId: idstest.MustParseFlavorID(testFlavorID),
+					ImageId:  idstest.MustParseImageID(testImageID),
+					UserData: ptr.To([]byte("#cloud-config\nusers: [old]\n")),
+				},
+			},
+			desired: &regionapi.ServerV2Update{
+				Metadata: coreapi.ResourceWriteMetadata{
+					Name: "test-instance",
+				},
+				Spec: regionapi.ServerV2Spec{
+					FlavorId: idstest.MustParseFlavorID(testFlavorID),
+					ImageId:  idstest.MustParseImageID(testImageID),
+					UserData: ptr.To([]byte("#cloud-config\nusers: [new]\n")),
+				},
+			},
+			expected: false,
+		},
 	}
 
 	for _, test := range tests {
@@ -498,6 +523,51 @@ func TestNeedsReplacement(t *testing.T) {
 			assert.Equal(t, test.expected, instance.NeedsReplacement(test.current, test.desired))
 		})
 	}
+}
+
+func TestCreateOrUpdateServerPreservesOpaqueGzipUserData(t *testing.T) {
+	t.Parallel()
+
+	gzipUserData := []byte{0x1f, 0x8b, 0x08, 0x00, 0xf2, 0x37, 0x7a, 0x64}
+	provisioner := newProvisionerForTest(nil)
+	instanceObject, ok := provisioner.Object().(*unikornv1.ComputeInstance)
+	require.True(t, ok)
+
+	instanceObject.Spec.UserData = gzipUserData
+	instanceObject.Spec.Networking.SecurityGroupIDs = []string{"d94b67a1-1b2f-4d45-a764-d12a7e01e981"}
+
+	request, err := provisioner.GenerateServerUpdateRequest()
+	require.NoError(t, err)
+
+	current := &regionapi.ServerV2Read{
+		Metadata: coreapi.ProjectScopedResourceReadMetadata{Id: testServerID, Name: request.Metadata.Name},
+		Spec:     request.Spec,
+	}
+	current.Spec.Networking = &regionapi.ServerV2Networking{
+		SecurityGroups: &regionapi.ServerV2SecurityGroupIDList{idstest.MustParseSecurityGroupID("7f9c3d2a-1b4e-4c6a-8d5f-2e1a3b4c5d6e")},
+	}
+
+	regionClient := newRegionClient(t, func(r *http.Request) (*http.Response, error) {
+		assert.Equal(t, http.MethodPut, r.Method)
+
+		received := struct {
+			Spec struct {
+				UserData []byte `json:"userData"`
+			} `json:"spec"`
+		}{}
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&received))
+		assert.Equal(t, gzipUserData, received.Spec.UserData)
+
+		return &http.Response{
+			StatusCode: http.StatusAccepted,
+			Body:       io.NopCloser(bytes.NewBufferString("{}")),
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Request:    r,
+		}, nil
+	})
+
+	_, err = provisioner.CreateOrUpdateServer(t.Context(), regionClient, current)
+	require.NoError(t, err)
 }
 
 func TestUpdateInstanceStatusCopiesMACAddress(t *testing.T) {

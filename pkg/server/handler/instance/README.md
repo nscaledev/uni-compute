@@ -190,8 +190,9 @@ objects or synthesize provider-specific diagnostics.
   the parse fails and the update returns a 500. The admission policy guards
   against this for new objects, but cannot repair already-corrupt state.
 - Update is not always an in-place mutation in effect. A flavor change leads to
-  destructive server replacement later in the controller layer; an image change
-  reimages the server in place.
+  destructive server replacement later in the controller layer. Image and
+  user-data changes are forwarded to Region, whose Server controller decides
+  whether to rebuild or replace the backing machine.
 - The package preserves allocation annotations manually during update, which is
   already marked in code as smell and signals a leaky boundary between handler
   mutation and allocation bookkeeping.

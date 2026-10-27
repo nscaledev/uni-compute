@@ -53,20 +53,18 @@ where that contract is translated into the hidden execution primitive.
 ## Destructive Update Semantics
 
 This package hides a major nuance the higher-level architecture needs to state
-clearly: some instance updates destroy server state. "Replace" below means
-delete and create; "rebuild" means region's in-place reimage.
+clearly: some instance updates destroy server state. "Replace" means delete
+and create; Region owns the lifecycle decision for server updates.
 
 A flavor change replaces the backing server: the controller deletes it and
 creates a new one, because region refuses a flavor change on update. That is not
 a cosmetic implementation detail. It means an apparently simple instance update
 can imply loss of server-local state and changes to IP/disk continuity.
 
-An image change is a plain region update. Region rebuilds the server in place
-(Nova rebuild): the server ID, IPs, MAC and attached volumes are kept, but the
-root disk is wiped and reimaged. Nova keeps the create-time user-data, so
-changed user-data takes effect only on replacement. Region waits until the
-server has booted once before rebuilding, so an image change before first boot
-leaves the instance provisioning until then.
+An image or user-data change remains a Region update. Compute forwards the
+complete desired image and opaque user-data pair but does not delete the
+backing Server. Region's Server controller has the placement and lifecycle
+context needed to choose between a rebuild and replacement.
 
 Instance names are immutable end-to-end: the API handler rejects renames with
 HTTP 422 and region enforces the same at its layer. The controller therefore
