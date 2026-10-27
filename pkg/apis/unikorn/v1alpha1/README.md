@@ -23,8 +23,8 @@ root, not for the hidden execution primitive.
 - desired existing Region Volume attachments
 - projected runtime status such as IP addresses, MAC address, observed Volume
   attachment state, lifecycle (the generic `Active` condition, mirroring
-  region's server — baremetal `Queued` / `Building` and the `Rebuilding` reimage
-  state), and health conditions
+  region's server — baremetal `Queued` / `Building`, the `Rebuilding` reimage
+  state, and the `Rebooting` in-progress-reboot state), and health conditions
 
 The object also carries org/project/region/network labels and delegated
 principal metadata through shared helpers outside this package.
@@ -40,8 +40,9 @@ principal metadata through shared helpers outside this package.
 - Status is mostly projected truth from the backing `region.Server`, not an
   independently reconciled compute-owned runtime source of truth. Lifecycle is
   mirrored as the generic `Active` condition (region's `ActiveConditionReason`,
-  including `Queued`/`Building` for baremetal and the `Rebuilding` reimage
-  state), and the backing server's error detail is reconstructed onto
+  including `Queued`/`Building` for baremetal, the `Rebuilding` reimage state,
+  and the `Rebooting` in-progress-reboot state), and the backing server's error
+  detail is reconstructed onto
   `provisioningStatusDetail`. Once provisioning status reaches `provisioned`,
   the Active condition is the live readiness signal: clients should treat
   `Running` (not `provisioned`) as ready-to-use.
