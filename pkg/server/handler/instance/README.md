@@ -93,6 +93,36 @@ key retrieval, or snapshotting are requested.
 - Snapshot requests strip compute-reserved system tags from the caller payload
   and then add the reserved instance provenance tag themselves.
 
+## Authorization
+
+Each operation authorizes once, and that decision is also its audit record,
+whether allowed or refused. identity's audit middleware builds a mutation's
+record from the decision the handler marked primary, and never reads the URL,
+so a mutation that marks none gets a record with no operation or resource, and
+an "audit defect" error log if it succeeds.
+
+- `get` is the only way to load an instance. It takes the operation, fetches the
+  instance, then authorizes it against the scope in the instance's labels. Fetch
+  first is required because the labels hold the scope, and it keeps 404 ahead
+  of 403. For a primary it declares the operation and instance ID before the
+  fetch, so a 404 is still recorded as what was attempted, with no scope.
+- Mutations (update, delete, start, stop, reboot, snapshot) pass a primary
+  target naming the instance's ID and name. They must name it, because the
+  middleware otherwise falls back to the response body, and start, stop and
+  reboot have none while snapshot's is the new image.
+- Start, stop, reboot and snapshot require `update`, with the verb as the
+  action. They call region as compute's own identity, so this check is the only
+  one the caller faces; under `read` the auditor and reader roles could
+  power-cycle and snapshot.
+- Delete authorizes before its early return for an instance already being
+  deleted, so that path is checked and recorded too.
+- Create authorizes through `AllowProjectScopeCreateOn`, which also confirms a
+  project named in the body exists when access comes from an organization grant.
+  It records every outcome, so create needs no declaration.
+- Reads stay subordinate: the middleware never audits a GET, so the SSH key and
+  console endpoints, which are GETs, leave no record. The list filter uses the
+  `Permits` predicate, which records nothing.
+
 ## Typed Identifier Boundary
 
 This package is a trust boundary for resource identifiers (see
@@ -102,9 +132,9 @@ This package is a trust boundary for resource identifiers (see
   at the router, and create-body IDs (organization, project, network, flavor,
   image, SSH CA, and Volumes) are UUID-validated at unmarshal. Handlers never
   defend against a malformed inbound ID.
-- RBAC and tenancy are consumed from identity's scope-reader surface: the
-  `AllowOrganizationScopeID` / `AllowProjectScopeID` / `AllowProjectScopeCreateID`
-  variants take typed IDs directly.
+- RBAC and tenancy are consumed from identity's typed surface:
+  `AllowProjectScopeOn` / `AllowProjectScopeCreateOn` and the
+  `PermitsProjectScopeID` predicate take typed IDs directly.
 - The IDs are carried typed through the per-resource client methods and converted
   to strings only at the sinks — Kubernetes object names and labels, the
   `ComputeInstance` CRD spec, and region API calls.
