@@ -45,6 +45,7 @@ import (
 	"github.com/unikorn-cloud/core/pkg/server/errors"
 	"github.com/unikorn-cloud/core/pkg/server/saga"
 	coreutil "github.com/unikorn-cloud/core/pkg/server/util"
+	"github.com/unikorn-cloud/identity/pkg/authz"
 	identityclient "github.com/unikorn-cloud/identity/pkg/client"
 	"github.com/unikorn-cloud/identity/pkg/handler/common"
 	identityids "github.com/unikorn-cloud/identity/pkg/ids"
@@ -792,7 +793,7 @@ func (c *Client) List(ctx context.Context, params computeapi.GetApiV2InstancesPa
 			return true
 		}
 
-		return rbac.AllowProjectScopeID(ctx, "compute:instances", identityapi.Read, organizationID, projectID) != nil
+		return !rbac.PermitsProjectScopeID(ctx, "compute:instances", identityapi.Read, organizationID, projectID)
 	})
 
 	slices.SortStableFunc(result.Items, func(a, b computev1.ComputeInstance) int {
@@ -1017,7 +1018,13 @@ func (c *Client) Create(ctx context.Context, request *computeapi.InstanceCreate)
 	organizationID := request.Spec.OrganizationId
 	projectID := request.Spec.ProjectId
 
-	if err := rbac.AllowProjectScopeCreateID(ctx, c.identity, "compute:instances", identityapi.Create, organizationID, projectID); err != nil {
+	target := authz.Target{
+		Endpoint:  "compute:instances",
+		Operation: authz.Create,
+		Kind:      authz.Primary,
+	}
+
+	if err := rbac.AllowProjectScopeCreateOn(ctx, c.identity, target, organizationID, projectID); err != nil {
 		return nil, err
 	}
 
@@ -1064,7 +1071,22 @@ func (c *Client) Create(ctx context.Context, request *computeapi.InstanceCreate)
 	return convert(resource)
 }
 
-func (c *Client) GetRaw(ctx context.Context, instanceID computeids.InstanceID) (*computev1.ComputeInstance, error) {
+// get is the only way to load an instance: it authorizes the operation on it
+// exactly once, so an operation cannot reach an instance unchecked, and a
+// primary kind makes that decision the request's audit record.  A primary is
+// declared before the fetch, so a request that fails on it is still recorded.
+// The fetch MUST come before the check, as scope lives in the instance's
+// labels, which also keeps 404 ahead of 403.  See the README's Authorization
+// section.
+func (c *Client) get(ctx context.Context, instanceID computeids.InstanceID, operation authz.Operation, kind authz.Kind) (*computev1.ComputeInstance, error) {
+	if kind == authz.Primary {
+		authz.Declare(ctx, authz.Target{
+			Endpoint:  "compute:instances",
+			Operation: operation,
+			ObjectID:  uuid.UUID(instanceID),
+		})
+	}
+
 	result := &computev1.ComputeInstance{}
 
 	if err := c.client.Get(ctx, client.ObjectKey{Namespace: c.namespace, Name: instanceID.String()}, result); err != nil {
@@ -1080,7 +1102,15 @@ func (c *Client) GetRaw(ctx context.Context, instanceID computeids.InstanceID) (
 		return nil, err
 	}
 
-	if err := rbac.AllowProjectScopeID(ctx, "compute:instances", identityapi.Read, organizationID, projectID); err != nil {
+	target := authz.Target{
+		Endpoint:   "compute:instances",
+		Operation:  operation,
+		Kind:       kind,
+		ObjectName: result.Labels[coreconstants.NameLabel],
+		ObjectID:   uuid.UUID(instanceID),
+	}
+
+	if err := rbac.AllowProjectScopeOn(ctx, target, organizationID, projectID); err != nil {
 		return nil, err
 	}
 
@@ -1088,7 +1118,7 @@ func (c *Client) GetRaw(ctx context.Context, instanceID computeids.InstanceID) (
 }
 
 func (c *Client) Get(ctx context.Context, instanceID computeids.InstanceID) (*computeapi.InstanceRead, error) {
-	result, err := c.GetRaw(ctx, instanceID)
+	result, err := c.get(ctx, instanceID, authz.Read, authz.Subordinate)
 	if err != nil {
 		return nil, err
 	}
@@ -1167,10 +1197,9 @@ func (c *Client) resolveUpdateFlavors(ctx context.Context, organizationID identi
 	return currentFlavor, flavor, nil
 }
 
-// authorizeUpdate recovers the typed scope, region and network IDs from the
-// instance's labels (plain strings, failing closed if malformed) and authorizes
-// the update against the project scope.
-func (c *Client) authorizeUpdate(ctx context.Context, current *computev1.ComputeInstance) (identityids.OrganizationID, identityids.ProjectID, regionids.RegionID, regionids.NetworkID, error) {
+// updateScope recovers the typed scope, region and network IDs from the
+// instance's labels (plain strings, failing closed if malformed).
+func updateScope(current *computev1.ComputeInstance) (identityids.OrganizationID, identityids.ProjectID, regionids.RegionID, regionids.NetworkID, error) {
 	organizationID, projectID, err := scopeFromLabels(current.Labels)
 	if err != nil {
 		return identityids.OrganizationID{}, identityids.ProjectID{}, regionids.RegionID{}, regionids.NetworkID{}, err
@@ -1186,20 +1215,16 @@ func (c *Client) authorizeUpdate(ctx context.Context, current *computev1.Compute
 		return identityids.OrganizationID{}, identityids.ProjectID{}, regionids.RegionID{}, regionids.NetworkID{}, err
 	}
 
-	if err := rbac.AllowProjectScopeID(ctx, "compute:instances", identityapi.Update, organizationID, projectID); err != nil {
-		return identityids.OrganizationID{}, identityids.ProjectID{}, regionids.RegionID{}, regionids.NetworkID{}, err
-	}
-
 	return organizationID, projectID, regionID, networkID, nil
 }
 
 func (c *Client) Update(ctx context.Context, instanceID computeids.InstanceID, request *computeapi.InstanceUpdate) (*computeapi.InstanceRead, error) {
-	current, err := c.GetRaw(ctx, instanceID)
+	current, err := c.get(ctx, instanceID, authz.Update, authz.Primary)
 	if err != nil {
 		return nil, err
 	}
 
-	organizationID, projectID, regionID, networkID, err := c.authorizeUpdate(ctx, current)
+	organizationID, projectID, regionID, networkID, err := updateScope(current)
 	if err != nil {
 		return nil, err
 	}
@@ -1247,22 +1272,13 @@ func (c *Client) Update(ctx context.Context, instanceID computeids.InstanceID, r
 }
 
 func (c *Client) Delete(ctx context.Context, instanceID computeids.InstanceID) error {
-	resource, err := c.GetRaw(ctx, instanceID)
+	resource, err := c.get(ctx, instanceID, authz.Delete, authz.Primary)
 	if err != nil {
 		return err
 	}
 
 	if resource.DeletionTimestamp != nil {
 		return nil
-	}
-
-	organizationID, projectID, err := scopeFromLabels(resource.Labels)
-	if err != nil {
-		return err
-	}
-
-	if err := rbac.AllowProjectScopeID(ctx, "compute:instances", identityapi.Delete, organizationID, projectID); err != nil {
-		return err
 	}
 
 	if err := c.client.Delete(ctx, resource); err != nil {
@@ -1317,7 +1333,7 @@ func (c *Client) serverID(ctx context.Context, instance *computev1.ComputeInstan
 }
 
 func (c *Client) SSHKey(ctx context.Context, instanceID computeids.InstanceID) (*regionapi.SshKey, error) {
-	resource, err := c.GetRaw(ctx, instanceID)
+	resource, err := c.get(ctx, instanceID, authz.Read, authz.Subordinate)
 	if err != nil {
 		return nil, err
 	}
@@ -1340,7 +1356,7 @@ func (c *Client) SSHKey(ctx context.Context, instanceID computeids.InstanceID) (
 }
 
 func (c *Client) Start(ctx context.Context, instanceID computeids.InstanceID) error {
-	resource, err := c.GetRaw(ctx, instanceID)
+	resource, err := c.get(ctx, instanceID, authz.Action(identityapi.Update, "start"), authz.Primary)
 	if err != nil {
 		return err
 	}
@@ -1363,7 +1379,7 @@ func (c *Client) Start(ctx context.Context, instanceID computeids.InstanceID) er
 }
 
 func (c *Client) Stop(ctx context.Context, instanceID computeids.InstanceID) error {
-	resource, err := c.GetRaw(ctx, instanceID)
+	resource, err := c.get(ctx, instanceID, authz.Action(identityapi.Update, "stop"), authz.Primary)
 	if err != nil {
 		return err
 	}
@@ -1386,7 +1402,7 @@ func (c *Client) Stop(ctx context.Context, instanceID computeids.InstanceID) err
 }
 
 func (c *Client) Reboot(ctx context.Context, instanceID computeids.InstanceID, params computeapi.PostApiV2InstancesInstanceIDRebootParams) error {
-	resource, err := c.GetRaw(ctx, instanceID)
+	resource, err := c.get(ctx, instanceID, authz.Action(identityapi.Update, "reboot"), authz.Primary)
 	if err != nil {
 		return err
 	}
@@ -1451,8 +1467,7 @@ func setTag(meta *coreapi.ResourceMetadata, tag, value string) {
 }
 
 func (c *Client) Snapshot(ctx context.Context, instanceID computeids.InstanceID, params computeapi.InstanceSnapshotCreate) (*regionapi.ImageResponse, error) {
-	// This implicitly checks read permission on the instance in question.
-	resource, err := c.GetRaw(ctx, instanceID)
+	resource, err := c.get(ctx, instanceID, authz.Action(identityapi.Update, "snapshot"), authz.Primary)
 	if err != nil {
 		return nil, err
 	}
@@ -1483,7 +1498,7 @@ func (c *Client) Snapshot(ctx context.Context, instanceID computeids.InstanceID,
 }
 
 func (c *Client) ConsoleOutput(ctx context.Context, instanceID computeids.InstanceID, params computeapi.GetApiV2InstancesInstanceIDConsoleoutputParams) (*regionapi.ConsoleOutputResponse, error) {
-	resource, err := c.GetRaw(ctx, instanceID)
+	resource, err := c.get(ctx, instanceID, authz.Read, authz.Subordinate)
 	if err != nil {
 		return nil, err
 	}
@@ -1514,7 +1529,7 @@ func (c *Client) ConsoleOutput(ctx context.Context, instanceID computeids.Instan
 }
 
 func (c *Client) ConsoleSession(ctx context.Context, instanceID computeids.InstanceID) (*regionapi.ConsoleSessionResponse, error) {
-	resource, err := c.GetRaw(ctx, instanceID)
+	resource, err := c.get(ctx, instanceID, authz.Read, authz.Subordinate)
 	if err != nil {
 		return nil, err
 	}
