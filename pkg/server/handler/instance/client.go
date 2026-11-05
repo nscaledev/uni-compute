@@ -413,6 +413,20 @@ func GenerateUserData(in *[]byte) []byte {
 	return *in
 }
 
+// withStoredUserData resolves an update's user-data as region does: omitted or
+// null keeps the stored value, "" clears it, and anything else replaces it.
+// It runs before validation so an unchanged payload is not re-checked.
+func withStoredUserData(current *computev1.ComputeInstance, request *computeapi.InstanceUpdate) *computeapi.InstanceUpdate {
+	if request.Spec.UserData != nil || current.Spec.UserData == nil {
+		return request
+	}
+
+	resolved := *request
+	resolved.Spec.UserData = ptr.To(slices.Clone(current.Spec.UserData))
+
+	return &resolved
+}
+
 // validateUpdatedUserData applies the create rules to user-data on update,
 // but only when it changes, or a flavor change will recreate the server
 // through region's create. Unchanged user-data is never re-checked otherwise,
@@ -1245,6 +1259,8 @@ func (c *Client) Update(ctx context.Context, instanceID computeids.InstanceID, r
 	if err != nil {
 		return nil, err
 	}
+
+	request = withStoredUserData(current, request)
 
 	if err := c.validateUpdateRequest(ctx, request, current, organizationID, projectID, regionID, networkID); err != nil {
 		return nil, err

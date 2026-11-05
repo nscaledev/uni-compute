@@ -142,8 +142,9 @@ CRUD handlers would hide the important coordination edges.
 
 - The instance-to-server link is currently implicit and tag-based.
 - Some instance updates destroy server state: a flavor change makes the
-  controller delete and recreate the backing server, and an image change makes
-  region reimage its root disk in place.
+  controller delete and recreate the backing server. Image and user-data
+  changes are sent to Region, whose Server controller owns the lifecycle
+  decision for the backing machine.
 - The monitor binary exists, but `pkg/monitor` does not yet register active
   checkers, so compute does not currently have a meaningful region-style polling
   architecture.

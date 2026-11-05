@@ -75,6 +75,10 @@ key retrieval, or snapshotting are requested.
   here before the old server is deleted. Otherwise unchanged user-data is never
   re-checked: that would block every update of an instance whose stored
   user-data predates the current rules.
+- `spec.userData` on update follows region's Server PUT: omitted or null keeps
+  the stored value, `""` clears it, and any other value replaces it. The stored
+  value is filled in before validation, so an update that omits user-data
+  counts as unchanged.
 - The SSH CA is set at create only, as in region: SSH trust is set up by
   first-boot user-data and cannot be reconciled afterwards. An update that
   omits it keeps the stored one; one that changes or adds it gets HTTP 422.

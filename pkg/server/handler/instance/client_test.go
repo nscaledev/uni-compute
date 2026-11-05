@@ -54,6 +54,7 @@ const (
 	projectID            = "cae219d7-10e5-4601-8c2c-ee7e066b93ce"
 	nonexistentProjectID = "f1e2d3c4-b5a6-4798-8a9b-0c1d2e3f4a5b"
 	instanceFlavorID     = "c7568e2d-f9ab-453d-9a3a-51375f78426b"
+	instanceImageID      = "d14bd389-4b5d-47ca-aed5-911376f0a33e"
 )
 
 // aclWithOrgScopeCreate grants compute:instances/Create at organization scope,
@@ -529,6 +530,7 @@ func TestValidateUpdatedUserData(t *testing.T) {
 	stored := func(sshCAID string, userData []byte) *computev1.ComputeInstance {
 		out := &computev1.ComputeInstance{}
 		out.Spec.FlavorID = instanceFlavorID
+		out.Spec.ImageID = instanceImageID
 		out.Spec.UserData = userData
 
 		if sshCAID != "" {
@@ -538,9 +540,10 @@ func TestValidateUpdatedUserData(t *testing.T) {
 		return out
 	}
 
-	update := func(sshCAID, flavorID string, userData []byte) *computeapi.InstanceUpdate {
+	update := func(sshCAID, flavorID, imageID string, userData []byte) *computeapi.InstanceUpdate {
 		out := &computeapi.InstanceUpdate{}
 		out.Spec.FlavorId = idstest.MustParseFlavorID(flavorID)
+		out.Spec.ImageId = idstest.MustParseImageID(imageID)
 
 		if userData != nil {
 			out.Spec.UserData = &userData
@@ -560,21 +563,23 @@ func TestValidateUpdatedUserData(t *testing.T) {
 		wantError bool
 	}{
 		// Changed user-data gets the create rules, as region does.
-		{name: "no ssh ca changed unrecognized", current: stored("", nil), request: update("", instanceFlavorID, invalid), wantError: true},
-		{name: "no ssh ca changed gzip", current: stored("", nil), request: update("", instanceFlavorID, gzipData)},
-		{name: "no user data", current: stored(sshCAID, nil), request: update(sshCAID, instanceFlavorID, nil)},
-		{name: "cloud config", current: stored(sshCAID, nil), request: update(sshCAID, instanceFlavorID, validCloudConfig)},
-		{name: "gzip", current: stored(sshCAID, nil), request: update(sshCAID, instanceFlavorID, gzipData), wantError: true},
-		{name: "unrecognized", current: stored(sshCAID, nil), request: update(sshCAID, instanceFlavorID, invalid), wantError: true},
+		{name: "no ssh ca changed unrecognized", current: stored("", nil), request: update("", instanceFlavorID, instanceImageID, invalid), wantError: true},
+		{name: "no ssh ca changed gzip", current: stored("", nil), request: update("", instanceFlavorID, instanceImageID, gzipData)},
+		{name: "no user data", current: stored(sshCAID, nil), request: update(sshCAID, instanceFlavorID, instanceImageID, nil)},
+		{name: "cloud config", current: stored(sshCAID, nil), request: update(sshCAID, instanceFlavorID, instanceImageID, validCloudConfig)},
+		{name: "gzip", current: stored(sshCAID, nil), request: update(sshCAID, instanceFlavorID, instanceImageID, gzipData), wantError: true},
+		{name: "unrecognized", current: stored(sshCAID, nil), request: update(sshCAID, instanceFlavorID, instanceImageID, invalid), wantError: true},
 		// Stored user-data the current rules reject must not block other updates.
-		{name: "unchanged legacy", current: stored(sshCAID, partHandler), request: update(sshCAID, instanceFlavorID, partHandler)},
-		{name: "unchanged legacy no ssh ca", current: stored("", invalid), request: update("", instanceFlavorID, invalid)},
-		{name: "empty and missing user data are equal", current: stored(sshCAID, nil), request: update(sshCAID, instanceFlavorID, []byte{})},
+		{name: "unchanged legacy", current: stored(sshCAID, partHandler), request: update(sshCAID, instanceFlavorID, instanceImageID, partHandler)},
+		{name: "unchanged legacy no ssh ca", current: stored("", invalid), request: update("", instanceFlavorID, instanceImageID, invalid)},
+		{name: "empty and missing user data are equal", current: stored(sshCAID, nil), request: update(sshCAID, instanceFlavorID, instanceImageID, []byte{})},
 		// The stored CA governs, as in region, even if the request omits it.
-		{name: "stored ssh ca governs", current: stored(sshCAID, nil), request: update("", instanceFlavorID, gzipData), wantError: true},
+		{name: "stored ssh ca governs", current: stored(sshCAID, nil), request: update("", instanceFlavorID, instanceImageID, gzipData), wantError: true},
 		// A flavor change recreates the server through region's create.
-		{name: "flavor change", current: stored(sshCAID, partHandler), request: update(sshCAID, otherFlavor, partHandler), wantError: true},
-		{name: "flavor change no ssh ca", current: stored("", invalid), request: update("", otherFlavor, invalid), wantError: true},
+		{name: "flavor change", current: stored(sshCAID, partHandler), request: update(sshCAID, otherFlavor, instanceImageID, partHandler), wantError: true},
+		{name: "flavor change no ssh ca", current: stored("", invalid), request: update("", otherFlavor, instanceImageID, invalid), wantError: true},
+		// Region, rather than Compute, decides the lifecycle for an image update.
+		{name: "image change", current: stored(sshCAID, partHandler), request: update(sshCAID, instanceFlavorID, "ef2ad29d-dc1c-4873-ae55-d4fa55672a6e", partHandler)},
 	}
 
 	for _, tc := range tests {
