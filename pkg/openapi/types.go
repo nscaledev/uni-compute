@@ -57,9 +57,10 @@ type InstanceCreateSpec struct {
 	// a MIME multipart archive, etc. It must be UTF-8 text cloud-init recognises: a marker
 	// such as #cloud-config or #!, or MIME with a MIME-Version header near the start.
 	// Without an SSH certificate authority, gzip is also accepted. Cloud-init part-handlers
-	// (#part-handler) are rejected, as the payload or as a top-level MIME part. On update
-	// it is checked only when it or the flavor changes, against the instance's stored SSH
-	// certificate authority.
+	// (#part-handler) are rejected, as the payload or as a top-level MIME part. On update,
+	// omit it or send null to keep the stored value, send an empty string to clear it, or
+	// send a value to replace it. It is checked only when it or the flavor changes, against
+	// the instance's stored SSH certificate authority.
 	UserData *[]byte `json:"userData,omitempty"`
 
 	// Volumes Complete desired set of existing Volumes to attach to the Instance.
@@ -143,9 +144,10 @@ type InstanceSpec struct {
 	// a MIME multipart archive, etc. It must be UTF-8 text cloud-init recognises: a marker
 	// such as #cloud-config or #!, or MIME with a MIME-Version header near the start.
 	// Without an SSH certificate authority, gzip is also accepted. Cloud-init part-handlers
-	// (#part-handler) are rejected, as the payload or as a top-level MIME part. On update
-	// it is checked only when it or the flavor changes, against the instance's stored SSH
-	// certificate authority.
+	// (#part-handler) are rejected, as the payload or as a top-level MIME part. On update,
+	// omit it or send null to keep the stored value, send an empty string to clear it, or
+	// send a value to replace it. It is checked only when it or the flavor changes, against
+	// the instance's stored SSH certificate authority.
 	UserData *[]byte `json:"userData,omitempty"`
 
 	// Volumes Complete desired set of existing Volumes to attach to the Instance.
