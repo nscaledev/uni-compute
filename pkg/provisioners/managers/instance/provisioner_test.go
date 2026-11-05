@@ -570,6 +570,58 @@ func TestCreateOrUpdateServerPreservesOpaqueGzipUserData(t *testing.T) {
 	require.NoError(t, err)
 }
 
+// TestCreateOrUpdateServerClearsUserData: Region keeps the stored user-data
+// when the field is omitted or null, so a clear must send "".
+func TestCreateOrUpdateServerClearsUserData(t *testing.T) {
+	t.Parallel()
+
+	provisioner := newProvisionerForTest(nil)
+	instanceObject, ok := provisioner.Object().(*unikornv1.ComputeInstance)
+	require.True(t, ok)
+
+	instanceObject.Spec.UserData = nil
+
+	request, err := provisioner.GenerateServerUpdateRequest()
+	require.NoError(t, err)
+
+	current := &regionapi.ServerV2Read{
+		Metadata: coreapi.ProjectScopedResourceReadMetadata{Id: testServerID, Name: request.Metadata.Name},
+		Spec:     request.Spec,
+	}
+	current.Spec.UserData = ptr.To([]byte("#cloud-config\nusers: []\n"))
+
+	puts := 0
+
+	regionClient := newRegionClient(t, func(r *http.Request) (*http.Response, error) {
+		puts++
+
+		assert.Equal(t, http.MethodPut, r.Method)
+
+		body, err := io.ReadAll(r.Body)
+		require.NoError(t, err)
+		assert.Contains(t, string(body), `"userData":""`)
+
+		return &http.Response{
+			StatusCode: http.StatusAccepted,
+			Body:       io.NopCloser(bytes.NewBufferString("{}")),
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Request:    r,
+		}, nil
+	})
+
+	_, err = provisioner.CreateOrUpdateServer(t.Context(), regionClient, current)
+	require.NoError(t, err)
+	require.Equal(t, 1, puts)
+
+	// Once cleared, Region reads the server without user-data, which must
+	// match so later reconciles send nothing.
+	current.Spec.UserData = nil
+
+	_, err = provisioner.CreateOrUpdateServer(t.Context(), regionClient, current)
+	require.NoError(t, err)
+	require.Equal(t, 1, puts)
+}
+
 func TestUpdateInstanceStatusCopiesMACAddress(t *testing.T) {
 	t.Parallel()
 
