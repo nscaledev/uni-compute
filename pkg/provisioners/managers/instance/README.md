@@ -64,7 +64,9 @@ can imply loss of server-local state and changes to IP/disk continuity.
 An image or user-data change remains a Region update. Compute forwards the
 complete desired image and opaque user-data pair but does not delete the
 backing Server. Region's Server controller has the placement and lifecycle
-context needed to choose between a rebuild and replacement.
+context needed to choose between a rebuild and replacement. Region keeps the
+stored user-data when the field is omitted or null, so when the instance has
+none and the Server has some, the update sends `""` to clear it.
 
 Instance names are immutable end-to-end: the API handler rejects renames with
 HTTP 422 and region enforces the same at its layer. The controller therefore
