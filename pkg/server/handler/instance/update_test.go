@@ -34,6 +34,7 @@ import (
 	"github.com/unikorn-cloud/compute/pkg/server/handler/instance"
 	coreconstants "github.com/unikorn-cloud/core/pkg/constants"
 	coreapi "github.com/unikorn-cloud/core/pkg/openapi"
+	coreerrors "github.com/unikorn-cloud/core/pkg/server/errors"
 	"github.com/unikorn-cloud/identity/pkg/middleware/authorization"
 	identityapi "github.com/unikorn-cloud/identity/pkg/openapi"
 	identitymock "github.com/unikorn-cloud/identity/pkg/openapi/mock"
@@ -51,8 +52,9 @@ import (
 )
 
 // TestUpdateUserData drives an instance PUT through Update and checks the
-// stored ComputeInstance. The stored payload is a part-handler, which the
-// current rules reject, so keeping it also shows it was not re-validated.
+// stored ComputeInstance. The stored payload is one the current rules reject,
+// so keeping it shows it was not re-validated, and rejecting it on a flavor
+// change shows omitted user data is filled in before validation.
 func TestUpdateUserData(t *testing.T) {
 	t.Parallel()
 
@@ -63,17 +65,22 @@ func TestUpdateUserData(t *testing.T) {
 		allocationID = "8e7d6c5b-4a39-4281-9f0e-1d2c3b4a5968"
 	)
 
-	stored := []byte("#part-handler\ndef list_types():\n    return []\n")
+	stored := []byte("plain text")
 	replacement := []byte("#cloud-config\nusers: []\n")
 
 	tests := []struct {
-		name     string
-		userData string
-		expected []byte
+		name      string
+		flavorID  string
+		userData  string
+		wantError bool
+		expected  []byte
 	}{
 		{name: "omitted keeps", expected: stored},
 		{name: "empty clears", userData: `,"userData":""`, expected: nil},
 		{name: "value replaces", userData: `,"userData":"` + string(mustJSONBytes(t, replacement)) + `"`, expected: replacement},
+		// A flavor change recreates the server, so the kept user data must
+		// pass region's create rules.
+		{name: "omitted with flavor change is validated", flavorID: otherInstanceFlavorID, wantError: true, expected: stored},
 	}
 
 	for _, tc := range tests {
@@ -113,21 +120,34 @@ func TestUpdateUserData(t *testing.T) {
 
 			ctrl := gomock.NewController(t)
 			identity := identitymock.NewMockClientWithResponsesInterface(ctrl)
-			identity.EXPECT().
-				PutApiV1OrganizationsOrganizationIDProjectsProjectIDAllocationsAllocationIDWithResponse(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
-				Return(&identityapi.PutApiV1OrganizationsOrganizationIDProjectsProjectIDAllocationsAllocationIDResponse{
-					HTTPResponse: &http.Response{StatusCode: http.StatusOK},
-				}, nil)
+
+			// A rejected update must not touch the allocation.
+			if !tc.wantError {
+				identity.EXPECT().
+					PutApiV1OrganizationsOrganizationIDProjectsProjectIDAllocationsAllocationIDWithResponse(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+					Return(&identityapi.PutApiV1OrganizationsOrganizationIDProjectsProjectIDAllocationsAllocationIDResponse{
+						HTTPResponse: &http.Response{StatusCode: http.StatusOK},
+					}, nil)
+			}
 
 			c := instance.NewClient(kube, "test", identity, newFlavorAndImageRegionClient(t))
 
-			body := `{"metadata":{"name":"test-instance"},"spec":{"flavorId":"` + instanceFlavorID + `","imageId":"` + instanceImageID + `"` + tc.userData + `}}`
+			flavorID := tc.flavorID
+			if flavorID == "" {
+				flavorID = instanceFlavorID
+			}
+
+			body := `{"metadata":{"name":"test-instance"},"spec":{"flavorId":"` + flavorID + `","imageId":"` + instanceImageID + `"` + tc.userData + `}}`
 
 			request := &computeapi.InstanceUpdate{}
 			require.NoError(t, json.Unmarshal([]byte(body), request))
 
 			_, err := c.Update(updateContext(t), computeids.MustParseInstanceID(instanceID), request)
-			require.NoError(t, err)
+			if tc.wantError {
+				require.True(t, coreerrors.IsUnprocessableContent(err), "expected 422, got: %v", err)
+			} else {
+				require.NoError(t, err)
+			}
 
 			result := &computev1.ComputeInstance{}
 			require.NoError(t, kube.Get(t.Context(), client.ObjectKeyFromObject(current), result))
@@ -159,13 +179,19 @@ func updateContext(t *testing.T) context.Context {
 	return principal.NewContext(ctx, &principal.Principal{Actor: "user"})
 }
 
+// otherInstanceFlavorID is a second flavor compatible with the image.
+const otherInstanceFlavorID = "d1e2f3a4-b5c6-4d7e-8f90-1a2b3c4d5e6f"
+
 // newFlavorAndImageRegionClient serves the flavor and image lists the update
-// path reads, with one compatible flavor and image.
+// path reads, with two compatible flavors and one image.
 func newFlavorAndImageRegionClient(t *testing.T) regionapi.ClientWithResponsesInterface {
 	t.Helper()
 
 	flavors := []regionapi.Flavor{{
 		Metadata: coreapi.StaticResourceMetadata{Id: instanceFlavorID},
+		Spec:     regionapi.FlavorSpec{Architecture: regionapi.ArchitectureX8664, Disk: 20},
+	}, {
+		Metadata: coreapi.StaticResourceMetadata{Id: otherInstanceFlavorID},
 		Spec:     regionapi.FlavorSpec{Architecture: regionapi.ArchitectureX8664, Disk: 20},
 	}}
 	images := []regionapi.Image{{

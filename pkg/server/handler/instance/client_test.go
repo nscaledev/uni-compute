@@ -518,8 +518,7 @@ func TestValidateUpdatedUserData(t *testing.T) {
 	t.Parallel()
 
 	const (
-		sshCAID     = "f1e2d3c4-b5a6-4798-8a9b-0c1d2e3f4a5b"
-		otherFlavor = "d1e2f3a4-b5c6-4d7e-8f90-1a2b3c4d5e6f"
+		sshCAID = "f1e2d3c4-b5a6-4798-8a9b-0c1d2e3f4a5b"
 	)
 
 	gzipData := []byte{0x1f, 0x8b, 0x08}
@@ -576,8 +575,8 @@ func TestValidateUpdatedUserData(t *testing.T) {
 		// The stored CA governs, as in region, even if the request omits it.
 		{name: "stored ssh ca governs", current: stored(sshCAID, nil), request: update("", instanceFlavorID, instanceImageID, gzipData), wantError: true},
 		// A flavor change recreates the server through region's create.
-		{name: "flavor change", current: stored(sshCAID, partHandler), request: update(sshCAID, otherFlavor, instanceImageID, partHandler), wantError: true},
-		{name: "flavor change no ssh ca", current: stored("", invalid), request: update("", otherFlavor, instanceImageID, invalid), wantError: true},
+		{name: "flavor change", current: stored(sshCAID, partHandler), request: update(sshCAID, otherInstanceFlavorID, instanceImageID, partHandler), wantError: true},
+		{name: "flavor change no ssh ca", current: stored("", invalid), request: update("", otherInstanceFlavorID, instanceImageID, invalid), wantError: true},
 		// Region, rather than Compute, decides the lifecycle for an image update.
 		{name: "image change", current: stored(sshCAID, partHandler), request: update(sshCAID, instanceFlavorID, "ef2ad29d-dc1c-4873-ae55-d4fa55672a6e", partHandler)},
 	}
