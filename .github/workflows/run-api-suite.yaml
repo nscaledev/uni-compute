@@ -1,13 +1,8 @@
 name: Run API Suite
-# Reusable building block: run the compute API suite against ONE deployed environment.
-# Called by test-api.yaml (nightly/dispatch) and by external release-evidence callers
-# (e.g. k8s-cluster-nks on a staging promotion). Being workflow_call-only, it has no
-# event-name logic: behaviour is driven entirely by inputs.
-#
-# Release-evidence behaviour is inert unless `expected_version` is set: when set, the
-# resolver gates on the deployed version matching it and a versions-summary artifact is
-# produced (even on gate failure). Callers must pass `secrets: inherit` and grant
-# `id-token: write` (the test jobs need it for Teleport/Grafana).
+# With `expected_version` set, no test runs unless the deployed version matches it, and the
+# versions-summary artifact is uploaded on every outcome: release-evidence-dispatch.yml
+# publishes from it. Callers must pass `secrets: inherit` and grant `id-token: write` (the
+# test jobs need it for Teleport/Grafana).
 on:
   workflow_call:
     inputs:

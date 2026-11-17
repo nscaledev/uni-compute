@@ -1,8 +1,5 @@
 name: API Tests
-# Thin scheduler/dispatcher for the compute API suite. The actual work lives in the reusable
-# run-api-suite.yaml; this file only decides which environments run on the nightly schedule
-# and on manual dispatch. It passes no expected_version, so the version gate is inert here —
-# nightly/dispatch runs are regression, not release evidence.
+# Passes no expected_version, so these runs are regression, not release evidence.
 on:
   schedule:
     - cron: '0 6 * * *'  # Run nightly at 6am UTC
