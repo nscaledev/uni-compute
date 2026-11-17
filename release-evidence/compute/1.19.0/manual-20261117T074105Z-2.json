@@ -1,0 +1,18 @@
+{
+  "component": "compute",
+  "version": "1.19.0",
+  "correlation_id": "manual-20261117T074105Z-2",
+  "source_run": "https://github.com/nscaledev/uni-compute/tree/jacobthacker/inst-1673-dispatch-test",
+  "run_url": "https://github.com/nscaledev/uni-compute/actions/runs/44040612311",
+  "suite_result": "failure",
+  "summary": {
+    "component": "uni-compute",
+    "environment": "uat",
+    "expected_version": "1.19.0",
+    "tested_version": "v1.19.0",
+    "ref": "v1.19.0",
+    "gate_result": "passed",
+    "run_url": "https://github.com/nscaledev/uni-compute/actions/runs/44040612311",
+    "timestamp": "2026-11-17T07:41:49Z"
+  }
+}
