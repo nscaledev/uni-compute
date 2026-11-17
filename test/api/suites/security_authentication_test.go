@@ -27,7 +27,8 @@ import (
 	"github.com/unikorn-cloud/compute/test/api"
 )
 
-var _ = Describe("Security and Authentication", func() {
+// Every spec in this container is release evidence: keep it fast and free of real resources.
+var _ = Describe("Security and Authentication", Label("smoke"), func() {
 	Context("When accessing API with different authentication states", func() {
 		Describe("Given invalid authentication", func() {
 			It("should reject requests with invalid tokens", func() {
