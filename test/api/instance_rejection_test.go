@@ -137,3 +137,26 @@ func TestDeleteNotFoundIsNotReportedAsDeleted(t *testing.T) {
 	require.ErrorIs(t, err, computeapi.ErrCreateAccepted)
 	require.ErrorContains(t, err, "instance leaked-3 not deleted")
 }
+
+func TestAcceptedWithoutCreatedIsAlsoDeleted(t *testing.T) {
+	t.Parallel()
+
+	s := &computeServer{createStatus: http.StatusAccepted, createBody: `{"metadata":{"id":"leaked-4"}}`}
+
+	err := clientFor(t, s).CreateInstanceExpectRejected(t.Context(), maliciousCreate())
+
+	require.ErrorIs(t, err, computeapi.ErrCreateAccepted)
+	assert.Equal(t, []string{"/api/v2/instances/leaked-4"}, s.deletes)
+}
+
+func TestAcceptedJSONWithoutAnIDSendsNoDelete(t *testing.T) {
+	t.Parallel()
+
+	s := &computeServer{createStatus: http.StatusCreated, createBody: `{"metadata":{}}`}
+
+	err := clientFor(t, s).CreateInstanceExpectRejected(t.Context(), maliciousCreate())
+
+	require.ErrorIs(t, err, computeapi.ErrCreateAccepted)
+	require.ErrorContains(t, err, maliciousCreate().Metadata.Name)
+	assert.Empty(t, s.deletes)
+}
