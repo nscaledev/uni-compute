@@ -236,8 +236,9 @@ func (c *APIClient) CreateInstanceExpectRejected(ctx context.Context, payload op
 		return fmt.Errorf("%w: status %d, no instance ID in the response; delete %q by hand", ErrCreateAccepted, resp.StatusCode, payload.Metadata.Name)
 	}
 
-	if err := c.DeleteInstance(ctx, created.Metadata.ID); err != nil {
-		return fmt.Errorf("%w: status %d, instance %s not deleted: %w", ErrCreateAccepted, resp.StatusCode, created.Metadata.ID, err)
+	// Only 202 confirms the delete: a 404 straight after a create can mean not yet visible.
+	if status, err := c.DeleteInstanceWithStatus(ctx, created.Metadata.ID); err != nil || status != http.StatusAccepted {
+		return errors.Join(fmt.Errorf("%w: status %d, instance %s not deleted (delete status %d)", ErrCreateAccepted, resp.StatusCode, created.Metadata.ID, status), err)
 	}
 
 	return fmt.Errorf("%w: status %d, instance %s deleted", ErrCreateAccepted, resp.StatusCode, created.Metadata.ID)
