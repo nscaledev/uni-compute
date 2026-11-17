@@ -60,19 +60,7 @@ var _ = Describe("Security and Authentication", Label("smoke"), func() {
 	Context("When submitting malicious input", func() {
 		Describe("Given security testing", func() {
 			DescribeTable("should reject XSS payloads",
-				func(payload string) {
-					_, err := client.CreateInstance(ctx,
-						api.NewInstancePayload().
-							WithName(payload).
-							Build())
-
-					Expect(err).To(HaveOccurred())
-					Expect(err.Error()).To(Or(
-						ContainSubstring("400"),
-						ContainSubstring("validation"),
-						ContainSubstring("invalid"),
-					))
-				},
+				expectNameRejected,
 				Entry("script tag", "<script>alert('XSS')</script>"),
 				Entry("img onerror", "<img src=x onerror=alert('XSS')>"),
 				Entry("javascript protocol", "javascript:alert('XSS')"),
@@ -80,19 +68,7 @@ var _ = Describe("Security and Authentication", Label("smoke"), func() {
 			)
 
 			DescribeTable("should handle path traversal attempts",
-				func(payload string) {
-					_, err := client.CreateInstance(ctx,
-						api.NewInstancePayload().
-							WithName(payload).
-							Build())
-
-					Expect(err).To(HaveOccurred())
-					Expect(err.Error()).To(Or(
-						ContainSubstring("400"),
-						ContainSubstring("validation"),
-						ContainSubstring("invalid"),
-					))
-				},
+				expectNameRejected,
 				Entry("unix path traversal", "../../../etc/passwd"),
 				Entry("windows path traversal", "..\\..\\windows\\system32"),
 				Entry("double encoded traversal", "....//....//etc/passwd"),
@@ -102,19 +78,7 @@ var _ = Describe("Security and Authentication", Label("smoke"), func() {
 
 		Describe("Given encoding and Unicode issues", func() {
 			DescribeTable("should handle Unicode characters properly",
-				func(unicodeName string) {
-					_, err := client.CreateInstance(ctx,
-						api.NewInstancePayload().
-							WithName(unicodeName).
-							Build())
-
-					Expect(err).To(HaveOccurred())
-					Expect(err.Error()).To(Or(
-						ContainSubstring("400"),
-						ContainSubstring("validation"),
-						ContainSubstring("invalid"),
-					))
-				},
+				expectNameRejected,
 				Entry("emoji characters", "test-instance-🚀🔥"),
 				Entry("chinese characters", "测试实例"), //nolint:gosmopolitan // intentionally testing non-ASCII input
 				Entry("arabic characters", "مجموعة-الاختبار"),
@@ -122,19 +86,7 @@ var _ = Describe("Security and Authentication", Label("smoke"), func() {
 			)
 
 			DescribeTable("should handle invalid character encodings",
-				func(payload string) {
-					_, err := client.CreateInstance(ctx,
-						api.NewInstancePayload().
-							WithName(payload).
-							Build())
-
-					Expect(err).To(HaveOccurred())
-					Expect(err.Error()).To(Or(
-						ContainSubstring("400"),
-						ContainSubstring("validation"),
-						ContainSubstring("invalid"),
-					))
-				},
+				expectNameRejected,
 				Entry("invalid UTF-8 start byte", "test\xc3\x28"),
 				Entry("truncated multi-byte", "test\xc3"),
 				Entry("overlong encoding", "test\xc0\xaf"),
@@ -142,3 +94,14 @@ var _ = Describe("Security and Authentication", Label("smoke"), func() {
 		})
 	})
 })
+
+func expectNameRejected(name string) {
+	err := client.CreateInstanceExpectRejected(ctx, api.NewInstancePayload().WithName(name).Build())
+
+	Expect(err).NotTo(MatchError(api.ErrCreateAccepted))
+	Expect(err.Error()).To(Or(
+		ContainSubstring("400"),
+		ContainSubstring("validation"),
+		ContainSubstring("invalid"),
+	))
+}

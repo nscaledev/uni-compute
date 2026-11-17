@@ -22,6 +22,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -202,6 +203,44 @@ func (c *APIClient) CreateInstanceRawStatus(ctx context.Context, payload openapi
 	}
 
 	return resp.StatusCode, nil
+}
+
+// ErrCreateAccepted means the server accepted a create that the test expected it to reject.
+var ErrCreateAccepted = errors.New("create accepted, expected a rejection")
+
+// CreateInstanceExpectRejected sends a create that the server should reject. Release
+// evidence runs it on staging, so an accepted create is deleted before the error returns.
+func (c *APIClient) CreateInstanceExpectRejected(ctx context.Context, payload openapi.InstanceCreate) error {
+	bodyBytes, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("marshaling instance body: %w", err)
+	}
+
+	//nolint:bodyclose // response body is closed in DoRequest
+	resp, respBody, err := c.DoRequest(ctx, http.MethodPost, c.endpoints.CreateInstance(), bytes.NewReader(bodyBytes), 0)
+	if err != nil {
+		return fmt.Errorf("creating instance: %w", err)
+	}
+
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		return fmt.Errorf("create rejected with status %d, body: %s", resp.StatusCode, string(respBody))
+	}
+
+	var created struct {
+		Metadata struct {
+			ID string `json:"id"`
+		} `json:"metadata"`
+	}
+
+	if json.Unmarshal(respBody, &created) != nil || created.Metadata.ID == "" {
+		return fmt.Errorf("%w: status %d, no instance ID in the response; delete %q by hand", ErrCreateAccepted, resp.StatusCode, payload.Metadata.Name)
+	}
+
+	if err := c.DeleteInstance(ctx, created.Metadata.ID); err != nil {
+		return fmt.Errorf("%w: status %d, instance %s not deleted: %w", ErrCreateAccepted, resp.StatusCode, created.Metadata.ID, err)
+	}
+
+	return fmt.Errorf("%w: status %d, instance %s deleted", ErrCreateAccepted, resp.StatusCode, created.Metadata.ID)
 }
 
 // GetInstance retrieves a specific instance.
