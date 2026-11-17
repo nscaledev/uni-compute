@@ -270,9 +270,9 @@ var _ = Describe("Instance Operations", func() {
 		// Every spec in this container is release evidence: keep it fast and free of real resources.
 		Describe("Given an invalid payload", Label("smoke"), func() {
 			It("should return bad request for missing required fields", func() {
-				err := client.CreateInstanceExpectRejected(ctx, openapi.InstanceCreate{})
+				_, err := client.CreateInstance(ctx, openapi.InstanceCreate{})
 
-				Expect(err).NotTo(MatchError(api.ErrCreateAccepted))
+				Expect(err).To(HaveOccurred())
 				Expect(err).To(MatchError(ContainSubstring("400")), "Error should indicate HTTP 400 Bad Request")
 				Expect(err).To(MatchError(ContainSubstring("invalid_request")), "Error should indicate schema validation failure")
 			})

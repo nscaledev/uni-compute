@@ -96,12 +96,14 @@ var _ = Describe("Security and Authentication", Label("smoke"), func() {
 })
 
 func expectNameRejected(name string) {
-	err := client.CreateInstanceExpectRejected(ctx, api.NewInstancePayload().WithName(name).Build())
+	instance, err := client.CreateInstance(ctx, api.NewInstancePayload().WithName(name).Build())
+	if err == nil {
+		// Release evidence runs this on staging: an accepted create must not leak.
+		DeferCleanup(func() {
+			Expect(client.DeleteInstance(ctx, instance.Metadata.Id)).To(Succeed())
+		})
+	}
 
-	Expect(err).NotTo(MatchError(api.ErrCreateAccepted))
-	Expect(err.Error()).To(Or(
-		ContainSubstring("400"),
-		ContainSubstring("validation"),
-		ContainSubstring("invalid"),
-	))
+	Expect(err).To(MatchError(ContainSubstring("400")), "Error should indicate HTTP 400 Bad Request")
+	Expect(err).To(MatchError(ContainSubstring("invalid_request")), "Error should indicate schema validation failure")
 }

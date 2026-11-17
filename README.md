@@ -305,6 +305,9 @@ holds `component`, `version`, `correlation_id` and `source_run`.
 4. Publishes one record at `release-evidence/<component>/<version>/<correlation_id>.json`
    on the `release-evidence` branch, on every outcome.
 
+Requests for the same component and version run one at a time. GitHub keeps only the newest
+waiting request, so an older waiting request is cancelled and publishes nothing.
+
 The smoke set is every spec in a container labelled `Label("smoke")`. A spec added to one of
 those containers joins release evidence, so keep it fast, stable and free of real resources.
 The smoke set covers the service version, authentication, input validation, and unknown or
