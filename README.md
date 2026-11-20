@@ -301,9 +301,14 @@ holds `component`, `version`, `correlation_id` and `source_run`.
    An invalid request stops here and publishes nothing.
 2. Waits up to 15 minutes for the UAT `/api/version` to report the version.
 3. Calls `run-api-suite.yaml` with `environment: uat`, `expected_version` and `smoke: true`.
-   The suite checks the deployed version before any test runs.
+   The suite checks the deployed version before any test runs and again after the tests.
 4. Publishes one record at `release-evidence/<component>/<version>/<correlation_id>.json`
-   on the `release-evidence` branch, on every outcome.
+   on the `release-evidence` branch, on every outcome except a cancelled request.
+
+The record's `suite_result` is `success` only when the smoke set passed and the deployed
+version was the requested version before and after it. A failed Linear, Slack or analysis
+step does not change it. If the version API does not answer after the tests, the result is
+a failure.
 
 Requests for the same component and version run one at a time. GitHub keeps only the newest
 waiting request, so an older waiting request is cancelled and publishes nothing.
@@ -316,7 +321,8 @@ that instances can be created.
 
 An evidence run checks out the suite at the deployed tag, so it needs a release that
 contains `make test-api-smoke`. Against an older release it publishes a failure. An evidence
-run can open Linear issues and posts the same Slack report as the nightly run.
+run can open Linear issues and posts the same Slack report as the nightly run, but it does
+not write to the test history.
 
 #### Cleaning Up Test Artifacts locally.
 
