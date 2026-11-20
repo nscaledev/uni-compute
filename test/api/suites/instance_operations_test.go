@@ -267,7 +267,8 @@ var _ = Describe("Instance Operations", func() {
 			})
 		})
 
-		Describe("Given an invalid payload", func() {
+		// Every spec in this container is release evidence: keep it fast and free of real resources.
+		Describe("Given an invalid payload", Label("smoke"), func() {
 			It("should return bad request for missing required fields", func() {
 				_, err := client.CreateInstance(ctx, openapi.InstanceCreate{})
 
@@ -357,7 +358,8 @@ var _ = Describe("Instance Operations", func() {
 			})
 		})
 
-		Describe("Given an invalid instance ID", func() {
+		// Every spec in this container is release evidence: keep it fast and free of real resources.
+		Describe("Given an invalid instance ID", Label("smoke"), func() {
 			It("should return appropriate error for non-existent instance", func() {
 				consoleOutput, err := client.GetInstanceConsoleOutput(ctx, nonExistentInstanceID, nil)
 
@@ -447,7 +449,8 @@ var _ = Describe("Instance Operations", func() {
 			})
 		})
 
-		Describe("Given an invalid instance ID", func() {
+		// Every spec in this container is release evidence: keep it fast and free of real resources.
+		Describe("Given an invalid instance ID", Label("smoke"), func() {
 			It("should return appropriate error for non-existent instance", func() {
 				image, err := client.SnapshotInstance(ctx, nonExistentInstanceID, "snapshot-image")
 
@@ -587,7 +590,8 @@ var _ = Describe("Instance Operations", func() {
 			})
 		})
 
-		Describe("Given an invalid instance ID", func() {
+		// Every spec in this container is release evidence: keep it fast and free of real resources.
+		Describe("Given an invalid instance ID", Label("smoke"), func() {
 			It("should return not found when stopping", func() {
 				err := client.StopInstance(ctx, nonExistentInstanceID)
 
@@ -636,7 +640,8 @@ var _ = Describe("Instance Operations", func() {
 			})
 		})
 
-		Describe("Given an invalid instance ID", func() {
+		// Every spec in this container is release evidence: keep it fast and free of real resources.
+		Describe("Given an invalid instance ID", Label("smoke"), func() {
 			It("should return not found", func() {
 				_, err := client.GetInstance(ctx, nonExistentInstanceID)
 

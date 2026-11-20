@@ -1,4 +1,5 @@
 name: API Tests
+# Passes no expected_version, so these runs are regression, not release evidence.
 on:
   schedule:
     - cron: '0 6 * * *'  # Run nightly at 6am UTC
@@ -12,12 +13,20 @@ on:
         description: 'Run UAT tests'
         type: boolean
         default: false
+      use_dev_deployed_version:
+        description: 'Use the deployed Dev version for Dev checkout'
+        type: boolean
+        default: true
       use_staging_constellation:
         description: 'Use the staged constellation tag for UAT checkout'
         type: boolean
         default: true
       skip_slack_notifications:
         description: 'Skip Slack notifications'
+        type: boolean
+        default: false
+      smoke:
+        description: 'Run only the curated smoke subset'
         type: boolean
         default: false
       focus:
@@ -29,6 +38,8 @@ on:
         - 'All'
         - 'Instance Operations'
         - 'Security and Authentication'
+        - 'SSH Integration'
+        - 'Service Version'
       region_id_override:
         description: 'Override Region ID (if set, you must also provide flavor, image and network overrides)'
         required: false
@@ -48,327 +59,38 @@ on:
 
 permissions:
   contents: read
+  # Granted so the reusable's test jobs can request it (Teleport/Grafana).
+  id-token: write
 
 jobs:
-  workflow-inputs-summary:
-    name: Workflow input summary
-    runs-on: ubuntu-latest
-    steps:
-    - name: Log workflow inputs
-      env:
-        EVENT_NAME: ${{ github.event_name }}
-        RUN_DEV: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.run_dev || 'true' }}
-        RUN_UAT: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.run_uat || 'false' }}
-        USE_STAGING_CONSTELLATION: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.use_staging_constellation || 'true' }}
-        SKIP_SLACK_NOTIFICATIONS: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.skip_slack_notifications || 'false' }}
-        FOCUS: ${{ github.event.inputs.focus || 'All' }}
-        REGION_ID_OVERRIDE: ${{ inputs.region_id_override || '<default>' }}
-        FLAVOR_ID_OVERRIDE: ${{ inputs.flavor_id_override || '<default>' }}
-        IMAGE_ID_OVERRIDE: ${{ inputs.image_id_override || '<default>' }}
-        NETWORK_ID_OVERRIDE: ${{ inputs.network_id_override || '<default>' }}
-      run: |
-        cat <<EOF >> "$GITHUB_STEP_SUMMARY"
-        ### Workflow Input Parameters
-        - **Event:** \`$EVENT_NAME\`
-        - **Run Dev:** \`$RUN_DEV\`
-        - **Run UAT:** \`$RUN_UAT\`
-        - **Use Staging Constellation:** \`$USE_STAGING_CONSTELLATION\`
-        - **Skip Slack Notifications:** \`$SKIP_SLACK_NOTIFICATIONS\`
-        - **Focus:** \`$FOCUS\`
-        - **Region ID Override:** \`$REGION_ID_OVERRIDE\`
-        - **Flavor ID Override:** \`$FLAVOR_ID_OVERRIDE\`
-        - **Image ID Override:** \`$IMAGE_ID_OVERRIDE\`
-        - **Network ID Override:** \`$NETWORK_ID_OVERRIDE\`
-        EOF
-
-  find-dev-deployed-version:
-    name: Resolve Dev test ref
-    runs-on: ubuntu-latest
+  dev:
+    name: Dev
     if: github.event_name == 'schedule' || github.event.inputs.run_dev == 'true'
-    outputs:
-      ref: ${{ steps.find.outputs.ref }}
-      version: ${{ steps.find.outputs.version }}
-    steps:
-    - name: Resolve Dev checkout ref
-      uses: nscaledev/quality-tooling/.github/actions/uni-find-staging-constellation@main
-      id: find
-      with:
-        service: uni-compute
-        releases-read-token: ${{ secrets.RELEASES_READ_TOKEN }}
-        use-version-api: true
-        version-api-url: ${{ vars.DEV_API_BASE_URL }}/api/version
-        version-api-token: ${{ secrets.DEV_API_AUTH_TOKEN }}
-        fallback-to-constellation: false
-        summary-title: Dev API Test Version
+    uses: ./.github/workflows/run-api-suite.yaml
+    with:
+      environment: dev
+      focus: ${{ github.event.inputs.focus || 'All' }}
+      smoke: ${{ github.event.inputs.smoke == 'true' }}
+      region_id: ${{ github.event.inputs.region_id_override || '' }}
+      flavor_id: ${{ github.event.inputs.flavor_id_override || '' }}
+      image_id: ${{ github.event.inputs.image_id_override || '' }}
+      network_id: ${{ github.event.inputs.network_id_override || '' }}
+      skip_slack_notifications: ${{ github.event.inputs.skip_slack_notifications == 'true' }}
+      use_deployed_version: ${{ github.event_name == 'schedule' || github.event.inputs.use_dev_deployed_version != 'false' }}
+    secrets: inherit
 
-  API-Tests-Dev:
-    name: API Tests (dev)
-    needs: find-dev-deployed-version
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      # Required for Teleport-backed Grafana lookup and OTLP collector shipping.
-      id-token: write
-    # Runs only when the resolver produced a Dev checkout ref.
-    if: (github.event_name == 'schedule' || github.event.inputs.run_dev == 'true') && needs.find-dev-deployed-version.outputs.ref != ''
-    env:
-      ENVIRONMENT: dev
-      API_BASE_URL: ${{ vars.DEV_API_BASE_URL }}
-      REGION_BASE_URL: ${{ vars.DEV_REGION_BASE_URL }}
-      API_AUTH_TOKEN: ${{ secrets.DEV_API_AUTH_TOKEN }}
-      TEST_ORG_ID: ${{ vars.DEV_TEST_ORG_ID }}
-      TEST_PROJECT_ID: ${{ vars.DEV_TEST_PROJECT_ID }}
-      TEST_REGION_ID: ${{ inputs.region_id_override || vars.DEV_TEST_REGION_ID }}
-      TEST_FLAVOR_ID: ${{ inputs.flavor_id_override || vars.DEV_TEST_FLAVOR_ID }}
-      TEST_IMAGE_ID: ${{ inputs.image_id_override || vars.DEV_TEST_IMAGE_ID }}
-      TEST_NETWORK_ID: ${{ inputs.network_id_override || vars.DEV_TEST_NETWORK_ID }}
-
-    steps:
-    - name: Validate region override inputs
-      if: github.event_name == 'workflow_dispatch' && inputs.region_id_override != ''
-      run: |
-        missing=()
-        [ -z "${{ inputs.flavor_id_override }}" ] && missing+=("flavor_id_override")
-        [ -z "${{ inputs.image_id_override }}" ] && missing+=("image_id_override")
-        [ -z "${{ inputs.network_id_override }}" ] && missing+=("network_id_override")
-        if [ ${#missing[@]} -gt 0 ]; then
-          echo "::error::region_id_override is set but the following required overrides are missing: ${missing[*]}"
-          exit 1
-        fi
-
-    - name: Checkout
-      uses: actions/checkout@v4
-      with:
-        ref: ${{ needs.find-dev-deployed-version.outputs.ref }}
-
-    - name: Setup Go
-      uses: actions/setup-go@v3
-      with:
-        go-version-file: go.mod
-        cache: true
-
-    - name: Touch
-      run: make touch
-
-    - name: Run API Tests - All
-      if: github.event_name == 'schedule' || github.event.inputs.focus == 'All'
-      run: make test-api
-
-    - name: Run API Tests - Focused
-      if: github.event_name == 'workflow_dispatch' && github.event.inputs.focus != 'All'
-      run: make test-api-focus FOCUS="${{ github.event.inputs.focus }}"
-
-    - name: Archive API Test Results
-      uses: actions/upload-artifact@v4
-      if: ${{ !cancelled() }}
-      with:
-        name: api-test-results-dev
-        path: test/api/suites/test-results.json
-
-    - name: Archive API Test JUnit Report
-      uses: actions/upload-artifact@v4
-      if: ${{ !cancelled() }}
-      with:
-        name: api-test-junit-dev
-        path: test/api/suites/junit.xml
-    
-    - name: Create Linear Issues for Test Failures
-      uses: nscaledev/quality-tooling/.github/actions/linear-test-failures@main
-      if: ${{ !cancelled() }}
-      with:
-        test-results-path: test/api/suites/test-results.json
-        workflow-url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        linear-api-key: ${{ secrets.LINEAR_API_KEY }}
-        linear-team-id: ${{ vars.LINEAR_TEAM_ID }}
-        linear-project-id: ${{ vars.LINEAR_PROJECT_ID }}
-        environment: dev
-        linear-priority: '3'
-        max-failures: '5'
-
-    - name: Report API Test Results
-      uses: nscaledev/quality-tooling/.github/actions/test-results-report@main
-      if: ${{ !cancelled() }}
-      with:
-        test-results-path: test/api/suites/test-results.json
-        format: ginkgo-json
-        workflow-url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        slack-webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
-        send-slack: ${{ github.event.inputs.skip_slack_notifications != 'true' && 'true' || 'false' }}
-        environment: dev
-        deployed-version: ${{ needs.find-dev-deployed-version.outputs.version || needs.find-dev-deployed-version.outputs.ref }}
-        title: 'Compute API Test Results'
-        test-history-suite: uni-compute-api
-        component-name: uni-compute
-        component-repo: nscaledev/uni-compute
-        component-ref: ${{ needs.find-dev-deployed-version.outputs.ref }}
-        component-version-url: ${{ env.API_BASE_URL }}/api/version
-        component-version-token: ${{ env.API_AUTH_TOKEN }}
-        enable-ai-analysis: 'true'
-        claude-token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-        enable-grafana-log-enrichment: 'true'
-        grafana-service-account-token: ${{ secrets.GRAFANA_SERVICE_ACCOUNT_TOKEN }}
-        grafana-log-lookback: 6h
-
-  find-uat-deployed-version:
-    name: Resolve UAT test ref
-    runs-on: ubuntu-latest
+  uat:
+    name: UAT
     if: github.event_name == 'schedule' || github.event.inputs.run_uat == 'true'
-    outputs:
-      ref: ${{ steps.find.outputs.ref }}
-      version: ${{ steps.find.outputs.version }}
-    steps:
-    - name: Resolve UAT checkout ref
-      uses: nscaledev/quality-tooling/.github/actions/uni-find-staging-constellation@main
-      id: find
-      with:
-        service: uni-compute
-        releases-read-token: ${{ secrets.RELEASES_READ_TOKEN }}
-        use-staging-constellation: ${{ github.event_name == 'schedule' || github.event.inputs.use_staging_constellation != 'false' }}
-        use-version-api: true
-        version-api-url: ${{ vars.UAT_API_BASE_URL }}/api/version
-        version-api-token: ${{ secrets.UAT_API_AUTH_TOKEN }}
-        fallback-to-constellation: false
-        summary-title: UAT API Test Version
-
-  API-Tests-UAT:
-    name: API Tests (uat)
-    needs: find-uat-deployed-version
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      # Required for Teleport-backed Grafana lookup and OTLP collector shipping.
-      id-token: write
-    # Runs only when the resolver produced a UAT checkout ref.
-    if: (github.event_name == 'schedule' || github.event.inputs.run_uat == 'true') && needs.find-uat-deployed-version.outputs.ref != ''
-    env:
-      ENVIRONMENT: uat
-      API_BASE_URL: ${{ vars.UAT_API_BASE_URL }}
-      REGION_BASE_URL: ${{ vars.UAT_REGION_BASE_URL }}
-      API_AUTH_TOKEN: ${{ secrets.UAT_API_AUTH_TOKEN }}
-      TEST_ORG_ID: ${{ vars.UAT_TEST_ORG_ID }}
-      TEST_PROJECT_ID: ${{ vars.UAT_TEST_PROJECT_ID }}
-      TEST_REGION_ID: ${{ inputs.region_id_override || vars.UAT_TEST_REGION_ID }}
-      TEST_FLAVOR_ID: ${{ inputs.flavor_id_override || vars.UAT_TEST_FLAVOR_ID }}
-      TEST_IMAGE_ID: ${{ inputs.image_id_override || vars.UAT_TEST_IMAGE_ID }}
-      TEST_NETWORK_ID: ${{ inputs.network_id_override || vars.UAT_TEST_NETWORK_ID }}
-
-    steps:
-    - name: Validate region override inputs
-      if: github.event_name == 'workflow_dispatch' && inputs.region_id_override != ''
-      run: |
-        missing=()
-        [ -z "${{ inputs.flavor_id_override }}" ] && missing+=("flavor_id_override")
-        [ -z "${{ inputs.image_id_override }}" ] && missing+=("image_id_override")
-        [ -z "${{ inputs.network_id_override }}" ] && missing+=("network_id_override")
-        if [ ${#missing[@]} -gt 0 ]; then
-          echo "::error::region_id_override is set but the following required overrides are missing: ${missing[*]}"
-          exit 1
-        fi
-
-    - name: Checkout
-      uses: actions/checkout@v4
-      with:
-        ref: ${{ needs.find-uat-deployed-version.outputs.ref }}
-
-    - name: Setup Go
-      uses: actions/setup-go@v3
-      with:
-        go-version-file: go.mod
-        cache: true
-
-    - name: Touch
-      run: make touch
-
-    - name: Run API Tests - All
-      if: github.event_name == 'schedule' || github.event.inputs.focus == 'All'
-      run: make test-api
-
-    - name: Run API Tests - Focused
-      if: github.event_name == 'workflow_dispatch' && github.event.inputs.focus != 'All'
-      run: make test-api-focus FOCUS="${{ github.event.inputs.focus }}"
-
-    - name: Archive API Test Results
-      uses: actions/upload-artifact@v4
-      if: ${{ !cancelled() }}
-      with:
-        name: api-test-results-uat
-        path: test/api/suites/test-results.json
-
-    - name: Archive API Test JUnit Report
-      if: ${{ !cancelled() }}
-      uses: actions/upload-artifact@v4
-      with:
-        name: api-test-junit-uat
-        path: test/api/suites/junit.xml
-
-    - name: Create Linear Issues for Test Failures
-      uses: nscaledev/quality-tooling/.github/actions/linear-test-failures@main
-      if: ${{ !cancelled() }}
-      with:
-        test-results-path: test/api/suites/test-results.json
-        workflow-url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        linear-api-key: ${{ secrets.LINEAR_API_KEY }}
-        linear-team-id: ${{ vars.LINEAR_TEAM_ID }}
-        linear-project-id: ${{ vars.LINEAR_PROJECT_ID }}
-        environment: uat
-        linear-priority: '3'
-        max-failures: '5'
-
-    - name: Report API Test Results
-      uses: nscaledev/quality-tooling/.github/actions/test-results-report@main
-      if: ${{ !cancelled() }}
-      with:
-        test-results-path: test/api/suites/test-results.json
-        format: ginkgo-json
-        workflow-url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-        slack-webhook-url: ${{ secrets.SLACK_WEBHOOK_URL }}
-        send-slack: ${{ github.event.inputs.skip_slack_notifications != 'true' && 'true' || 'false' }}
-        environment: uat
-        deployed-version: ${{ needs.find-uat-deployed-version.outputs.version || needs.find-uat-deployed-version.outputs.ref }}
-        title: 'Compute API Test Results'
-        test-history-suite: uni-compute-api
-        component-name: uni-compute
-        component-repo: nscaledev/uni-compute
-        component-ref: ${{ needs.find-uat-deployed-version.outputs.ref }}
-        component-version-url: ${{ env.API_BASE_URL }}/api/version
-        component-version-token: ${{ env.API_AUTH_TOKEN }}
-        enable-ai-analysis: 'true'
-        claude-token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-        enable-grafana-log-enrichment: 'true'
-        grafana-service-account-token: ${{ secrets.GRAFANA_SERVICE_ACCOUNT_TOKEN }}
-        grafana-log-lookback: 6h
-
-  # The API test jobs own the Slack report, so when a resolver fails (for
-  # example an expired version-api token) they are skipped and nothing is
-  # posted. This job alerts whenever a requested environment's tests did not run.
-  notify-skipped-api-tests:
-    name: Notify skipped API tests
-    needs:
-    - find-dev-deployed-version
-    - API-Tests-Dev
-    - find-uat-deployed-version
-    - API-Tests-UAT
-    runs-on: ubuntu-latest
-    if: ${{ !cancelled() && github.event.inputs.skip_slack_notifications != 'true' }}
-    steps:
-    - name: Notify Slack that Dev API tests did not run
-      if: (github.event_name == 'schedule' || github.event.inputs.run_dev == 'true') && needs.API-Tests-Dev.result == 'skipped'
-      uses: slackapi/slack-github-action@v2
-      with:
-        webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
-        webhook-type: incoming-webhook
-        payload: |
-          {
-            "text": ":red_circle: *Compute API Tests (dev) did not run* — `${{ github.repository }}`. Resolve Dev test ref finished with `${{ needs.find-dev-deployed-version.result }}` — see the run for the cause.\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          }
-
-    - name: Notify Slack that UAT API tests did not run
-      if: (github.event_name == 'schedule' || github.event.inputs.run_uat == 'true') && needs.API-Tests-UAT.result == 'skipped'
-      uses: slackapi/slack-github-action@v2
-      with:
-        webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
-        webhook-type: incoming-webhook
-        payload: |
-          {
-            "text": ":red_circle: *Compute API Tests (uat) did not run* — `${{ github.repository }}`. Resolve UAT test ref finished with `${{ needs.find-uat-deployed-version.result }}` — see the run for the cause.\n${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          }
+    uses: ./.github/workflows/run-api-suite.yaml
+    with:
+      environment: uat
+      focus: ${{ github.event.inputs.focus || 'All' }}
+      smoke: ${{ github.event.inputs.smoke == 'true' }}
+      region_id: ${{ github.event.inputs.region_id_override || '' }}
+      flavor_id: ${{ github.event.inputs.flavor_id_override || '' }}
+      image_id: ${{ github.event.inputs.image_id_override || '' }}
+      network_id: ${{ github.event.inputs.network_id_override || '' }}
+      skip_slack_notifications: ${{ github.event.inputs.skip_slack_notifications == 'true' }}
+      use_deployed_version: ${{ github.event_name == 'schedule' || github.event.inputs.use_staging_constellation != 'false' }}
+    secrets: inherit
