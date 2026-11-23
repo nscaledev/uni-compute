@@ -205,6 +205,7 @@ func TestMutationsRecordTheirOperation(t *testing.T) {
 
 			primaries := authz.Primaries(recorder.Decisions())
 			require.Len(t, primaries, 1)
+			require.Empty(t, recorder.Defects())
 
 			record := primaries[0]
 			require.Equal(t, "compute:instances", record.Endpoint)
