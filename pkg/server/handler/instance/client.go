@@ -496,6 +496,14 @@ func validateSSHCertificateAuthorityScope(resource *regionapi.SshCertificateAuth
 	return nil
 }
 
+func validateNetworkScope(resource *regionapi.NetworkV2Read, organizationID identityids.OrganizationID, projectID identityids.ProjectID) error {
+	if resource.Metadata.OrganizationId != organizationID.String() || resource.Metadata.ProjectId != projectID.String() {
+		return errors.HTTPUnprocessableContent("networkId must reference a network in the same organization and project as the instance")
+	}
+
+	return nil
+}
+
 func validateVolumeScope(resource *regionapi.VolumeV2Response, organizationID identityids.OrganizationID, projectID identityids.ProjectID, regionID regionids.RegionID) error {
 	if resource.Metadata.OrganizationId != organizationID.String() || resource.Metadata.ProjectId != projectID.String() || resource.Status.RegionId != regionID {
 		return errors.HTTPUnprocessableContent("volumes must reference volumes in the same organization, project, and region as the instance")
@@ -1043,14 +1051,18 @@ func (c *Client) Create(ctx context.Context, request *computeapi.InstanceCreate)
 	}
 
 	// Inject the org/project into the principal so the region service can resolve
-	// the user's scoped ACL, then impersonate so region enforces ReBAC on the network
-	// rather than us doing a manual org/project ownership check here.
+	// the user's scoped ACL for the network read. That read proves only that the
+	// caller can see the network, so the scope check below is still required.
 	if err := util.InjectUserPrincipal(ctx, organizationID, projectID); err != nil {
 		return nil, err
 	}
 
 	network, err := region.GetNetwork(principal.NewImpersonateContext(ctx), c.region, request.Spec.NetworkId)
 	if err != nil {
+		return nil, err
+	}
+
+	if err := validateNetworkScope(network, organizationID, projectID); err != nil {
 		return nil, err
 	}
 

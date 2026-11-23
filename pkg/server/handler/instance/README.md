@@ -36,6 +36,8 @@ key retrieval, or snapshotting are requested.
   reference from region only proves the caller MAY see it — a caller authorized
   across several tenancies could otherwise attach a resource from another
   tenancy — so an explicit scope check is applied on top:
+  - the referenced network must belong to the instance's organization and
+    project. The network is create-time only, so update does not check it.
   - a referenced security group must belong to the same **network** as the
     instance (`status.networkId`). A network belongs to exactly one identity (one
     underlying OpenStack project), which belongs to one organization and project,
