@@ -193,6 +193,11 @@ make test-api
 make test-api-parallel
 ```
 
+**Run the smoke set (the specs release evidence runs):**
+```bash
+make test-api-smoke
+```
+
 **Run specific test suite using focus:**
 ```bash
 # Example: run only instance operations tests
@@ -220,9 +225,15 @@ cd test/api/suites && ginkgo run --skip="Security and Authentication"
 cd test/api/suites && ginkgo run --randomize-all
 ```
 
-#### GitHub Actions Workflow
+#### GitHub Actions Workflows
 
-The API tests can be triggered manually via GitHub Actions using `workflow_dispatch`:
+`run-api-suite.yaml` runs the suite against one environment (`dev` or `uat`). It is a
+reusable workflow with no trigger of its own. `test-api.yaml` calls it on the nightly
+schedule and on manual dispatch, and `release-evidence-dispatch.yml` calls it for release
+evidence (see [Release Evidence](#release-evidence)).
+
+The nightly and manual API tests can be triggered manually via GitHub Actions using
+`workflow_dispatch`:
 
 **Workflow Inputs:**
 
@@ -230,8 +241,10 @@ The API tests can be triggered manually via GitHub Actions using `workflow_dispa
 |-------|------|-------------|---------|
 | `run_dev` | boolean | Run Dev environment tests | `true` |
 | `run_uat` | boolean | Run UAT environment tests | `false` |
+| `use_dev_deployed_version` | boolean | Use the deployed Dev version for Dev checkout | `true` |
 | `use_staging_constellation` | boolean | Use the staged constellation tag for UAT checkout | `true` |
 | `skip_slack_notifications` | boolean | Skip Slack notifications for this run | `false` |
+| `smoke` | boolean | Run only the smoke set; ignores `focus` | `false` |
 | `focus` | choice | Test suite to run | `All` |
 | `region_id_override` | string | Override region ID for manual runs | unset |
 | `flavor_id_override` | string | Override flavor ID when overriding region | unset |
@@ -242,6 +255,8 @@ The API tests can be triggered manually via GitHub Actions using `workflow_dispa
 - `All` - Run all test suites
 - `Instance Operations` - Instance lifecycle and power operation tests
 - `Security and Authentication` - Authentication and input validation tests
+- `SSH Integration` - SSH access to a running instance
+- `Service Version` - The `/api/version` endpoint
 
 If `region_id_override` is set, `flavor_id_override`, `image_id_override`, and
 `network_id_override` must also be provided.
@@ -249,9 +264,8 @@ If `region_id_override` is set, `flavor_id_override`, `image_id_override`, and
 Scheduled UAT runs check out the staged constellation tag resolved by the
 workflow. Manual UAT runs use the same staged constellation lookup by default.
 To run UAT against the branch or tag selected in GitHub's manual workflow
-picker instead, set `use_staging_constellation` to `false`. Disabling
-`use_staging_constellation` is enough to trigger the UAT job for that selected
-ref.
+picker instead, set `use_staging_constellation` to `false`. The same applies to
+Dev with `use_dev_deployed_version`.
 
 **Triggering Manually:**
 
@@ -273,6 +287,42 @@ ref.
 After each run, test results are uploaded as artifacts per environment:
 - `api-test-results-dev` / `api-test-results-uat` - JSON format test results
 - `api-test-junit-dev` / `api-test-junit-uat` - JUnit XML format for CI integration
+
+#### Release Evidence
+
+A production promotion of compute raises a Jira CHANGE that carries a staging test result
+for the exact version it promotes. The deploy repository requests that result from this
+repository with a `release-evidence-request` repository dispatch, whose `client_payload`
+holds `component`, `version`, `correlation_id` and `source_run`.
+
+`release-evidence-dispatch.yml` then:
+
+1. Checks that `component`, `version` and `correlation_id` match `^[A-Za-z0-9._-]+$`.
+   An invalid request stops here and publishes nothing.
+2. Waits up to 15 minutes for the UAT `/api/version` to report the version.
+3. Calls `run-api-suite.yaml` with `environment: uat`, `expected_version` and `smoke: true`.
+   The suite checks the deployed version before any test runs and again after the tests.
+4. Publishes one record at `release-evidence/<component>/<version>/<correlation_id>.json`
+   on the `release-evidence` branch, on every outcome except a cancelled request.
+
+The record's `suite_result` is `success` only when the smoke set passed and the deployed
+version was the requested version before and after it. A failed Linear, Slack or analysis
+step does not change it. If the version API does not answer after the tests, the result is
+a failure.
+
+Requests for the same component and version run one at a time. GitHub keeps only the newest
+waiting request, so an older waiting request is cancelled and publishes nothing.
+
+The smoke set is every spec in a container labelled `Label("smoke")`. A spec added to one of
+those containers joins release evidence, so keep it fast, stable and free of real resources.
+The smoke set covers the service version, authentication, input validation, and unknown or
+malformed instance IDs. It does not create an instance, so release evidence does not attest
+that instances can be created.
+
+An evidence run checks out the suite at the deployed tag, so it needs a release that
+contains `make test-api-smoke`. Against an older release it publishes a failure. An evidence
+run can open Linear issues and posts the same Slack report as the nightly run, but it does
+not write to the test history.
 
 #### Cleaning Up Test Artifacts locally.
 

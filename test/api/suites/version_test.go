@@ -30,7 +30,8 @@ import (
 	"github.com/unikorn-cloud/compute/test/api"
 )
 
-var _ = Describe("Service Version", func() {
+// Every spec in this container is release evidence: keep it fast and free of real resources.
+var _ = Describe("Service Version", Label("smoke"), func() {
 	Context("When reading the deployed service version", func() {
 		Describe("Given a valid bearer token", func() {
 			It("should return the service name and version", func() {

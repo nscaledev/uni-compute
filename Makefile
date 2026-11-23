@@ -147,6 +147,11 @@ test-api: test-api-setup
 test-api-focus: test-api-setup
 	cd test/api/suites && ginkgo run -v --focus="$(FOCUS)" $(GINKGO_INTEGRATION_TEST_FLAGS)
 
+# Release evidence runs this; --fail-on-empty stops a run with no smoke spec from passing.
+.PHONY: test-api-smoke
+test-api-smoke: test-api-setup
+	cd test/api/suites && ginkgo run -v --fail-on-empty --label-filter='smoke' $(GINKGO_INTEGRATION_TEST_FLAGS)
+
 .PHONY: test-api-suite
 test-api-suite: test-api-setup
 	cd test/api/suites && ginkgo run $(SUITE) $(GINKGO_INTEGRATION_TEST_FLAGS)
