@@ -115,9 +115,14 @@ an "audit defect" error log if it succeeds.
   middleware otherwise falls back to the response body, and start, stop and
   reboot have none while snapshot's is the new image.
 - Start, stop, reboot and snapshot require `update`, with the verb as the
-  action. They call region as compute's own identity, so this check is the only
-  one the caller faces; under `read` the auditor and reader roles could
-  power-cycle and snapshot.
+  action. They call region as compute's own identity, so the caller faces only
+  this check, plus the image check on snapshot below. A `read` check lets
+  read-only roles power-cycle and snapshot.
+- A snapshot also needs the caller's `region:images` create at organization
+  scope, because the image belongs to the organization. The handler checks it
+  against the instance's organization, taken from its stored labels, before any
+  call to region. The check is a precondition, so the request's own decision
+  stays the `update` one.
 - Delete authorizes before its early return for an instance already being
   deleted, so that path is checked and recorded too.
 - Create authorizes through `AllowProjectScopeCreateOn`, which also confirms a
