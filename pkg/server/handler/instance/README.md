@@ -75,6 +75,10 @@ key retrieval, or snapshotting are requested.
   here before the old server is deleted. Otherwise unchanged user-data is never
   re-checked: that would block every update of an instance whose stored
   user-data predates the current rules.
+- `spec.userData` on update follows region's Server PUT: omitted keeps the
+  stored value, `""` clears it, and any other value replaces it. The stored
+  value is filled in before validation, so an update that omits user-data
+  counts as unchanged.
 - The SSH CA is set at create only, as in region: SSH trust is set up by
   first-boot user-data and cannot be reconciled afterwards. An update that
   omits it keeps the stored one; one that changes or adds it gets HTTP 422.
@@ -190,8 +194,9 @@ objects or synthesize provider-specific diagnostics.
   the parse fails and the update returns a 500. The admission policy guards
   against this for new objects, but cannot repair already-corrupt state.
 - Update is not always an in-place mutation in effect. A flavor change leads to
-  destructive server replacement later in the controller layer; an image change
-  reimages the server in place.
+  destructive server replacement later in the controller layer. Image and
+  user-data changes are forwarded to Region, whose Server controller decides
+  whether to rebuild or replace the backing machine.
 - The package preserves allocation annotations manually during update, which is
   already marked in code as smell and signals a leaky boundary between handler
   mutation and allocation bookkeeping.

@@ -280,12 +280,27 @@ func (p *Provisioner) generateServerUpdateRequest() (*regionapi.ServerV2Update, 
 	}, nil
 }
 
-// needsReplacement reports whether the backing server must be deleted and
-// created again. Region refuses a flavor change on update. An image change is
-// a plain update: region rebuilds the server in place. See the README's
-// "Destructive Update Semantics" section.
+// needsReplacement reports whether Compute must delete and create the backing
+// server because Region refuses the requested update.
 func needsReplacement(current *regionapi.ServerV2Read, desired *regionapi.ServerV2Update) bool {
 	return current.Spec.FlavorId != desired.Spec.FlavorId
+}
+
+// normalizeServerUpdateRequest adjusts the update request against the current
+// server so that the equality check matches when nothing has changed.
+func normalizeServerUpdateRequest(request *regionapi.ServerV2Update, server *regionapi.ServerV2Read) {
+	// Region represents an empty desired Volume set as nil. Normalize only the
+	// generated Region request so the equality check does not trigger repeated
+	// no-op updates; the instance's persisted empty list remains unchanged.
+	if len(*request.Spec.Volumes) == 0 && server.Spec.Volumes == nil {
+		request.Spec.Volumes = nil
+	}
+
+	// Region keeps the stored user-data when the field is omitted or null, so
+	// clearing it must send "". A pointer to a nil slice would encode as null.
+	if request.Spec.UserData == nil && server.Spec.UserData != nil {
+		request.Spec.UserData = &[]byte{}
+	}
 }
 
 func (p *Provisioner) createOrUpdateServer(ctx context.Context, region regionapi.ClientWithResponsesInterface, server *regionapi.ServerV2Read) (*regionapi.ServerV2Read, error) {
@@ -303,12 +318,7 @@ func (p *Provisioner) createOrUpdateServer(ctx context.Context, region regionapi
 		return nil, err
 	}
 
-	// Region represents an empty desired Volume set as nil. Normalize only the
-	// generated Region request so the equality check does not trigger repeated
-	// no-op updates; the instance's persisted empty list remains unchanged.
-	if len(*request.Spec.Volumes) == 0 && server.Spec.Volumes == nil {
-		request.Spec.Volumes = nil
-	}
+	normalizeServerUpdateRequest(request, server)
 
 	if reflect.DeepEqual(server.Spec, request.Spec) {
 		return server, nil
