@@ -23,5 +23,7 @@ import (
 )
 
 func main() {
-	manager.Run(&instance.Factory{})
+	// shortcut: core v1.22 deprecates Run for RunService, which scrapes metrics
+	// instead of pushing them; migrate with the reserved tag metrics follow-up.
+	manager.Run(&instance.Factory{}) //nolint:staticcheck
 }
