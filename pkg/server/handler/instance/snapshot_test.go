@@ -149,8 +149,8 @@ func snapshotACL(project, organization, global identityapi.AclEndpoints) *identi
 
 // The snapshot is an image, and an image belongs to the organization, so the
 // caller needs image create at organization scope as well as instance update.
-// Every refusal has a matching success on the same fake Region. The success
-// shows that the fake records a call when one happens.
+// The successes show that the fake Region records a call when one happens, so
+// an empty record for a refusal means that compute made no call.
 func TestSnapshotNeedsImageCreateAtOrganizationScope(t *testing.T) {
 	t.Parallel()
 

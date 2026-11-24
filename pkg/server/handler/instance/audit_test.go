@@ -75,16 +75,6 @@ func instanceACL(operations ...identityapi.AclOperation) *identityapi.Acl {
 	}
 }
 
-// withImageCreate adds image create at organization scope, which a snapshot
-// needs on top of instance update.
-func withImageCreate(acl *identityapi.Acl) *identityapi.Acl {
-	(*acl.Organizations)[0].Endpoints = &identityapi.AclEndpoints{
-		{Name: "region:images", Operations: identityapi.AclOperations{identityapi.Create}},
-	}
-
-	return acl
-}
-
 // fakeRegion answers the server lookup and every server action an instance
 // operation makes, and counts every call so a test can see none were made.
 // Anything else is not found, which fails create and update after they have
@@ -197,7 +187,17 @@ func TestMutationsRecordTheirOperation(t *testing.T) {
 			c := auditClient(t, false, &calls)
 
 			recorder := &authz.Recorder{}
-			ctx := authz.NewContext(rbac.NewContext(t.Context(), withImageCreate(instanceACL(identityapi.Read, identityapi.Update, identityapi.Delete))), recorder)
+			acl := instanceACL(identityapi.Read, identityapi.Update, identityapi.Delete)
+
+			// Only a snapshot needs image create, at organization scope, so no other
+			// mutation passes by way of it.
+			if m.action == "snapshot" {
+				acl = snapshotACL(
+					identityapi.AclEndpoints{grant("compute:instances", identityapi.Read, identityapi.Update, identityapi.Delete)},
+					identityapi.AclEndpoints{grant("region:images", identityapi.Create)}, nil)
+			}
+
+			ctx := authz.NewContext(rbac.NewContext(t.Context(), acl), recorder)
 
 			id := computeids.InstanceID(uuid.MustParse(auditInstance))
 
@@ -214,6 +214,27 @@ func TestMutationsRecordTheirOperation(t *testing.T) {
 			require.Equal(t, auditName, record.ObjectName)
 			require.Equal(t, organizationID, record.Scope.OrganizationID.String())
 			require.Equal(t, projectID, record.Scope.ProjectID.String())
+
+			if m.action != "snapshot" {
+				require.Len(t, recorder.Decisions(), 1)
+
+				return
+			}
+
+			// The image check is a precondition, so the audit record lists it as a
+			// grant next to the request's own decision.
+			var grants []authz.Decision
+
+			for _, decision := range recorder.Decisions() {
+				if decision.Endpoint == "region:images" {
+					grants = append(grants, decision)
+				}
+			}
+
+			require.Len(t, grants, 1)
+			require.Equal(t, authz.Create, grants[0].Operation)
+			require.True(t, grants[0].Allowed)
+			require.Equal(t, organizationID, grants[0].Scope.OrganizationID.String())
 		})
 	}
 }
