@@ -104,8 +104,10 @@ key retrieval, or snapshotting are requested.
 
 ## Authorization
 
-Each operation authorizes once, and that decision is also its audit record,
-whether allowed or refused. identity's audit middleware builds a mutation's
+Each operation's own check is also its audit record, whether allowed or
+refused. Snapshot also runs a precondition check, described below. If that
+check refuses, the record is the allowed `update` decision with status 403.
+identity's audit middleware builds a mutation's
 record from the decision the handler marked primary, and never reads the URL,
 so a mutation that marks none gets a record with no operation or resource, and
 an "audit defect" error log if it succeeds.
@@ -120,9 +122,14 @@ an "audit defect" error log if it succeeds.
   middleware otherwise falls back to the response body, and start, stop and
   reboot have none while snapshot's is the new image.
 - Start, stop, reboot and snapshot require `update`, with the verb as the
-  action. They call region as compute's own identity, so this check is the only
-  one the caller faces; under `read` the auditor and reader roles could
-  power-cycle and snapshot.
+  action. They call region as compute's own identity, so the caller faces only
+  this check, plus the image check on snapshot below. A `read` check would
+  let read-only roles power-cycle.
+- A snapshot also needs the caller's `region:images` create at organization
+  scope, because the image belongs to the organization. The handler checks it
+  against the instance's organization, taken from its stored labels, before any
+  call to region. The check is a precondition, so the request's own decision
+  stays the `update` one.
 - Delete authorizes before its early return for an instance already being
   deleted, so that path is checked and recorded too.
 - Create authorizes through `AllowProjectScopeCreateOn`, which also confirms a
@@ -142,8 +149,9 @@ This package is a trust boundary for resource identifiers (see
   image, SSH CA, and Volumes) are UUID-validated at unmarshal. Handlers never
   defend against a malformed inbound ID.
 - RBAC and tenancy are consumed from identity's typed surface:
-  `AllowProjectScopeOn` / `AllowProjectScopeCreateOn` and the
-  `PermitsProjectScopeID` predicate take typed IDs directly.
+  `AllowProjectScopeOn` / `AllowProjectScopeCreateOn` /
+  `AllowOrganizationScopeOn` and the `PermitsProjectScopeID` predicate take
+  typed IDs directly.
 - The IDs are carried typed through the per-resource client methods and converted
   to strings only at the sinks — Kubernetes object names and labels, the
   `ComputeInstance` CRD spec, and region API calls.

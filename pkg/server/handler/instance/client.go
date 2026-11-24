@@ -1503,6 +1503,23 @@ func (c *Client) Snapshot(ctx context.Context, instanceID computeids.InstanceID,
 		return nil, err
 	}
 
+	// The snapshot becomes an organization image, so the caller needs image
+	// create at organization scope.
+	organizationID, _, err := scopeFromLabels(resource.Labels)
+	if err != nil {
+		return nil, err
+	}
+
+	imageCreate := authz.Target{
+		Endpoint:  "region:images",
+		Operation: authz.Create,
+		Kind:      authz.Subordinate,
+	}
+
+	if err := rbac.AllowOrganizationScopeOn(ctx, imageCreate, organizationID); err != nil {
+		return nil, err
+	}
+
 	serverID, err := c.serverID(ctx, resource)
 	if err != nil {
 		return nil, err
