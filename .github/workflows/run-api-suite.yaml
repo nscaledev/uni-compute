@@ -81,7 +81,7 @@ jobs:
           *) echo "::error::environment must be dev|uat, got '$ENVIRONMENT'"; exit 1;;
         esac
         case "${FOCUS:-All}" in
-          All|'Instance Operations'|'Security and Authentication'|'SSH Integration'|'Service Version') ;;
+          All|'Instance Operations'|'Security and Authentication'|'SSH Integration'|'Service Version'|'Instance boot inputs') ;;
           *) echo "::error::unknown focus '$FOCUS'"; exit 1;;
         esac
         if [ -n "$REGION_ID" ]; then

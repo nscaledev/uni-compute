@@ -40,6 +40,7 @@ on:
         - 'Security and Authentication'
         - 'SSH Integration'
         - 'Service Version'
+        - 'Instance boot inputs'
       region_id_override:
         description: 'Override Region ID (if set, you must also provide flavor, image and network overrides)'
         required: false
