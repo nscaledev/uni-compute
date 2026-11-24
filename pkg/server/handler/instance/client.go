@@ -1050,12 +1050,12 @@ func (c *Client) Create(ctx context.Context, request *computeapi.InstanceCreate)
 		return nil, err
 	}
 
-	// Inject the org/project into the principal for the network read. Identity
-	// builds the impersonated ACL from every organization of the caller and uses
-	// the injected one only when that list is empty. Region therefore authorizes
-	// the read against the caller's whole ACL, not against the scope of this
-	// request. The read proves only that the caller can see the network, so the
-	// scope check below is still required.
+	// Inject the org/project into the principal for the impersonated region reads
+	// below. Identity builds the impersonated ACL from every organization of the
+	// caller and uses the injected one only when that list is empty. Region
+	// therefore authorizes a read against the caller's whole ACL, not against the
+	// scope of this request. The network read proves only that the caller can see
+	// the network, so the scope check below is still required.
 	if err := util.InjectUserPrincipal(ctx, organizationID, projectID); err != nil {
 		return nil, err
 	}

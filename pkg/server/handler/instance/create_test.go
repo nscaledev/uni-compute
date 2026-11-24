@@ -21,6 +21,7 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"slices"
 	"strings"
 	"testing"
 
@@ -56,23 +57,39 @@ const (
 	createAllocationID  = "8e7d6c5b-4a39-4281-9f0e-1d2c3b4a5968"
 	otherOrganizationID = "3c1d5e7f-9a2b-4c6d-8e0f-1a3b5c7d9e2f"
 	otherProjectID      = "6f4e2d0c-8b6a-4f28-9e1c-3b5d7f9a1c2e"
-	otherFlavorID       = "0d9c8b7a-6e5f-4d3c-8b2a-1f0e9d8c7b6a"
 )
 
-func createContext(t *testing.T) context.Context {
+func createContext(t *testing.T, organizationIDs []string) context.Context {
 	t.Helper()
 
 	ctx := rbac.NewContext(t.Context(), instanceACL(identityapi.Create))
 	ctx = authorization.NewContext(ctx, &authorization.Info{Userinfo: &identityapi.Userinfo{Sub: "user"}})
 
-	return principal.NewContext(ctx, &principal.Principal{Actor: "user"})
+	return principal.NewContext(ctx, &principal.Principal{Actor: "user", OrganizationIDs: organizationIDs})
+}
+
+// callerCanSee follows the rule that identity applies to an impersonated read.
+// The ACL covers every organization of the caller, and the injected
+// organization counts only when that list is empty.
+func callerCanSee(ctx context.Context, organizationID string) bool {
+	p, err := principal.FromContext(ctx)
+	if err != nil || !principal.ImpersonateFromContext(ctx) {
+		return false
+	}
+
+	organizationIDs := p.OrganizationIDs
+	if len(organizationIDs) == 0 && p.OrganizationID != "" {
+		organizationIDs = []string{p.OrganizationID}
+	}
+
+	return slices.Contains(organizationIDs, organizationID)
 }
 
 // newCreateRegionClient serves a network in the given scope and the flavor and
 // image the request references. It refuses the network read unless the call is
-// impersonated and carries the instance organization, because region authorizes
-// that read against the caller's access. It counts every request that is not a
-// read.
+// impersonated and the caller can see the organization of the network, because
+// region authorizes that read against the caller's access. It counts every
+// request that is not a read.
 func newCreateRegionClient(t *testing.T, networkOrganizationID, networkProjectID, networkRegionID string, writes *int) regionapi.ClientWithResponsesInterface {
 	t.Helper()
 
@@ -109,8 +126,7 @@ func newCreateRegionClient(t *testing.T, networkOrganizationID, networkProjectID
 
 		switch {
 		case r.URL.Path == "/api/v2/networks/"+createNetworkID:
-			p, perr := principal.FromContext(r.Context())
-			if perr != nil || !principal.ImpersonateFromContext(r.Context()) || p.OrganizationID != organizationID {
+			if !callerCanSee(r.Context(), networkOrganizationID) {
 				status = http.StatusForbidden
 			}
 
@@ -138,9 +154,10 @@ func newCreateRegionClient(t *testing.T, networkOrganizationID, networkProjectID
 // TestCreateRequiresNetworkInInstanceProject checks that an instance uses a
 // network from its own organization and project, even when the caller can read
 // a network elsewhere. The first three cases differ in one dimension only, so a
-// check on the other dimension cannot hide a missing one. The last case has a
-// bad region and an unknown flavor as well. Only a scope check that runs first
-// returns the 422 that names the network.
+// check on the other dimension cannot hide a missing one. The cross-organization
+// case has a caller in both organizations, as region refuses the read for any
+// other caller. The last case has a bad region as well. Only a scope check that
+// runs first returns the 422 that names the network.
 func TestCreateRequiresNetworkInInstanceProject(t *testing.T) {
 	t.Parallel()
 
@@ -149,13 +166,13 @@ func TestCreateRequiresNetworkInInstanceProject(t *testing.T) {
 		networkOrganizationID string
 		networkProjectID      string
 		networkRegionID       string
-		flavorID              string
+		callerOrganizationIDs []string
 		created               bool
 	}{
-		{name: "network in the instance project", networkOrganizationID: organizationID, networkProjectID: projectID, networkRegionID: createRegionID, flavorID: instanceFlavorID, created: true},
-		{name: "network in another project of the same organization", networkOrganizationID: organizationID, networkProjectID: otherProjectID, networkRegionID: createRegionID, flavorID: instanceFlavorID},
-		{name: "network in another organization", networkOrganizationID: otherOrganizationID, networkProjectID: projectID, networkRegionID: createRegionID, flavorID: instanceFlavorID},
-		{name: "network scope is checked before the region and the flavor", networkOrganizationID: organizationID, networkProjectID: otherProjectID, networkRegionID: "not-a-uuid", flavorID: otherFlavorID},
+		{name: "network in the instance project", networkOrganizationID: organizationID, networkProjectID: projectID, networkRegionID: createRegionID, created: true},
+		{name: "network in another project of the same organization", networkOrganizationID: organizationID, networkProjectID: otherProjectID, networkRegionID: createRegionID},
+		{name: "network in another organization of a caller in both", networkOrganizationID: otherOrganizationID, networkProjectID: projectID, networkRegionID: createRegionID, callerOrganizationIDs: []string{organizationID, otherOrganizationID}},
+		{name: "network scope is checked before the region is parsed", networkOrganizationID: organizationID, networkProjectID: otherProjectID, networkRegionID: "not-a-uuid"},
 	}
 
 	for _, tc := range tests {
@@ -196,12 +213,12 @@ func TestCreateRequiresNetworkInInstanceProject(t *testing.T) {
 					OrganizationId: identityids.MustParseOrganizationID(organizationID),
 					ProjectId:      identityids.MustParseProjectID(projectID),
 					NetworkId:      idstest.MustParseNetworkID(createNetworkID),
-					FlavorId:       idstest.MustParseFlavorID(tc.flavorID),
+					FlavorId:       idstest.MustParseFlavorID(instanceFlavorID),
 					ImageId:        idstest.MustParseImageID(instanceImageID),
 				},
 			}
 
-			read, err := c.Create(createContext(t), request)
+			read, err := c.Create(createContext(t, tc.callerOrganizationIDs), request)
 
 			stored := &computev1.ComputeInstanceList{}
 			require.NoError(t, kube.List(t.Context(), stored))
