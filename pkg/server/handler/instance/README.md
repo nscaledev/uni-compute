@@ -22,8 +22,11 @@ key retrieval, or snapshotting are requested.
 - `Instance` create is a saga-backed multi-object workflow:
   quota allocation is charged first, then the `ComputeInstance` CRD is created.
 - The selected network is the main scoping root for creation. Compute injects
-  org/project into the principal and asks region to resolve the network under
-  impersonated access rather than trusting a caller-supplied ownership claim.
+  org/project into the principal and reads the network from region under
+  impersonated access. Region authorizes that read against the caller's whole
+  ACL, so it proves only that the caller can see the network. Compute then
+  checks that the network belongs to the instance's organization and project,
+  as described below.
 - Flavor and image must both be visible in the chosen region and must be
   mutually compatible for architecture, disk size, and virtualization mode.
   Image validation uses Region's organization-scoped `available`, `ready` image view,

@@ -56,6 +56,7 @@ const (
 	createAllocationID  = "8e7d6c5b-4a39-4281-9f0e-1d2c3b4a5968"
 	otherOrganizationID = "3c1d5e7f-9a2b-4c6d-8e0f-1a3b5c7d9e2f"
 	otherProjectID      = "6f4e2d0c-8b6a-4f28-9e1c-3b5d7f9a1c2e"
+	otherFlavorID       = "0d9c8b7a-6e5f-4d3c-8b2a-1f0e9d8c7b6a"
 )
 
 func createContext(t *testing.T) context.Context {
@@ -67,10 +68,12 @@ func createContext(t *testing.T) context.Context {
 	return principal.NewContext(ctx, &principal.Principal{Actor: "user"})
 }
 
-// newCreateRegionClient serves a network in the given scope, which the caller
-// can read, and the flavor and image the request references. It counts every
-// request that is not a read.
-func newCreateRegionClient(t *testing.T, networkOrganizationID, networkProjectID string, writes *int) regionapi.ClientWithResponsesInterface {
+// newCreateRegionClient serves a network in the given scope and the flavor and
+// image the request references. It refuses the network read unless the call is
+// impersonated and carries the instance organization, because region authorizes
+// that read against the caller's access. It counts every request that is not a
+// read.
+func newCreateRegionClient(t *testing.T, networkOrganizationID, networkProjectID, networkRegionID string, writes *int) regionapi.ClientWithResponsesInterface {
 	t.Helper()
 
 	network := regionapi.NetworkV2Read{
@@ -79,7 +82,7 @@ func newCreateRegionClient(t *testing.T, networkOrganizationID, networkProjectID
 			OrganizationId: networkOrganizationID,
 			ProjectId:      networkProjectID,
 		},
-		Status: regionapi.NetworkV2Status{RegionId: createRegionID},
+		Status: regionapi.NetworkV2Status{RegionId: networkRegionID},
 	}
 	flavors := []regionapi.Flavor{{
 		Metadata: coreapi.StaticResourceMetadata{Id: instanceFlavorID},
@@ -102,8 +105,15 @@ func newCreateRegionClient(t *testing.T, networkOrganizationID, networkProjectID
 
 		var body []byte
 
+		status := http.StatusOK
+
 		switch {
 		case r.URL.Path == "/api/v2/networks/"+createNetworkID:
+			p, perr := principal.FromContext(r.Context())
+			if perr != nil || !principal.ImpersonateFromContext(r.Context()) || p.OrganizationID != organizationID {
+				status = http.StatusForbidden
+			}
+
 			body = mustJSON(t, network)
 		case strings.HasSuffix(r.URL.Path, "/flavors"):
 			body = mustJSON(t, flavors)
@@ -114,7 +124,7 @@ func newCreateRegionClient(t *testing.T, networkOrganizationID, networkProjectID
 		}
 
 		return &http.Response{
-			StatusCode: http.StatusOK,
+			StatusCode: status,
 			Body:       io.NopCloser(bytes.NewReader(body)),
 			Header:     http.Header{"Content-Type": []string{"application/json"}},
 			Request:    r,
@@ -127,8 +137,10 @@ func newCreateRegionClient(t *testing.T, networkOrganizationID, networkProjectID
 
 // TestCreateRequiresNetworkInInstanceProject checks that an instance uses a
 // network from its own organization and project, even when the caller can read
-// a network elsewhere. Each case differs in one dimension only, so a check on
-// the other dimension cannot hide a missing one.
+// a network elsewhere. The first three cases differ in one dimension only, so a
+// check on the other dimension cannot hide a missing one. The last case has a
+// bad region and an unknown flavor as well. Only a scope check that runs first
+// returns the 422 that names the network.
 func TestCreateRequiresNetworkInInstanceProject(t *testing.T) {
 	t.Parallel()
 
@@ -136,11 +148,14 @@ func TestCreateRequiresNetworkInInstanceProject(t *testing.T) {
 		name                  string
 		networkOrganizationID string
 		networkProjectID      string
+		networkRegionID       string
+		flavorID              string
 		created               bool
 	}{
-		{name: "network in the instance project", networkOrganizationID: organizationID, networkProjectID: projectID, created: true},
-		{name: "network in another project of the same organization", networkOrganizationID: organizationID, networkProjectID: otherProjectID},
-		{name: "network in another organization", networkOrganizationID: otherOrganizationID, networkProjectID: projectID},
+		{name: "network in the instance project", networkOrganizationID: organizationID, networkProjectID: projectID, networkRegionID: createRegionID, flavorID: instanceFlavorID, created: true},
+		{name: "network in another project of the same organization", networkOrganizationID: organizationID, networkProjectID: otherProjectID, networkRegionID: createRegionID, flavorID: instanceFlavorID},
+		{name: "network in another organization", networkOrganizationID: otherOrganizationID, networkProjectID: projectID, networkRegionID: createRegionID, flavorID: instanceFlavorID},
+		{name: "network scope is checked before the region and the flavor", networkOrganizationID: organizationID, networkProjectID: otherProjectID, networkRegionID: "not-a-uuid", flavorID: otherFlavorID},
 	}
 
 	for _, tc := range tests {
@@ -173,7 +188,7 @@ func TestCreateRequiresNetworkInInstanceProject(t *testing.T) {
 
 			var regionWrites int
 
-			c := instance.NewClient(kube, createNamespace, identity, newCreateRegionClient(t, tc.networkOrganizationID, tc.networkProjectID, &regionWrites))
+			c := instance.NewClient(kube, createNamespace, identity, newCreateRegionClient(t, tc.networkOrganizationID, tc.networkProjectID, tc.networkRegionID, &regionWrites))
 
 			request := &computeapi.InstanceCreate{
 				Metadata: coreapi.ResourceWriteMetadata{Name: "test-instance"},
@@ -181,7 +196,7 @@ func TestCreateRequiresNetworkInInstanceProject(t *testing.T) {
 					OrganizationId: identityids.MustParseOrganizationID(organizationID),
 					ProjectId:      identityids.MustParseProjectID(projectID),
 					NetworkId:      idstest.MustParseNetworkID(createNetworkID),
-					FlavorId:       idstest.MustParseFlavorID(instanceFlavorID),
+					FlavorId:       idstest.MustParseFlavorID(tc.flavorID),
 					ImageId:        idstest.MustParseImageID(instanceImageID),
 				},
 			}
@@ -193,6 +208,7 @@ func TestCreateRequiresNetworkInInstanceProject(t *testing.T) {
 
 			if !tc.created {
 				require.True(t, coreerrors.IsUnprocessableContent(err), "expected 422, got: %v", err)
+				require.ErrorContains(t, err, "networkId")
 				require.Nil(t, read)
 				require.Zero(t, allocationCalls, "a refused create must not allocate quota")
 				require.Zero(t, regionWrites, "a refused create must not write to region")
