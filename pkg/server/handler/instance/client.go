@@ -43,6 +43,7 @@ import (
 	coreapi "github.com/unikorn-cloud/core/pkg/openapi"
 	"github.com/unikorn-cloud/core/pkg/server/conversion"
 	"github.com/unikorn-cloud/core/pkg/server/errors"
+	"github.com/unikorn-cloud/core/pkg/server/reservedtags"
 	"github.com/unikorn-cloud/core/pkg/server/saga"
 	coreutil "github.com/unikorn-cloud/core/pkg/server/util"
 	"github.com/unikorn-cloud/identity/pkg/authz"
@@ -74,15 +75,27 @@ type Client struct {
 	identity identityapi.ClientWithResponsesInterface
 	// region is a client to access regions.
 	region regionapi.ClientWithResponsesInterface
+	// reservedTags reserves tag prefixes for the holders of an RBAC endpoint.
+	reservedTags reservedtags.Options
 }
 
 // New creates a new client.
-func NewClient(client client.Client, namespace string, identity identityapi.ClientWithResponsesInterface, region regionapi.ClientWithResponsesInterface) *Client {
+func NewClient(client client.Client, namespace string, identity identityapi.ClientWithResponsesInterface, region regionapi.ClientWithResponsesInterface, reservedTags reservedtags.Options) *Client {
 	return &Client{
-		client:    client,
-		namespace: namespace,
-		identity:  identity,
-		region:    region,
+		client:       client,
+		namespace:    namespace,
+		identity:     identity,
+		region:       region,
+		reservedTags: reservedTags,
+	}
+}
+
+// holdsReservedTagEndpoint reports whether the caller holds a reserved tag
+// prefix's endpoint in the instance's project.  It MUST NOT record a decision,
+// as not holding one is a normal outcome, not a denied request.
+func holdsReservedTagEndpoint(ctx context.Context, operation identityapi.AclOperation, organizationID identityids.OrganizationID, projectID identityids.ProjectID) reservedtags.Holds {
+	return func(endpoint string) bool {
+		return rbac.PermitsProjectScopeID(ctx, endpoint, operation, organizationID, projectID)
 	}
 }
 
@@ -1036,7 +1049,9 @@ func (s *createSaga) Actions() []saga.Action {
 	}
 }
 
-func (c *Client) Create(ctx context.Context, request *computeapi.InstanceCreate) (*computeapi.InstanceRead, error) {
+// authorizeCreate checks the caller may create instances in the project, and
+// owns every reserved tag prefix the request writes under.
+func (c *Client) authorizeCreate(ctx context.Context, request *computeapi.InstanceCreate) error {
 	organizationID := request.Spec.OrganizationId
 	projectID := request.Spec.ProjectId
 
@@ -1047,6 +1062,17 @@ func (c *Client) Create(ctx context.Context, request *computeapi.InstanceCreate)
 	}
 
 	if err := rbac.AllowProjectScopeCreateOn(ctx, c.identity, target, organizationID, projectID); err != nil {
+		return err
+	}
+
+	return c.reservedTags.OnCreate(ctx, conversion.GenerateTagList(request.Metadata.Tags), holdsReservedTagEndpoint(ctx, identityapi.Create, organizationID, projectID))
+}
+
+func (c *Client) Create(ctx context.Context, request *computeapi.InstanceCreate) (*computeapi.InstanceRead, error) {
+	organizationID := request.Spec.OrganizationId
+	projectID := request.Spec.ProjectId
+
+	if err := c.authorizeCreate(ctx, request); err != nil {
 		return nil, err
 	}
 
@@ -1285,6 +1311,10 @@ func (c *Client) Update(ctx context.Context, instanceID computeids.InstanceID, r
 	if err != nil {
 		return nil, err
 	}
+
+	// Merged with the tags of the version being written, which the update
+	// saga writes under an optimistic lock.
+	required.Spec.Tags = c.reservedTags.OnUpdate(ctx, current.Spec.Tags, required.Spec.Tags, holdsReservedTagEndpoint(ctx, identityapi.Update, organizationID, projectID))
 
 	// Preserve allocation information.
 	// TODO: this is smell code, perhaps we want to rejig the interface to accept both

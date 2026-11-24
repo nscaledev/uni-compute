@@ -32,6 +32,7 @@ import (
 	"github.com/unikorn-cloud/compute/pkg/server/handler/instance"
 	coreconstants "github.com/unikorn-cloud/core/pkg/constants"
 	coreerrors "github.com/unikorn-cloud/core/pkg/server/errors"
+	"github.com/unikorn-cloud/core/pkg/server/reservedtags"
 	identityapi "github.com/unikorn-cloud/identity/pkg/openapi"
 	"github.com/unikorn-cloud/identity/pkg/rbac"
 	regionconstants "github.com/unikorn-cloud/region/pkg/constants"
@@ -118,7 +119,7 @@ func snapshotClient(t *testing.T) (*instance.Client, *recordingRegion) {
 
 	kube := fake.NewClientBuilder().WithScheme(scheme).WithObjects(storedInstance()).Build()
 
-	return instance.NewClient(kube, snapshotNamespace, nil, regionClient), region
+	return instance.NewClient(kube, snapshotNamespace, nil, regionClient, reservedtags.Options{}), region
 }
 
 func grant(name string, operations ...identityapi.AclOperation) identityapi.AclEndpoint {

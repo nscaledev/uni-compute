@@ -44,6 +44,10 @@ type Handler struct {
 }
 
 func New(client client.Client, namespace string, options *Options, identity identityapi.ClientWithResponsesInterface, region regionapi.ClientWithResponsesInterface) (*Handler, error) {
+	if err := options.ReservedTags.Validate(); err != nil {
+		return nil, err
+	}
+
 	return &Handler{
 		client:    client,
 		namespace: namespace,

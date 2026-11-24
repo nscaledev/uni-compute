@@ -32,6 +32,7 @@ import (
 	"github.com/unikorn-cloud/compute/pkg/server/handler/instance"
 	coreconstants "github.com/unikorn-cloud/core/pkg/constants"
 	coreerrors "github.com/unikorn-cloud/core/pkg/server/errors"
+	"github.com/unikorn-cloud/core/pkg/server/reservedtags"
 	"github.com/unikorn-cloud/identity/pkg/authz"
 	identityapi "github.com/unikorn-cloud/identity/pkg/openapi"
 	"github.com/unikorn-cloud/identity/pkg/rbac"
@@ -138,7 +139,7 @@ func auditClient(t *testing.T, deleting bool, calls *int) *instance.Client {
 
 	kube := fake.NewClientBuilder().WithScheme(scheme).WithObjects(auditedInstance(deleting)).Build()
 
-	return instance.NewClient(kube, auditNamespace, nil, fakeRegion(t, calls))
+	return instance.NewClient(kube, auditNamespace, nil, fakeRegion(t, calls), reservedtags.Options{})
 }
 
 type mutation struct {
@@ -347,7 +348,7 @@ func TestCreateAndUpdateRecordTheirOperation(t *testing.T) {
 		call   func(ctx context.Context, c *instance.Client) error
 	}{
 		{"create", uuid.Nil, func(ctx context.Context, c *instance.Client) error {
-			_, err := c.Create(ctx, minimalInstanceCreateRequest(organizationID, projectID))
+			_, err := c.Create(ctx, minimalInstanceCreateRequest(projectID))
 			return err
 		}},
 		{"update", uuid.MustParse(auditInstance), func(ctx context.Context, c *instance.Client) error {

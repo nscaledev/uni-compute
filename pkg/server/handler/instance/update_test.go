@@ -35,6 +35,7 @@ import (
 	coreconstants "github.com/unikorn-cloud/core/pkg/constants"
 	coreapi "github.com/unikorn-cloud/core/pkg/openapi"
 	coreerrors "github.com/unikorn-cloud/core/pkg/server/errors"
+	"github.com/unikorn-cloud/core/pkg/server/reservedtags"
 	"github.com/unikorn-cloud/identity/pkg/middleware/authorization"
 	identityapi "github.com/unikorn-cloud/identity/pkg/openapi"
 	identitymock "github.com/unikorn-cloud/identity/pkg/openapi/mock"
@@ -130,7 +131,7 @@ func TestUpdateUserData(t *testing.T) {
 					}, nil)
 			}
 
-			c := instance.NewClient(kube, "test", identity, newFlavorAndImageRegionClient(t))
+			c := instance.NewClient(kube, "test", identity, newFlavorAndImageRegionClient(t), reservedtags.Options{})
 
 			flavorID := tc.flavorID
 			if flavorID == "" {
