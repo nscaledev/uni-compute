@@ -50,13 +50,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
+// otherOrganizationID, the ID of an organization other than the instance's,
+// comes from snapshot_test.go.
 const (
-	createNamespace     = "test"
-	createRegionID      = "a73e9c26-af56-4562-8352-9512e0586f3b"
-	createNetworkID     = "5b2c9a8e-7f1d-4e3a-9c6b-2d4e8f1a3b5c"
-	createAllocationID  = "8e7d6c5b-4a39-4281-9f0e-1d2c3b4a5968"
-	otherOrganizationID = "3c1d5e7f-9a2b-4c6d-8e0f-1a3b5c7d9e2f"
-	otherProjectID      = "6f4e2d0c-8b6a-4f28-9e1c-3b5d7f9a1c2e"
+	createNamespace    = "test"
+	createRegionID     = "a73e9c26-af56-4562-8352-9512e0586f3b"
+	createNetworkID    = "5b2c9a8e-7f1d-4e3a-9c6b-2d4e8f1a3b5c"
+	createAllocationID = "8e7d6c5b-4a39-4281-9f0e-1d2c3b4a5968"
+	otherProjectID     = "6f4e2d0c-8b6a-4f28-9e1c-3b5d7f9a1c2e"
 )
 
 func createContext(t *testing.T, organizationIDs []string) context.Context {
