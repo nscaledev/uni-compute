@@ -22,8 +22,11 @@ key retrieval, or snapshotting are requested.
 - `Instance` create is a saga-backed multi-object workflow:
   quota allocation is charged first, then the `ComputeInstance` CRD is created.
 - The selected network is the main scoping root for creation. Compute injects
-  org/project into the principal and asks region to resolve the network under
-  impersonated access rather than trusting a caller-supplied ownership claim.
+  org/project into the principal and reads the network from region under
+  impersonated access. Region authorizes that read against the caller's whole
+  ACL, so it proves only that the caller can see the network. Compute then
+  checks that the network belongs to the instance's organization and project,
+  as described below.
 - Flavor and image must both be visible in the chosen region and must be
   mutually compatible for architecture, disk size, and virtualization mode.
   Image validation uses Region's organization-scoped `available`, `ready` image view,
@@ -36,6 +39,8 @@ key retrieval, or snapshotting are requested.
   reference from region only proves the caller MAY see it — a caller authorized
   across several tenancies could otherwise attach a resource from another
   tenancy — so an explicit scope check is applied on top:
+  - the referenced network must belong to the instance's organization and
+    project. The network is create-time only, so update does not check it.
   - a referenced security group must belong to the same **network** as the
     instance (`status.networkId`). A network belongs to exactly one identity (one
     underlying OpenStack project), which belongs to one organization and project,
