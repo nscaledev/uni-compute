@@ -1535,7 +1535,7 @@ func (c *Client) Snapshot(ctx context.Context, instanceID computeids.InstanceID,
 
 	// The snapshot becomes an organization image, so the caller needs image
 	// create at organization scope.
-	organizationID, _, err := scopeFromLabels(resource.Labels)
+	organizationID, projectID, err := scopeFromLabels(resource.Labels)
 	if err != nil {
 		return nil, err
 	}
@@ -1547,6 +1547,12 @@ func (c *Client) Snapshot(ctx context.Context, instanceID computeids.InstanceID,
 	}
 
 	if err := rbac.AllowOrganizationScopeOn(ctx, imageCreate, organizationID); err != nil {
+		return nil, err
+	}
+
+	// The image is created with the caller's tags, so they are held to the
+	// same reserved prefixes as an instance create.
+	if err := c.reservedTags.OnCreate(ctx, conversion.GenerateTagList(params.Metadata.Tags), holdsReservedTagEndpoint(ctx, identityapi.Create, organizationID, projectID)); err != nil {
 		return nil, err
 	}
 
