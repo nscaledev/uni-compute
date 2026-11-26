@@ -21,7 +21,7 @@ package suites
 
 import (
 	"fmt"
-	"regexp"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -37,16 +37,23 @@ import (
 	"k8s.io/utils/ptr"
 )
 
-// cloudInitFinished matches the message cloud-init prints to the console at
-// the end of each boot it runs, e.g. "Cloud-init v. 24.1 finished at Thu, 26
-// Nov 2026 17:00:00 +0000. Datasource DataSourceOpenStack. Up 25.30 seconds".
-// Its time and uptime make each boot's message distinct.
-var cloudInitFinished = regexp.MustCompile(`Cloud-init v\. \S+ finished at [^\r\n]*`)
+const (
+	// kernelBanner starts each boot's output on the serial console.
+	kernelBanner = "Linux version"
+	// loginPrompt is printed by the serial console's getty once a boot has
+	// brought the system up.
+	loginPrompt = "login:"
+	// userDataSettle is how long a boot is given after its login prompt to run
+	// user data, before a missing marker counts: cloud-init's last stage can
+	// run after the prompt appears.
+	userDataSettle = 2 * time.Minute
+)
 
 // markerUserData returns a script that prints "boot-inputs <name>" to the
-// serial console. The quoting keeps that text out of the script itself.
+// first serial port, which the console output records whichever console the
+// image makes /dev/console. The quoting keeps that text out of the script.
 func markerUserData(name string) ([]byte, string) {
-	return []byte(fmt.Sprintf("#!/bin/sh\necho \"boot-inputs\" \"%s\" > /dev/console\n", name)), "boot-inputs " + name
+	return []byte(fmt.Sprintf("#!/bin/sh\necho \"boot-inputs\" \"%s\" > /dev/ttyS0\n", name)), "boot-inputs " + name
 }
 
 // updateFromRead copies an instance read into an update, as a client that
@@ -61,49 +68,24 @@ func updateFromRead(instance openapi.InstanceRead) openapi.InstanceUpdate {
 	}
 }
 
-// lastBoot returns cloud-init's finish message for the last boot in the
-// console output, and that boot's output. The console keeps only recent
-// output, so a boot's kernel messages may be gone; the boot is taken to start
-// after the previous finish message instead. A line can be echoed to more than
-// one console, so a repeat of the last message is not the previous one.
-func lastBoot(output string) (string, string) {
-	matches := cloudInitFinished.FindAllStringIndex(output, -1)
-	if len(matches) == 0 {
-		return "", ""
-	}
+// latestBoot returns the console output of the instance's most recent boot,
+// which starts at the last kernel banner.
+func latestBoot(g Gomega, instanceID string) string {
+	output, err := client.GetInstanceConsoleOutput(ctx, instanceID, nil)
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(output.Contents).To(ContainSubstring(kernelBanner), "the console must keep the latest boot's kernel banner")
 
-	last := matches[len(matches)-1]
-	finished := output[last[0]:last[1]]
-	start := 0
-
-	for i := len(matches) - 2; i >= 0; i-- {
-		if output[matches[i][0]:matches[i][1]] != finished {
-			start = matches[i][1]
-			break
-		}
-	}
-
-	return finished, output[start:last[1]]
+	return output.Contents[strings.LastIndex(output.Contents, kernelBanner):]
 }
 
-// eventuallyNextBoot waits for a boot to finish other than the one whose
-// finish message is previous, and returns its finish message and output.
-func eventuallyNextBoot(instanceID, previous string) (string, string) {
+// eventuallyLatestBootShows waits for the instance's most recent boot to
+// print marker.
+func eventuallyLatestBootShows(instanceID, marker string) {
 	GinkgoHelper()
 
-	var finished, boot string
-
 	Eventually(func(g Gomega) {
-		output, err := client.GetInstanceConsoleOutput(ctx, instanceID, nil)
-		g.Expect(err).NotTo(HaveOccurred())
-
-		finished, boot = lastBoot(output.Contents)
-		g.Expect(finished).NotTo(BeEmpty(), "cloud-init must report finishing on the console; it ends:\n%s",
-			output.Contents[max(0, len(output.Contents)-2000):])
-		g.Expect(finished).NotTo(Equal(previous), "no boot has finished since the last one seen")
+		g.Expect(latestBoot(g, instanceID)).To(ContainSubstring(marker))
 	}).WithTimeout(config.TestTimeout).WithPolling(10 * time.Second).Should(Succeed())
-
-	return finished, boot
 }
 
 // eventuallyRebuilt waits for the instance to report a rebuild, then to run
@@ -164,8 +146,7 @@ var _ = Describe("Instance boot inputs", func() {
 				api.WaitForInstanceActive(client, ctx, config, instanceID)
 
 				By("seeing the original user data run at first boot")
-				firstBoot, boot := eventuallyNextBoot(instanceID, "")
-				Expect(boot).To(ContainSubstring(originalMarker))
+				eventuallyLatestBootShows(instanceID, originalMarker)
 
 				instance, err := client.GetInstance(ctx, instanceID)
 				Expect(err).NotTo(HaveOccurred())
@@ -179,9 +160,7 @@ var _ = Describe("Instance boot inputs", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				eventuallyRebuilt(instanceID)
-				secondBoot, boot := eventuallyNextBoot(instanceID, firstBoot)
-				Expect(boot).To(ContainSubstring(replacementMarker))
-				Expect(boot).NotTo(ContainSubstring(originalMarker))
+				eventuallyLatestBootShows(instanceID, replacementMarker)
 
 				rebuilt, err := client.GetInstance(ctx, instanceID)
 				Expect(err).NotTo(HaveOccurred())
@@ -198,9 +177,18 @@ var _ = Describe("Instance boot inputs", func() {
 				Expect(updated.Spec.UserData).To(Or(BeNil(), HaveValue(BeEmpty())))
 
 				eventuallyRebuilt(instanceID)
-				_, boot = eventuallyNextBoot(instanceID, secondBoot)
-				Expect(boot).NotTo(ContainSubstring(replacementMarker))
-				Expect(boot).NotTo(ContainSubstring(originalMarker))
+
+				// Every earlier boot printed a marker, so a boot that reaches
+				// its login prompt without one is the rebuilt server.
+				noMarker := Not(Or(ContainSubstring(originalMarker), ContainSubstring(replacementMarker)))
+
+				Eventually(func(g Gomega) {
+					g.Expect(latestBoot(g, instanceID)).To(And(ContainSubstring(loginPrompt), noMarker))
+				}).WithTimeout(config.TestTimeout).WithPolling(10 * time.Second).Should(Succeed())
+
+				Consistently(func(g Gomega) {
+					g.Expect(latestBoot(g, instanceID)).To(noMarker)
+				}).WithTimeout(userDataSettle).WithPolling(10 * time.Second).Should(Succeed())
 			})
 		})
 	})
