@@ -25,6 +25,13 @@ spec:
         {{- include "unikorn.identity.flags" . | nindent 8 }}
         {{- include "unikorn.region.flags" . | nindent 8 }}
         {{- include "unikorn.mtls.flags" . | nindent 8 }}
+        {{- with .Values.server.reservedTagPrefixes }}
+        {{- $pairs := list }}
+        {{- range $prefix := keys . | sortAlpha }}
+        {{- $pairs = append $pairs (printf "%s=%s" $prefix (index $.Values.server.reservedTagPrefixes $prefix)) }}
+        {{- end }}
+        - {{ printf "--reserved-tag-prefixes=%s" (join "," $pairs) | quote }}
+        {{- end }}
         {{- range $i, $arg := .Values.server.extraFlags }}
         - {{ $arg }}
         {{- end }}

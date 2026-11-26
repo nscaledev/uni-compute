@@ -107,10 +107,17 @@ func (s *Server) SetupLogging() {
 // logs by default, and optionally ship the spans to an OTLP listener.
 // TODO: move config into an otel specific options struct.
 func (s *Server) SetupOpenTelemetry(ctx context.Context) error {
-	return s.CoreOptions.SetupOpenTelemetry(ctx)
+	// shortcut: core v1.22 deprecates this for SetupTracing and SetupMetrics,
+	// which scrape metrics instead of pushing them; migrate with the reserved
+	// tag metrics follow-up.
+	return s.CoreOptions.SetupOpenTelemetry(ctx) //nolint:staticcheck
 }
 
 func (s *Server) GetServer(client client.Client) (*http.Server, error) {
+	if err := s.HandlerOptions.ReservedTags.Validate(); err != nil {
+		return nil, err
+	}
+
 	pprofHandler := http.NewServeMux()
 	pprofHandler.HandleFunc("/debug/pprof/", pprof.Index)
 	pprofHandler.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
