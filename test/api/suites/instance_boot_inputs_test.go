@@ -145,10 +145,10 @@ var _ = Describe("Instance boot inputs", func() {
 		})
 	})
 
-	Context("When user data changes and the image is then changed", func() {
+	Context("When user data and the image change together", func() {
 		Describe("Given a running instance with user data", func() {
-			// The server only boots with its user data at create or rebuild, so
-			// each image change shows which user data the server holds.
+			// Each update changes both, so it causes one rebuild whether or not
+			// Region also rebuilds for a user-data change alone.
 			It("rebuilds in place, booting with the replaced or cleared user data", func() {
 				if config.RebuildImageID == "" {
 					Skip("image change tests require TEST_REBUILD_IMAGE_ID")
@@ -170,19 +170,9 @@ var _ = Describe("Instance boot inputs", func() {
 				instance, err := client.GetInstance(ctx, instanceID)
 				Expect(err).NotTo(HaveOccurred())
 
-				By("replacing the user data")
+				By("replacing the user data and changing the image")
 				update := updateFromRead(instance)
 				update.Spec.UserData = &replacement
-
-				_, err = client.UpdateInstance(ctx, instanceID, update)
-				Expect(err).NotTo(HaveOccurred())
-				api.WaitForInstanceActive(client, ctx, config, instanceID)
-
-				By("changing the image, and booting the same server with the replacement")
-				instance, err = client.GetInstance(ctx, instanceID)
-				Expect(err).NotTo(HaveOccurred())
-
-				update = updateFromRead(instance)
 				update.Spec.ImageId = idstest.MustParseImageID(config.RebuildImageID)
 
 				_, err = client.UpdateInstance(ctx, instanceID, update)
@@ -198,24 +188,14 @@ var _ = Describe("Instance boot inputs", func() {
 				Expect(rebuilt.Status.MacAddress).To(Equal(instance.Status.MacAddress), "a rebuild keeps the server's port")
 				Expect(rebuilt.Status.PrivateIP).To(Equal(instance.Status.PrivateIP), "a rebuild keeps the server's address")
 
-				By("clearing the user data")
+				By("clearing the user data and changing the image back")
 				update = updateFromRead(rebuilt)
 				update.Spec.UserData = &[]byte{}
+				update.Spec.ImageId = idstest.MustParseImageID(config.ImageID)
 
 				updated, err := client.UpdateInstance(ctx, instanceID, update)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(updated.Spec.UserData).To(Or(BeNil(), HaveValue(BeEmpty())))
-				api.WaitForInstanceActive(client, ctx, config, instanceID)
-
-				By("changing the image back, and booting with no user data")
-				instance, err = client.GetInstance(ctx, instanceID)
-				Expect(err).NotTo(HaveOccurred())
-
-				update = updateFromRead(instance)
-				update.Spec.ImageId = idstest.MustParseImageID(config.ImageID)
-
-				_, err = client.UpdateInstance(ctx, instanceID, update)
-				Expect(err).NotTo(HaveOccurred())
 
 				eventuallyRebuilt(instanceID)
 				_, boot = eventuallyNextBoot(instanceID, secondBoot)
