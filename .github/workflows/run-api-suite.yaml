@@ -81,7 +81,7 @@ jobs:
           *) echo "::error::environment must be dev|uat, got '$ENVIRONMENT'"; exit 1;;
         esac
         case "${FOCUS:-All}" in
-          All|'Instance Operations'|'Security and Authentication'|'SSH Integration'|'Service Version') ;;
+          All|'Instance Operations'|'Security and Authentication'|'SSH Integration'|'Service Version'|'Instance boot inputs') ;;
           *) echo "::error::unknown focus '$FOCUS'"; exit 1;;
         esac
         if [ -n "$REGION_ID" ]; then
@@ -197,6 +197,7 @@ jobs:
       TEST_REGION_ID: ${{ inputs.region_id || vars.DEV_TEST_REGION_ID }}
       TEST_FLAVOR_ID: ${{ inputs.flavor_id || vars.DEV_TEST_FLAVOR_ID }}
       TEST_IMAGE_ID: ${{ inputs.image_id || vars.DEV_TEST_IMAGE_ID }}
+      TEST_REBUILD_IMAGE_ID: ${{ vars.DEV_TEST_REBUILD_IMAGE_ID }}
       TEST_NETWORK_ID: ${{ inputs.network_id || vars.DEV_TEST_NETWORK_ID }}
 
     steps:
@@ -399,6 +400,7 @@ jobs:
       TEST_REGION_ID: ${{ inputs.region_id || vars.UAT_TEST_REGION_ID }}
       TEST_FLAVOR_ID: ${{ inputs.flavor_id || vars.UAT_TEST_FLAVOR_ID }}
       TEST_IMAGE_ID: ${{ inputs.image_id || vars.UAT_TEST_IMAGE_ID }}
+      TEST_REBUILD_IMAGE_ID: ${{ vars.UAT_TEST_REBUILD_IMAGE_ID }}
       TEST_NETWORK_ID: ${{ inputs.network_id || vars.UAT_TEST_NETWORK_ID }}
 
     steps:

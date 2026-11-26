@@ -178,6 +178,10 @@ Tests are configured via environment variables using a `.env` file in the `test/
    - `TEST_REGION_ID` - Test region ID
    - `TEST_NETWORK_ID` - Test network ID
    - `TEST_FLAVOR_ID`, `TEST_IMAGE_ID` - Test flavor and image IDs
+   - `TEST_REBUILD_IMAGE_ID` - Optional second image for image-change tests, which skip without it
+     - The image-change tests read the first serial port (`ttyS0`), so both images must run cloud-init user-data
+       scripts, log the kernel to `ttyS0` (`console=ttyS0`), run a login prompt there, and keep a whole boot
+       within the console log, whose start would otherwise be dropped
 
 **Note:** All `test/.env` and `test/.env.*` files are gitignored and contain sensitive credentials. They should never be committed to the repository. You can use either `test/.env` directly or create environment-specific files like `test/.env.dev`, `test/.env.uat`, etc.
 
