@@ -21,7 +21,7 @@ package suites
 
 import (
 	"fmt"
-	"strings"
+	"regexp"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -37,12 +37,11 @@ import (
 	"k8s.io/utils/ptr"
 )
 
-const (
-	// kernelBanner starts each boot's output on the serial console.
-	kernelBanner = "Linux version"
-	// cloudInitFinished is printed to the console once cloud-init has run.
-	cloudInitFinished = "finished at"
-)
+// cloudInitFinished matches the message cloud-init prints to the console at
+// the end of each boot it runs, e.g. "Cloud-init v. 24.1 finished at Thu, 26
+// Nov 2026 17:00:00 +0000. Datasource DataSourceOpenStack. Up 25.30 seconds".
+// Its time and uptime make each boot's message distinct.
+var cloudInitFinished = regexp.MustCompile(`Cloud-init v\. \S+ finished at [^\r\n]*`)
 
 // markerUserData returns a script that prints "boot-inputs <name>" to the
 // serial console. The quoting keeps that text out of the script itself.
@@ -62,18 +61,49 @@ func updateFromRead(instance openapi.InstanceRead) openapi.InstanceUpdate {
 	}
 }
 
-// eventuallyLatestBoot waits for the console output of the instance's most
-// recent boot to satisfy match.
-func eventuallyLatestBoot(instanceID string, match func(Gomega, string)) {
+// lastBoot returns cloud-init's finish message for the last boot in the
+// console output, and that boot's output. The console keeps only recent
+// output, so a boot's kernel messages may be gone; the boot is taken to start
+// after the previous finish message instead. A line can be echoed to more than
+// one console, so a repeat of the last message is not the previous one.
+func lastBoot(output string) (string, string) {
+	matches := cloudInitFinished.FindAllStringIndex(output, -1)
+	if len(matches) == 0 {
+		return "", ""
+	}
+
+	last := matches[len(matches)-1]
+	finished := output[last[0]:last[1]]
+	start := 0
+
+	for i := len(matches) - 2; i >= 0; i-- {
+		if output[matches[i][0]:matches[i][1]] != finished {
+			start = matches[i][1]
+			break
+		}
+	}
+
+	return finished, output[start:last[1]]
+}
+
+// eventuallyNextBoot waits for a boot to finish other than the one whose
+// finish message is previous, and returns its finish message and output.
+func eventuallyNextBoot(instanceID, previous string) (string, string) {
 	GinkgoHelper()
+
+	var finished, boot string
 
 	Eventually(func(g Gomega) {
 		output, err := client.GetInstanceConsoleOutput(ctx, instanceID, nil)
 		g.Expect(err).NotTo(HaveOccurred())
-		g.Expect(output.Contents).To(ContainSubstring(kernelBanner), "the console must show the kernel's boot messages")
 
-		match(g, output.Contents[strings.LastIndex(output.Contents, kernelBanner):])
+		finished, boot = lastBoot(output.Contents)
+		g.Expect(finished).NotTo(BeEmpty(), "cloud-init must report finishing on the console; it ends:\n%s",
+			output.Contents[max(0, len(output.Contents)-2000):])
+		g.Expect(finished).NotTo(Equal(previous), "no boot has finished since the last one seen")
 	}).WithTimeout(config.TestTimeout).WithPolling(10 * time.Second).Should(Succeed())
+
+	return finished, boot
 }
 
 // eventuallyRebuilt waits for the instance to report a rebuild, then to run
@@ -134,9 +164,8 @@ var _ = Describe("Instance boot inputs", func() {
 				api.WaitForInstanceActive(client, ctx, config, instanceID)
 
 				By("seeing the original user data run at first boot")
-				eventuallyLatestBoot(instanceID, func(g Gomega, boot string) {
-					g.Expect(boot).To(ContainSubstring(originalMarker))
-				})
+				firstBoot, boot := eventuallyNextBoot(instanceID, "")
+				Expect(boot).To(ContainSubstring(originalMarker))
 
 				instance, err := client.GetInstance(ctx, instanceID)
 				Expect(err).NotTo(HaveOccurred())
@@ -160,9 +189,9 @@ var _ = Describe("Instance boot inputs", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				eventuallyRebuilt(instanceID)
-				eventuallyLatestBoot(instanceID, func(g Gomega, boot string) {
-					g.Expect(boot).To(ContainSubstring(replacementMarker))
-				})
+				secondBoot, boot := eventuallyNextBoot(instanceID, firstBoot)
+				Expect(boot).To(ContainSubstring(replacementMarker))
+				Expect(boot).NotTo(ContainSubstring(originalMarker))
 
 				rebuilt, err := client.GetInstance(ctx, instanceID)
 				Expect(err).NotTo(HaveOccurred())
@@ -189,13 +218,9 @@ var _ = Describe("Instance boot inputs", func() {
 				Expect(err).NotTo(HaveOccurred())
 
 				eventuallyRebuilt(instanceID)
-				// Every earlier boot printed a marker, so a finished boot
-				// without one is the rebuilt server.
-				eventuallyLatestBoot(instanceID, func(g Gomega, boot string) {
-					g.Expect(boot).To(ContainSubstring(cloudInitFinished))
-					g.Expect(boot).NotTo(ContainSubstring(replacementMarker))
-					g.Expect(boot).NotTo(ContainSubstring(originalMarker))
-				})
+				_, boot = eventuallyNextBoot(instanceID, secondBoot)
+				Expect(boot).NotTo(ContainSubstring(replacementMarker))
+				Expect(boot).NotTo(ContainSubstring(originalMarker))
 			})
 		})
 	})
