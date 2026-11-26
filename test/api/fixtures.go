@@ -92,6 +92,12 @@ func (b *InstancePayloadBuilder) WithNetworkID(networkID string) *InstancePayloa
 	return b
 }
 
+// WithUserData sets the cloud-init user data supplied at boot.
+func (b *InstancePayloadBuilder) WithUserData(userData []byte) *InstancePayloadBuilder {
+	b.instance.Spec.UserData = &userData
+	return b
+}
+
 // WithPublicIP enables public IP allocation for the instance.
 func (b *InstancePayloadBuilder) WithPublicIP(enabled bool) *InstancePayloadBuilder {
 	if b.instance.Spec.Networking == nil {
