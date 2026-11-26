@@ -145,6 +145,74 @@ var _ = Describe("Instance boot inputs", func() {
 		})
 	})
 
+	Context("When user data changes on a server that rebuilds for it", func() {
+		Describe("Given a running instance with user data", func() {
+			It("rebuilds for a replacement or a clear, but not for an omission", func() {
+				original, originalMarker := markerUserData("original")
+				replacement, replacementMarker := markerUserData("replacement")
+
+				instance, instanceID := api.CreateInstanceWithCleanup(client, ctx, config,
+					api.NewInstancePayload().WithUserData(original).Build())
+
+				api.WaitForInstanceNetworkIdentity(client, ctx, config, instanceID)
+				api.WaitForInstanceActive(client, ctx, config, instanceID)
+
+				By("seeing the original user data run at first boot")
+				eventuallyLatestBoot(instanceID, func(g Gomega, boot string) {
+					g.Expect(boot).To(ContainSubstring(originalMarker))
+				})
+
+				By("not rebuilding when an update omits user data")
+				update := updateFromRead(instance)
+				update.Metadata.Description = ptr.To("updated without user data")
+				update.Spec.UserData = nil
+
+				_, err := client.UpdateInstance(ctx, instanceID, update)
+				Expect(err).NotTo(HaveOccurred())
+
+				Consistently(func(g Gomega) {
+					got, err := client.GetInstance(ctx, instanceID)
+					g.Expect(err).NotTo(HaveOccurred())
+					g.Expect(got.Status.PowerState).To(HaveValue(Equal(regionopenapi.InstanceLifecyclePhaseRunning)))
+				}).WithTimeout(2*time.Minute).WithPolling(5*time.Second).Should(Succeed(),
+					"an update that omits user data must not rebuild the server")
+
+				By("rebuilding the same server with replacement user data")
+				instance, err = client.GetInstance(ctx, instanceID)
+				Expect(err).NotTo(HaveOccurred())
+
+				update = updateFromRead(instance)
+				update.Spec.UserData = &replacement
+
+				_, err = client.UpdateInstance(ctx, instanceID, update)
+				Expect(err).NotTo(HaveOccurred())
+
+				eventuallyRebuilt(instanceID)
+				eventuallyLatestBoot(instanceID, func(g Gomega, boot string) {
+					g.Expect(boot).To(ContainSubstring(replacementMarker))
+				})
+
+				rebuilt, err := client.GetInstance(ctx, instanceID)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(rebuilt.Status.MacAddress).To(Equal(instance.Status.MacAddress), "a rebuild keeps the server's port")
+
+				By("rebuilding the same server when user data is cleared")
+				update = updateFromRead(rebuilt)
+				update.Spec.UserData = &[]byte{}
+
+				_, err = client.UpdateInstance(ctx, instanceID, update)
+				Expect(err).NotTo(HaveOccurred())
+
+				eventuallyRebuilt(instanceID)
+				eventuallyLatestBoot(instanceID, func(g Gomega, boot string) {
+					g.Expect(boot).To(ContainSubstring(cloudInitFinished))
+					g.Expect(boot).NotTo(ContainSubstring(replacementMarker))
+					g.Expect(boot).NotTo(ContainSubstring(originalMarker))
+				})
+			})
+		})
+	})
+
 	Context("When user data changes and the image is then changed", func() {
 		Describe("Given a running instance with user data", func() {
 			// The server only boots with its user data at create or rebuild, so
