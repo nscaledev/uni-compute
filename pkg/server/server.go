@@ -114,6 +114,10 @@ func (s *Server) SetupOpenTelemetry(ctx context.Context) error {
 }
 
 func (s *Server) GetServer(client client.Client) (*http.Server, error) {
+	if err := s.HandlerOptions.ReservedTags.Validate(); err != nil {
+		return nil, err
+	}
+
 	pprofHandler := http.NewServeMux()
 	pprofHandler.HandleFunc("/debug/pprof/", pprof.Index)
 	pprofHandler.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
