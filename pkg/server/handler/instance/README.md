@@ -101,6 +101,14 @@ key retrieval, or snapshotting are requested.
   zero or multiple matches, the request fails as a consistency error.
 - Snapshot requests strip compute-reserved system tags from the caller payload
   and then add the reserved instance provenance tag themselves.
+- Create and update apply operator-configured reserved tag prefixes
+  (`--reserved-tag-prefixes`, core's `reservedtags`): a create carrying a tag
+  under a prefix the caller does not own is refused with 403, and an update
+  keeps the stored tags under such a prefix and ignores the request for it.
+  Ownership is holding the prefix's permission (`create` or `update`) in the
+  instance's project, checked with `PermitsProjectScopeID` so it records
+  nothing. The update merges with the tags of the version it writes.
+  Snapshot applies the create rule to the tags it gives the new image.
 
 ## Authorization
 

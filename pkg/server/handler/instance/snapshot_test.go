@@ -31,7 +31,9 @@ import (
 	computeapi "github.com/unikorn-cloud/compute/pkg/openapi"
 	"github.com/unikorn-cloud/compute/pkg/server/handler/instance"
 	coreconstants "github.com/unikorn-cloud/core/pkg/constants"
+	coreapi "github.com/unikorn-cloud/core/pkg/openapi"
 	coreerrors "github.com/unikorn-cloud/core/pkg/server/errors"
+	"github.com/unikorn-cloud/core/pkg/server/reservedtags"
 	identityapi "github.com/unikorn-cloud/identity/pkg/openapi"
 	"github.com/unikorn-cloud/identity/pkg/rbac"
 	regionconstants "github.com/unikorn-cloud/region/pkg/constants"
@@ -88,7 +90,7 @@ func storedInstance() *computev1.ComputeInstance {
 	}
 }
 
-func snapshotClient(t *testing.T) (*instance.Client, *recordingRegion) {
+func snapshotClient(t *testing.T, reservedTags reservedtags.Options) (*instance.Client, *recordingRegion) {
 	t.Helper()
 
 	region := &recordingRegion{}
@@ -118,7 +120,7 @@ func snapshotClient(t *testing.T) (*instance.Client, *recordingRegion) {
 
 	kube := fake.NewClientBuilder().WithScheme(scheme).WithObjects(storedInstance()).Build()
 
-	return instance.NewClient(kube, snapshotNamespace, nil, regionClient), region
+	return instance.NewClient(kube, snapshotNamespace, nil, regionClient, reservedTags), region
 }
 
 func grant(name string, operations ...identityapi.AclOperation) identityapi.AclEndpoint {
@@ -209,7 +211,7 @@ func TestSnapshotNeedsImageCreateAtOrganizationScope(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			c, region := snapshotClient(t)
+			c, region := snapshotClient(t, reservedtags.Options{})
 
 			ctx := rbac.NewContext(t.Context(), test.acl)
 
@@ -235,6 +237,76 @@ func TestSnapshotNeedsImageCreateAtOrganizationScope(t *testing.T) {
 			require.Error(t, err)
 			require.True(t, coreerrors.IsForbidden(err), "expected forbidden, got: %v", err)
 			require.Empty(t, region.received(), "Region was called for a refused snapshot")
+		})
+	}
+}
+
+// The new image takes the caller's tags, so a snapshot carrying a reserved tag
+// is refused, before any Region call, unless the caller owns the prefix.
+func TestSnapshotReservedTags(t *testing.T) {
+	t.Parallel()
+
+	options := reservedtags.Options{Prefixes: map[string]string{reservedTagPrefix: reservedTagEndpoint}}
+	imageCreate := identityapi.AclEndpoints{grant("region:images", identityapi.Create)}
+	instanceUpdate := grant("compute:instances", identityapi.Update)
+
+	tests := []struct {
+		name    string
+		project identityapi.AclEndpoints
+		tag     string
+		allowed bool
+	}{
+		{
+			name:    "non-owner, unreserved tag",
+			project: identityapi.AclEndpoints{instanceUpdate},
+			tag:     "env",
+			allowed: true,
+		},
+		{
+			name:    "non-owner, reserved tag",
+			project: identityapi.AclEndpoints{instanceUpdate},
+			tag:     reservedTagName,
+		},
+		{
+			name:    "update-only owner, reserved tag",
+			project: identityapi.AclEndpoints{instanceUpdate, grant(reservedTagEndpoint, identityapi.Update)},
+			tag:     reservedTagName,
+		},
+		{
+			name:    "owner, reserved tag",
+			project: identityapi.AclEndpoints{instanceUpdate, grant(reservedTagEndpoint, identityapi.Create)},
+			tag:     reservedTagName,
+			allowed: true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			c, region := snapshotClient(t, options)
+
+			ctx := rbac.NewContext(t.Context(), snapshotACL(test.project, imageCreate, nil))
+
+			params := computeapi.InstanceSnapshotCreate{
+				Metadata: coreapi.ResourceWriteMetadata{
+					Name: "snap",
+					Tags: &coreapi.TagList{{Name: test.tag, Value: "v"}},
+				},
+			}
+
+			_, err := c.Snapshot(ctx, computeids.InstanceID(uuid.MustParse(snapshotInstanceID)), params)
+
+			if test.allowed {
+				require.NoError(t, err)
+				require.NotEmpty(t, region.received())
+
+				return
+			}
+
+			require.Error(t, err)
+			require.True(t, coreerrors.IsForbidden(err))
+			require.Empty(t, region.received())
 		})
 	}
 }

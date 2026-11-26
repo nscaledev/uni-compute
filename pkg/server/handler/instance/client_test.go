@@ -35,6 +35,7 @@ import (
 	coreconstants "github.com/unikorn-cloud/core/pkg/constants"
 	coreapi "github.com/unikorn-cloud/core/pkg/openapi"
 	coreerrors "github.com/unikorn-cloud/core/pkg/server/errors"
+	"github.com/unikorn-cloud/core/pkg/server/reservedtags"
 	identityids "github.com/unikorn-cloud/identity/pkg/ids"
 	identityapi "github.com/unikorn-cloud/identity/pkg/openapi"
 	identitymock "github.com/unikorn-cloud/identity/pkg/openapi/mock"
@@ -75,15 +76,15 @@ func aclWithOrgScopeCreate() *identityapi.Acl {
 	}
 }
 
-// minimalInstanceCreateRequest returns an InstanceCreate request body with
-// the given organization and project IDs.
-func minimalInstanceCreateRequest(orgID, projID string) *computeapi.InstanceCreate {
+// minimalInstanceCreateRequest returns an InstanceCreate request body in the
+// test organization and the given project.
+func minimalInstanceCreateRequest(projID string) *computeapi.InstanceCreate {
 	return &computeapi.InstanceCreate{
 		Metadata: coreapi.ResourceWriteMetadata{
 			Name: "test-instance",
 		},
 		Spec: computeapi.InstanceCreateSpec{
-			OrganizationId: identityids.MustParseOrganizationID(orgID),
+			OrganizationId: identityids.MustParseOrganizationID(organizationID),
 			ProjectId:      identityids.MustParseProjectID(projID),
 		},
 	}
@@ -104,11 +105,11 @@ func TestInstanceCreateRBACOrgScopedProjectNotFound(t *testing.T) {
 			HTTPResponse: &http.Response{StatusCode: http.StatusNotFound},
 		}, nil)
 
-	c := instance.NewClient(nil, "", mockIdentity, nil)
+	c := instance.NewClient(nil, "", mockIdentity, nil, reservedtags.Options{})
 
 	ctx := rbac.NewContext(t.Context(), aclWithOrgScopeCreate())
 
-	_, err := c.Create(ctx, minimalInstanceCreateRequest(organizationID, nonexistentProjectID))
+	_, err := c.Create(ctx, minimalInstanceCreateRequest(nonexistentProjectID))
 
 	require.Error(t, err)
 	require.True(t, coreerrors.IsHTTPNotFound(err), "expected 404 not found, got: %v", err)
@@ -143,7 +144,7 @@ func allocationKind(list identityapi.ResourceAllocationList, kind string) (int, 
 func TestGenerateAllocationNoPublicIP(t *testing.T) {
 	t.Parallel()
 
-	c := instance.NewClient(nil, "", nil, nil)
+	c := instance.NewClient(nil, "", nil, nil, reservedtags.Options{})
 	alloc := c.GenerateAllocation(flavorWithGPU(2), false)
 
 	committed, ok := allocationKind(alloc, "floatingips")
@@ -163,7 +164,7 @@ func TestGenerateAllocationNoPublicIP(t *testing.T) {
 func TestGenerateAllocationWithPublicIP(t *testing.T) {
 	t.Parallel()
 
-	c := instance.NewClient(nil, "", nil, nil)
+	c := instance.NewClient(nil, "", nil, nil, reservedtags.Options{})
 	alloc := c.GenerateAllocation(flavorWithoutGPU(), true)
 
 	committed, ok := allocationKind(alloc, "floatingips")
@@ -288,7 +289,7 @@ func TestGetImageUsesReadyAvailableRegionImages(t *testing.T) {
 	})))
 	require.NoError(t, err)
 
-	client := instance.NewClient(nil, "", nil, regionClient)
+	client := instance.NewClient(nil, "", nil, regionClient, reservedtags.Options{})
 	image, err := client.GetImage(
 		t.Context(),
 		identityids.MustParseOrganizationID(organizationID),
@@ -402,11 +403,11 @@ func TestInstanceCreateRBACNoPermissions(t *testing.T) {
 	mockIdentity := identitymock.NewMockClientWithResponsesInterface(ctrl)
 	// No EXPECT calls — the identity API must not be contacted.
 
-	c := instance.NewClient(nil, "", mockIdentity, nil)
+	c := instance.NewClient(nil, "", mockIdentity, nil, reservedtags.Options{})
 
 	ctx := rbac.NewContext(t.Context(), &identityapi.Acl{})
 
-	_, err := c.Create(ctx, minimalInstanceCreateRequest(organizationID, projectID))
+	_, err := c.Create(ctx, minimalInstanceCreateRequest(projectID))
 
 	require.Error(t, err)
 	require.True(t, coreerrors.IsForbidden(err), "expected forbidden, got: %v", err)
@@ -796,7 +797,7 @@ func TestValidateVolumes(t *testing.T) {
 			require.NoError(t, err)
 
 			volumes := computeapi.InstanceVolumeList{idstest.MustParseVolumeID(volumeID)}
-			err = instance.NewClient(nil, "", nil, regionClient).ValidateVolumes(
+			err = instance.NewClient(nil, "", nil, regionClient, reservedtags.Options{}).ValidateVolumes(
 				t.Context(),
 				&volumes,
 				nil,
@@ -818,7 +819,7 @@ func TestValidateVolumesRejectsDuplicates(t *testing.T) {
 
 	id := idstest.MustParseVolumeID("f5c1ccbf-cbdd-49fd-b5b9-90902464851f")
 	volumes := computeapi.InstanceVolumeList{id, id}
-	err := instance.NewClient(nil, "", nil, nil).ValidateVolumes(
+	err := instance.NewClient(nil, "", nil, nil, reservedtags.Options{}).ValidateVolumes(
 		t.Context(),
 		&volumes,
 		nil,
@@ -863,7 +864,7 @@ func TestValidateVolumesHidesForbiddenReferences(t *testing.T) {
 			require.NoError(t, err)
 
 			volumes := computeapi.InstanceVolumeList{idstest.MustParseVolumeID(volumeID)}
-			err = instance.NewClient(nil, "", nil, regionClient).ValidateVolumes(
+			err = instance.NewClient(nil, "", nil, regionClient, reservedtags.Options{}).ValidateVolumes(
 				t.Context(),
 				&volumes,
 				nil,
@@ -941,7 +942,7 @@ func TestValidateVolumesRejectsNewAttachedVolume(t *testing.T) {
 			require.NoError(t, err)
 
 			volumes := computeapi.InstanceVolumeList{idstest.MustParseVolumeID(volumeID)}
-			err = instance.NewClient(nil, "", nil, regionClient).ValidateVolumes(
+			err = instance.NewClient(nil, "", nil, regionClient, reservedtags.Options{}).ValidateVolumes(
 				t.Context(),
 				&volumes,
 				test.currentVolumes,
@@ -994,7 +995,7 @@ func TestValidateVolumesRejectsDeprovisioningVolume(t *testing.T) {
 	require.NoError(t, err)
 
 	volumes := computeapi.InstanceVolumeList{idstest.MustParseVolumeID(volumeID)}
-	err = instance.NewClient(nil, "", nil, regionClient).ValidateVolumes(
+	err = instance.NewClient(nil, "", nil, regionClient, reservedtags.Options{}).ValidateVolumes(
 		t.Context(),
 		&volumes,
 		nil,
@@ -1083,7 +1084,7 @@ func TestValidateVolumesChecksVolumeClassFlavorAllowlist(t *testing.T) {
 			})))
 			require.NoError(t, err)
 
-			err = instance.NewClient(nil, "", nil, regionClient).ValidateVolumes(
+			err = instance.NewClient(nil, "", nil, regionClient, reservedtags.Options{}).ValidateVolumes(
 				t.Context(),
 				test.volumes,
 				test.currentVolumes,
@@ -1122,7 +1123,7 @@ func TestValidateUpdateVolumesChecksRetainedVolumesAfterFlavorChange(t *testing.
 	t.Run("unchanged flavor skips validation", func(t *testing.T) {
 		t.Parallel()
 
-		err := instance.NewClient(nil, "", nil, nil).ValidateUpdateVolumes(
+		err := instance.NewClient(nil, "", nil, nil, reservedtags.Options{}).ValidateUpdateVolumes(
 			t.Context(),
 			nil,
 			[]computev1.ComputeInstanceVolumeSpec{{ID: volumeID}},
@@ -1167,7 +1168,7 @@ func TestValidateUpdateVolumesChecksRetainedVolumesAfterFlavorChange(t *testing.
 		})))
 		require.NoError(t, err)
 
-		err = instance.NewClient(nil, "", nil, regionClient).ValidateUpdateVolumes(
+		err = instance.NewClient(nil, "", nil, regionClient, reservedtags.Options{}).ValidateUpdateVolumes(
 			t.Context(),
 			nil,
 			[]computev1.ComputeInstanceVolumeSpec{{ID: volumeID}},

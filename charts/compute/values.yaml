@@ -48,6 +48,9 @@ monitor:
 server:
   # An array of extra flags to append to the server configuration.
   extraFlags: ~
+  # Reserves tag prefixes for callers holding an Identity RBAC permission, as
+  # a map of prefix to permission e.g. {"example.org/": "example:tags"}.
+  reservedTagPrefixes: {}
   # Allows override of the global default image.
   image:
   # Allows resource limits to be set.

@@ -34,6 +34,7 @@ import (
 	coreconstants "github.com/unikorn-cloud/core/pkg/constants"
 	coreapi "github.com/unikorn-cloud/core/pkg/openapi"
 	coreerrors "github.com/unikorn-cloud/core/pkg/server/errors"
+	"github.com/unikorn-cloud/core/pkg/server/reservedtags"
 	identityids "github.com/unikorn-cloud/identity/pkg/ids"
 	"github.com/unikorn-cloud/identity/pkg/middleware/authorization"
 	identityapi "github.com/unikorn-cloud/identity/pkg/openapi"
@@ -206,7 +207,7 @@ func TestCreateRequiresNetworkInInstanceProject(t *testing.T) {
 
 			var regionWrites int
 
-			c := instance.NewClient(kube, createNamespace, identity, newCreateRegionClient(t, tc.networkOrganizationID, tc.networkProjectID, tc.networkRegionID, &regionWrites))
+			c := instance.NewClient(kube, createNamespace, identity, newCreateRegionClient(t, tc.networkOrganizationID, tc.networkProjectID, tc.networkRegionID, &regionWrites), reservedtags.Options{})
 
 			request := &computeapi.InstanceCreate{
 				Metadata: coreapi.ResourceWriteMetadata{Name: "test-instance"},
