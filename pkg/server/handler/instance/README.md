@@ -112,13 +112,13 @@ key retrieval, or snapshotting are requested.
 
 ## Authorization
 
-Each operation's own check is also its audit record, whether allowed or
+Each mutation's own check is also its audit record, whether allowed or
 refused. Snapshot also runs a precondition check, described below. If that
-check refuses, the record is the allowed `update` decision with status 403.
-identity's audit middleware builds a mutation's
-record from the decision the handler marked primary, and never reads the URL,
-so a mutation that marks none gets a record with no operation or resource, and
-an "audit defect" error log if it succeeds.
+check refuses, the record shows the `snapshot` operation with status 403, the
+same as a refused `update` check. identity's audit middleware builds a
+mutation's record from the decision the handler marked primary, and never reads
+the URL, so a mutation that marks none gets a record with no operation or
+resource, and an "audit defect" error log if it succeeds.
 
 - `get` is the only way to load an instance. It takes the operation, fetches the
   instance, then authorizes it against the scope in the instance's labels. Fetch
